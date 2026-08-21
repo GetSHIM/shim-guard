@@ -119,18 +119,20 @@ def test_redaction_escapes_terminal_controls_only_for_a_tty(monkeypatch) -> None
 
 def test_install_status_and_revert(monkeypatch, tmp_path: Path) -> None:
     home = _codex_home(monkeypatch, tmp_path)
+    target = home / ".codex" / "hooks.json"
 
     preview = runner.invoke(app, ["install", "codex", "--dry-run"])
+    assert preview.exit_code == 0
+    assert not target.exists()
+
     installed = runner.invoke(app, ["install", "codex", "--yes"])
     current = runner.invoke(app, ["status", "--json"])
     reverted = runner.invoke(app, ["revert", "codex", "--yes"])
 
-    assert preview.exit_code == 0
-    assert not (home / ".codex" / "hooks.json").exists()
     assert installed.exit_code == 0
     assert json.loads(current.output)["state"] == "installed"
     assert reverted.exit_code == 0
-    assert not (home / ".codex" / "hooks.json").exists()
+    assert target.read_bytes() == b"{}\n"
 
 
 def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
@@ -154,62 +156,117 @@ def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
     assert payload["status"] == "warning"
 
 
-def test_install_refuses_same_layer_inline_hooks(monkeypatch, tmp_path: Path) -> None:
-    home = _codex_home(monkeypatch, tmp_path)
-    (home / ".codex" / "config.toml").write_text("[hooks]\nUserPromptSubmit = []\n")
-
-    result = runner.invoke(app, ["install", "codex", "--yes"])
-
-    assert result.exit_code == 2
-    assert not (home / ".codex" / "hooks.json").exists()
-
-
-def test_install_accepts_unchanged_config_without_hooks(
+def test_install_preserves_shared_hooks_and_preview_hides_them(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from shim_guard.clients.codex.settings import hook_group
+
     home = _codex_home(monkeypatch, tmp_path)
-    (home / ".codex" / "config.toml").write_text('model = "gpt-5"\n')
+    target = home / ".codex" / "hooks.json"
+    existing_group = {"hooks": [{"type": "command", "command": "existing-secret-hook"}]}
+    original = {
+        "version": 1,
+        "hooks": {
+            "SessionStart": [
+                {"hooks": [{"type": "command", "command": "session-hook"}]}
+            ],
+            "UserPromptSubmit": [existing_group],
+        },
+    }
+    target.write_text(json.dumps(original))
+
+    preview = runner.invoke(app, ["install", "codex", "--dry-run"])
+    installed = runner.invoke(app, ["install", "codex", "--yes"])
+    first_install = target.read_bytes()
+    repeated = runner.invoke(app, ["install", "codex", "--yes"])
+    reverted = runner.invoke(app, ["revert", "codex", "--yes"])
+
+    assert preview.exit_code == installed.exit_code == repeated.exit_code == 0
+    assert "existing-secret-hook" not in preview.output
+    assert "will be preserved" in installed.output
+    assert "appended last" in installed.output
+    installed_document = json.loads(first_install)
+    assert installed_document["version"] == 1
+    assert (
+        installed_document["hooks"]["SessionStart"] == original["hooks"]["SessionStart"]
+    )
+    assert installed_document["hooks"]["UserPromptSubmit"] == [
+        existing_group,
+        hook_group(),
+    ]
+    assert json.loads(target.read_bytes()) == original
+    assert reverted.exit_code == 0
+
+
+def test_repeated_install_does_not_reformat_existing_document(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from shim_guard.clients.codex.settings import hook_group
+
+    home = _codex_home(monkeypatch, tmp_path)
+    target = home / ".codex" / "hooks.json"
+    content = json.dumps(
+        {"hooks": {"UserPromptSubmit": [hook_group()]}}, separators=(",", ":")
+    ).encode()
+    target.write_bytes(content)
 
     result = runner.invoke(app, ["install", "codex", "--yes"])
 
     assert result.exit_code == 0
+    assert target.read_bytes() == content
+
+
+def test_install_leaves_inline_hooks_untouched(monkeypatch, tmp_path: Path) -> None:
+    home = _codex_home(monkeypatch, tmp_path)
+    config = home / ".codex" / "config.toml"
+    inline = (
+        "[hooks]\n"
+        'UserPromptSubmit = [{ hooks = [{ type = "command", command = "inline" }] }]\n'
+    )
+    config.write_text(inline)
+
+    result = runner.invoke(app, ["install", "codex", "--yes"])
+
+    assert result.exit_code == 0
+    assert "stay untouched" in result.output
+    assert config.read_text() == inline
     assert (home / ".codex" / "hooks.json").exists()
 
 
-def test_install_refuses_inline_hooks_added_during_confirmation(
+def test_install_refuses_hook_document_changed_during_confirmation(
     monkeypatch, tmp_path: Path
 ) -> None:
     home = _codex_home(monkeypatch, tmp_path)
+    target = home / ".codex" / "hooks.json"
+    target.write_text('{"hooks":{"UserPromptSubmit":[]}}')
+    changed = {
+        "hooks": {
+            "UserPromptSubmit": [
+                {"hooks": [{"type": "command", "command": "concurrent-hook"}]}
+            ]
+        }
+    }
 
-    def add_inline_hooks(*_args, **_kwargs) -> bool:
-        (home / ".codex" / "config.toml").write_text("[hooks]\n")
+    def change_hooks(*_args, **_kwargs) -> bool:
+        target.write_text(json.dumps(changed))
         return True
 
-    monkeypatch.setattr("shim_guard.cli.integrations.typer.confirm", add_inline_hooks)
+    monkeypatch.setattr("shim_guard.cli.integrations.typer.confirm", change_hooks)
     result = runner.invoke(app, ["install", "codex"])
 
     assert result.exit_code == 2
-    assert not (home / ".codex" / "hooks.json").exists()
+    assert json.loads(target.read_bytes()) == changed
 
 
-def test_install_refuses_inline_hooks_added_at_publication(
-    monkeypatch, tmp_path: Path
-) -> None:
-    from shim_guard.installation import files
-
+def test_install_refuses_malformed_hook_document(monkeypatch, tmp_path: Path) -> None:
     home = _codex_home(monkeypatch, tmp_path)
-    (home / ".codex" / "config.toml").write_text('model = "gpt-5"\n')
-    real_apply = files.apply
+    target = home / ".codex" / "hooks.json"
+    target.write_bytes(b'{"hooks":')
 
-    def add_inline_hooks_after_final_plan(plan) -> bool:
-        (home / ".codex" / "config.toml").write_text("[hooks]\n")
-        return real_apply(plan)
-
-    monkeypatch.setattr(files, "apply", add_inline_hooks_after_final_plan)
     result = runner.invoke(app, ["install", "codex", "--yes"])
 
     assert result.exit_code == 2
-    assert not (home / ".codex" / "hooks.json").exists()
+    assert target.read_bytes() == b'{"hooks":'
 
 
 def test_doctor_version_states(monkeypatch, tmp_path: Path) -> None:

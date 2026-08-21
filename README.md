@@ -95,17 +95,20 @@ For the exact trust boundary, see [Privacy](docs/privacy.md) and the current
 
 `shim install codex --dry-run` shows the target and exact owned fragment. It
 uses `$CODEX_HOME/hooks.json` when `CODEX_HOME` is set and otherwise
-`~/.codex/hooks.json`. SHIM creates and later removes only its dedicated,
-credential-free hook file. It refuses symlinks, unsafe permissions, drift,
-shared files, and ambiguous or
-concurrently changed configuration. It does not edit a shared Codex settings
-file, create a full-file backup, or read credential stores. Existing same-layer
-hooks in Codex's `config.toml` force manual setup rather than an automatic edit.
+`~/.codex/hooks.json`. When that file is absent, SHIM creates it. When it is a
+valid existing hook document, SHIM preserves every existing hook, tells the
+user that the document is shared, and appends SHIM's exact matcher group last.
+The dry run shows only SHIM's fragment, never the whole settings-file diff.
 
-When the target is shared or unsafe, installation stops and prints manual
-instructions. Do not force the installation; use the manual route after
-reviewing the existing configuration. `shim revert codex` removes only an
-unchanged SHIM-owned document and otherwise refuses.
+SHIM leaves inline hooks in Codex's `config.toml` untouched. Codex may load
+both representations and warn that they coexist. Malformed or ambiguous hook
+documents, unsafe hook-file paths or permissions, and concurrently changed
+files require reviewed manual setup. SHIM does not create a full-file backup
+or read credential stores.
+
+Repeated install and revert are safe no-ops. `shim revert codex` removes only
+SHIM's exact matcher group, preserves every other hook, and retains the hook
+document even when it becomes empty.
 
 ## Compatibility and release gates
 

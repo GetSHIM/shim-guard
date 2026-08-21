@@ -1,4 +1,4 @@
-"""Single safe filesystem boundary for installation and exact revert."""
+"""Single safe filesystem boundary for shared-file changes."""
 
 from __future__ import annotations
 
@@ -8,14 +8,17 @@ import secrets
 import stat
 from pathlib import Path
 
-from .plan import Action, FileState, Plan, StateKind, plan_install, plan_revert
+from .plan import Action, FileState, Plan, StateKind
 
-MAX_TARGET_BYTES = 4_096
+MAX_PATH_BYTES = 4_096
+_DIRECTORY_FLAGS = (
+    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+)
 _UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
 
 class InstallationError(RuntimeError):
-    """A configuration change was unsafe or no longer matched its plan."""
+    """A file change was unsafe or no longer matched its plan."""
 
 
 def _validate_target(target: Path) -> None:
@@ -24,184 +27,12 @@ def _validate_target(target: Path) -> None:
         or ".." in target.parts
         or not str(target).isprintable()
     ):
-        raise InstallationError(
-            "installation target must be an absolute normalized path"
-        )
-    if len(os.fsencode(target)) > MAX_TARGET_BYTES or not target.name:
-        raise InstallationError("installation target is too long")
+        raise InstallationError("target must be an absolute normalized path")
+    if len(os.fsencode(target)) > MAX_PATH_BYTES or not target.name:
+        raise InstallationError("target path is too long")
 
 
-def _safe_owner_mode(info: os.stat_result, label: str) -> str:
-    if info.st_uid != os.geteuid():
-        return f"{label} is not owned by the current user"
-    if info.st_mode & _UNSAFE_WRITABLE:
-        return f"{label} is writable by another user"
-    return ""
-
-
-def _parent_state(target: Path) -> tuple[os.stat_result | None, str]:
-    try:
-        info = target.parent.lstat()
-    except OSError as error:
-        return None, f"cannot inspect target parent: {error.strerror}"
-    if stat.S_ISLNK(info.st_mode):
-        return None, "target parent must not be a symlink"
-    if not stat.S_ISDIR(info.st_mode):
-        return None, "target parent must be a directory"
-    return (info, _safe_owner_mode(info, "target parent"))
-
-
-def _read_expected_file(
-    target: Path, expected: bytes, parent_fd: int | None = None
-) -> FileState:
-    if parent_fd is None:
-        parent, reason = _parent_state(target)
-        if parent is None or reason:
-            return FileState(StateKind.UNSAFE, reason=reason)
-    else:
-        try:
-            parent = os.fstat(parent_fd)
-        except OSError as error:
-            return FileState(
-                StateKind.UNSAFE,
-                reason=f"cannot inspect target parent: {error.strerror}",
-            )
-    try:
-        info = (
-            target.lstat()
-            if parent_fd is None
-            else os.stat(target.name, dir_fd=parent_fd, follow_symlinks=False)
-        )
-    except FileNotFoundError:
-        return FileState(StateKind.ABSENT, parent.st_dev, parent.st_ino)
-    except OSError as error:
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            reason=f"cannot inspect target: {error.strerror}",
-        )
-    if stat.S_ISLNK(info.st_mode):
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            reason="target must not be a symlink",
-        )
-    if not stat.S_ISREG(info.st_mode):
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            reason="target must be a regular file",
-        )
-    if info.st_nlink != 1:
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            reason="target must not be hard-linked",
-        )
-    reason = _safe_owner_mode(info, "target")
-    if reason:
-        return FileState(StateKind.UNSAFE, parent.st_dev, parent.st_ino, reason=reason)
-    if info.st_size != len(expected):
-        return FileState(
-            StateKind.OTHER, parent.st_dev, parent.st_ino, info.st_dev, info.st_ino
-        )
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(
-            target if parent_fd is None else target.name,
-            flags,
-            dir_fd=parent_fd,
-        )
-        try:
-            opened = os.fstat(descriptor)
-            parts: list[bytes] = []
-            remaining = len(expected) + 1
-            while remaining:
-                part = os.read(descriptor, remaining)
-                if not part:
-                    break
-                parts.append(part)
-                remaining -= len(part)
-            content = b"".join(parts)
-            closed = os.fstat(descriptor)
-        finally:
-            os.close(descriptor)
-    except OSError as error:
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            reason=f"cannot safely read target: {error.strerror}",
-        )
-    if (
-        (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)
-        or opened.st_nlink != 1
-        or closed.st_nlink != 1
-        or (closed.st_size, closed.st_mtime_ns) != (opened.st_size, opened.st_mtime_ns)
-    ):
-        return FileState(
-            StateKind.UNSAFE,
-            parent.st_dev,
-            parent.st_ino,
-            info.st_dev,
-            info.st_ino,
-            "target changed during inspection",
-        )
-    kind = StateKind.EXPECTED if content == expected else StateKind.OTHER
-    return FileState(kind, parent.st_dev, parent.st_ino, info.st_dev, info.st_ino)
-
-
-def _inspect(target: Path, expected: bytes, operation: str) -> Plan:
-    try:
-        _validate_target(target)
-    except InstallationError as error:
-        state = FileState(StateKind.UNSAFE, reason=str(error))
-    else:
-        state = _read_expected_file(target, expected)
-    planner = plan_install if operation == "install" else plan_revert
-    return planner(target, expected, state)
-
-
-def inspect_install(target: Path, expected: bytes) -> Plan:
-    """Read configuration state without writing and return an install plan."""
-    return _inspect(Path(target), expected, "install")
-
-
-def inspect_revert(target: Path, expected: bytes) -> Plan:
-    """Read configuration state without writing and return a revert plan."""
-    return _inspect(Path(target), expected, "revert")
-
-
-def _open_locked_parent(plan: Plan) -> int:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(plan.target.parent, flags)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        info = os.fstat(descriptor)
-    except OSError as error:
-        if "descriptor" in locals():
-            os.close(descriptor)
-        raise InstallationError(
-            f"cannot lock target parent: {error.strerror}"
-        ) from error
-    if (info.st_dev, info.st_ino) != (
-        plan.state.parent_device,
-        plan.state.parent_inode,
-    ):
-        os.close(descriptor)
-        raise InstallationError("target parent changed after planning")
-    reason = _safe_owner_mode(info, "target parent")
-    if reason:
-        os.close(descriptor)
-        raise InstallationError(reason)
-    return descriptor
-
-
-def _stat_fingerprint(info: os.stat_result) -> tuple[int, ...]:
+def _fingerprint(info: os.stat_result) -> tuple[int, ...]:
     return (
         info.st_dev,
         info.st_ino,
@@ -215,148 +46,284 @@ def _stat_fingerprint(info: os.stat_result) -> tuple[int, ...]:
     )
 
 
-def _guard_unchanged(plan: Plan, parent_fd: int) -> None:
-    if plan.guard_path is None:
-        return
+def _unsafe_reason(info: os.stat_result, label: str) -> str:
+    if info.st_uid != os.geteuid():
+        return f"{label} is not owned by the current user"
+    if info.st_mode & _UNSAFE_WRITABLE:
+        return f"{label} is writable by another user"
+    return ""
+
+
+def _open_parent(target: Path) -> int:
+    """Open every ancestor without following symlinks."""
+    descriptor = os.open("/", _DIRECTORY_FLAGS)
     try:
-        _validate_target(plan.guard_path)
-    except InstallationError as error:
-        raise InstallationError("guarded configuration path is unsafe") from error
-    if plan.guard_path.parent != plan.target.parent:
-        raise InstallationError("guarded configuration must share the target parent")
-    try:
-        current = os.stat(
-            plan.guard_path.name,
-            dir_fd=parent_fd,
-            follow_symlinks=False,
+        for component in target.parent.parts[1:]:
+            next_descriptor = os.open(component, _DIRECTORY_FLAGS, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except OSError:
+        os.close(descriptor)
+        raise
+
+
+def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
+    parent = os.fstat(parent_fd)
+    parent_identity = (parent.st_dev, parent.st_ino)
+    reason = _unsafe_reason(parent, "target parent")
+    if reason:
+        return FileState(
+            StateKind.UNSAFE,
+            path=target,
+            parent_device=parent.st_dev,
+            parent_inode=parent.st_ino,
+            max_bytes=max_bytes,
+            reason=reason,
         )
+    try:
+        info = os.stat(target.name, dir_fd=parent_fd, follow_symlinks=False)
     except FileNotFoundError:
-        if plan.guard_state is None:
-            return
+        return FileState(
+            StateKind.ABSENT,
+            path=target,
+            parent_device=parent.st_dev,
+            parent_inode=parent.st_ino,
+            max_bytes=max_bytes,
+        )
     except OSError as error:
+        return FileState(
+            StateKind.UNSAFE,
+            path=target,
+            parent_device=parent.st_dev,
+            parent_inode=parent.st_ino,
+            max_bytes=max_bytes,
+            reason=f"cannot inspect target: {error.strerror}",
+        )
+
+    def unsafe(message: str) -> FileState:
+        return FileState(
+            StateKind.UNSAFE,
+            path=target,
+            parent_device=parent_identity[0],
+            parent_inode=parent_identity[1],
+            fingerprint=_fingerprint(info),
+            mode=stat.S_IMODE(info.st_mode),
+            max_bytes=max_bytes,
+            reason=message,
+        )
+
+    if stat.S_ISLNK(info.st_mode):
+        return unsafe("target must not be a symlink")
+    if not stat.S_ISREG(info.st_mode):
+        return unsafe("target must be a regular file")
+    if info.st_nlink != 1:
+        return unsafe("target must not be hard-linked")
+    if reason := _unsafe_reason(info, "target"):
+        return unsafe(reason)
+    if info.st_size > max_bytes:
+        return unsafe("target exceeds the inspection limit")
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(target.name, flags, dir_fd=parent_fd)
+        try:
+            opened = os.fstat(descriptor)
+            content = bytearray()
+            while len(content) <= max_bytes:
+                chunk = os.read(descriptor, min(65_536, max_bytes + 1 - len(content)))
+                if not chunk:
+                    break
+                content.extend(chunk)
+            closed = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+    except OSError as error:
+        return unsafe(f"cannot safely read target: {error.strerror}")
+    if len(content) > max_bytes:
+        return unsafe("target exceeds the inspection limit")
+    if _fingerprint(info) != _fingerprint(opened) or _fingerprint(
+        opened
+    ) != _fingerprint(closed):
+        return unsafe("target changed during inspection")
+    return FileState(
+        StateKind.FILE,
+        path=target,
+        content=bytes(content),
+        parent_device=parent.st_dev,
+        parent_inode=parent.st_ino,
+        fingerprint=_fingerprint(info),
+        mode=stat.S_IMODE(info.st_mode),
+        max_bytes=max_bytes,
+    )
+
+
+def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
+    """Inspect a file without writing, following no path symlinks."""
+    target = Path(path)
+    try:
+        _validate_target(target)
+        if max_bytes < 0:
+            raise InstallationError("inspection limit must not be negative")
+        parent_fd = _open_parent(target)
+    except (InstallationError, OSError) as error:
+        detail = str(error) if isinstance(error, InstallationError) else error.strerror
+        return FileState(
+            StateKind.UNSAFE,
+            path=target,
+            max_bytes=max_bytes,
+            reason=detail or "unsafe path",
+        )
+    try:
+        return _read_at(target, parent_fd, max_bytes)
+    finally:
+        os.close(parent_fd)
+
+
+def _path_matches_parent(target: Path, parent_fd: int) -> bool:
+    try:
+        current_fd = _open_parent(target)
+    except OSError:
+        return False
+    try:
+        current = os.fstat(current_fd)
+        locked = os.fstat(parent_fd)
+        return (current.st_dev, current.st_ino) == (locked.st_dev, locked.st_ino)
+    finally:
+        os.close(current_fd)
+
+
+def _require_planned_state(plan: Plan, parent_fd: int) -> None:
+    if not _path_matches_parent(plan.target, parent_fd):
+        raise InstallationError("target path changed after planning")
+    current = _read_at(plan.target, parent_fd, plan.state.max_bytes)
+    if current != plan.state:
+        raise InstallationError(current.reason or "target changed after planning")
+
+
+def _open_locked_parent(plan: Plan) -> int:
+    descriptor = -1
+    try:
+        descriptor = _open_parent(plan.target)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        parent = os.fstat(descriptor)
+    except OSError as error:
+        if descriptor >= 0:
+            os.close(descriptor)
         raise InstallationError(
-            "guarded configuration cannot be revalidated"
+            f"cannot lock target parent: {error.strerror}"
         ) from error
-    else:
-        if plan.guard_state is not None and _stat_fingerprint(
-            current
-        ) == _stat_fingerprint(plan.guard_state):
-            return
-    raise InstallationError("guarded configuration changed after planning")
-
-
-def _publish(plan: Plan, parent_fd: int) -> bool:
-    current = _read_expected_file(plan.target, plan.expected, parent_fd)
-    if (current.parent_device, current.parent_inode) != (
+    if (parent.st_dev, parent.st_ino) != (
         plan.state.parent_device,
         plan.state.parent_inode,
     ):
-        raise InstallationError("target parent changed after locking")
-    if current.kind is StateKind.EXPECTED:
-        return False
-    if current.kind is not StateKind.ABSENT:
-        raise InstallationError(
-            current.reason or "installation target changed after planning"
-        )
+        os.close(descriptor)
+        raise InstallationError("target parent changed after planning")
+    return descriptor
+
+
+def _temporary(plan: Plan, parent_fd: int) -> tuple[str, int]:
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     for _attempt in range(10):
-        temporary = f".{plan.target.name}.shim-{secrets.token_hex(8)}"
+        name = f".{plan.target.name}.shim-{secrets.token_hex(8)}"
         try:
-            descriptor = os.open(temporary, flags, 0o600, dir_fd=parent_fd)
-            break
+            descriptor = os.open(name, flags, 0o600, dir_fd=parent_fd)
+            return name, descriptor
         except FileExistsError:
-            continue
-    else:
-        raise InstallationError("could not allocate a safe temporary hook document")
+            pass
+    raise InstallationError("could not allocate a safe temporary file")
+
+
+def _clean_temporary(name: str, descriptor: int, parent_fd: int) -> None:
+    written = os.fstat(descriptor)
     try:
-        os.fchmod(descriptor, 0o600)
+        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if (current.st_dev, current.st_ino) == (written.st_dev, written.st_ino):
+        os.unlink(name, dir_fd=parent_fd)
+
+
+def _publish(plan: Plan, parent_fd: int) -> None:
+    assert plan.expected is not None
+    temporary, descriptor = _temporary(plan, parent_fd)
+    published = False
+    try:
+        mode = plan.state.mode if plan.action is Action.UPDATE else 0o600
+        assert mode is not None
+        if plan.action is Action.UPDATE:
+            assert plan.state.fingerprint is not None
+            os.fchown(descriptor, -1, plan.state.fingerprint[5])
         view = memoryview(plan.expected)
         while view:
-            view = view[os.write(descriptor, view) :]
+            written = os.write(descriptor, view)
+            if not written:
+                raise InstallationError("could not write temporary file")
+            view = view[written:]
+        os.fchmod(descriptor, mode)
         os.fsync(descriptor)
-        written = os.fstat(descriptor)
         temporary_info = os.stat(temporary, dir_fd=parent_fd, follow_symlinks=False)
-        if (temporary_info.st_dev, temporary_info.st_ino) != (
-            written.st_dev,
-            written.st_ino,
+        opened = os.fstat(descriptor)
+        if (
+            (temporary_info.st_dev, temporary_info.st_ino)
+            != (opened.st_dev, opened.st_ino)
+            or temporary_info.st_nlink != 1
+            or opened.st_nlink != 1
         ):
-            raise InstallationError(
-                "temporary hook document changed before publication"
-            )
-        _guard_unchanged(plan, parent_fd)
-        try:
-            os.link(
+            raise InstallationError("temporary file changed before publication")
+        _require_planned_state(plan, parent_fd)
+        # ponytail: portable POSIX has no conditional replace; add platform CAS
+        # only if same-UID adversaries enter the documented threat boundary.
+        if plan.action is Action.CREATE:
+            try:
+                os.link(
+                    temporary,
+                    plan.target.name,
+                    src_dir_fd=parent_fd,
+                    dst_dir_fd=parent_fd,
+                    follow_symlinks=False,
+                )
+            except FileExistsError as error:
+                raise InstallationError("target appeared during publication") from error
+            _clean_temporary(temporary, descriptor, parent_fd)
+        else:
+            os.replace(
                 temporary,
                 plan.target.name,
                 src_dir_fd=parent_fd,
                 dst_dir_fd=parent_fd,
-                follow_symlinks=False,
             )
-        except FileExistsError as error:
-            raise InstallationError(
-                "installation target appeared during publication"
-            ) from error
-        published = os.stat(plan.target.name, dir_fd=parent_fd, follow_symlinks=False)
-        if (published.st_dev, published.st_ino) != (written.st_dev, written.st_ino):
-            raise InstallationError("hook document changed during publication")
-        os.fsync(parent_fd)
-        return True
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        try:
-            os.unlink(temporary, dir_fd=parent_fd)
-        except FileNotFoundError:
-            pass
-
-
-def _remove(plan: Plan, parent_fd: int) -> bool:
-    current = _read_expected_file(plan.target, plan.expected, parent_fd)
-    if (current.parent_device, current.parent_inode) != (
-        plan.state.parent_device,
-        plan.state.parent_inode,
-    ):
-        raise InstallationError("target parent changed after locking")
-    if current.kind is StateKind.ABSENT:
-        return False
-    if current.kind is not StateKind.EXPECTED:
-        raise InstallationError(
-            current.reason or "hook configuration drifted after planning"
+        published_info = os.stat(
+            plan.target.name, dir_fd=parent_fd, follow_symlinks=False
         )
-    if (current.device, current.inode) != (plan.state.device, plan.state.inode):
-        raise InstallationError("hook document inode changed after planning")
-    try:
-        latest = os.stat(plan.target.name, dir_fd=parent_fd, follow_symlinks=False)
-    except OSError as error:
-        raise InstallationError(
-            f"cannot revalidate hook document: {error.strerror}"
-        ) from error
-    if latest.st_nlink != 1 or (latest.st_dev, latest.st_ino) != (
-        current.device,
-        current.inode,
-    ):
-        raise InstallationError("hook document changed before removal")
-    os.unlink(plan.target.name, dir_fd=parent_fd)
-    os.fsync(parent_fd)
-    return True
+        if (published_info.st_dev, published_info.st_ino) != (
+            opened.st_dev,
+            opened.st_ino,
+        ) or published_info.st_nlink != 1:
+            raise InstallationError("target changed during publication")
+        published = True
+        os.fsync(parent_fd)
+    finally:
+        try:
+            if not published:
+                _clean_temporary(temporary, descriptor, parent_fd)
+        finally:
+            os.close(descriptor)
 
 
 def apply(plan: Plan) -> bool:
-    """Apply a previously inspected plan after locked revalidation."""
+    """Apply a plan after locked, exact revalidation; never delete a target."""
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
         raise InstallationError(plan.message)
-    if plan.action is Action.NOOP:
-        current = _inspect(plan.target, plan.expected, plan.operation)
-        if current.action is Action.NOOP:
-            return False
-        raise InstallationError("configuration changed after planning")
     parent_fd = _open_locked_parent(plan)
     try:
-        if plan.action is Action.CREATE:
-            return _publish(plan, parent_fd)
-        if plan.action is Action.REMOVE:
-            return _remove(plan, parent_fd)
-        raise InstallationError("unsupported installation action")
+        _require_planned_state(plan, parent_fd)
+        if plan.action is Action.NOOP:
+            return False
+        if plan.action not in {Action.CREATE, Action.UPDATE}:
+            raise InstallationError("unsupported file action")
+        _publish(plan, parent_fd)
+        return True
     finally:
         fcntl.flock(parent_fd, fcntl.LOCK_UN)
         os.close(parent_fd)

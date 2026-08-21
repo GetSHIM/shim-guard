@@ -7,14 +7,22 @@ local-inspection interface; the Codex hook is the prompt path.
 shim scan/redact (stdin) -> detector -> categories/counts or typed redaction
 
 Codex UserPromptSubmit -> hook adapter -> detector -> allow | native block
-shim install/status/doctor/revert -> ownership checks -> dedicated hook file
+shim install/status/doctor/revert -> guarded merge/revert -> Codex hooks.json
 ```
 
 The detector is functional and offline. It normalizes input once, validates
 bounded findings against a fixed entity allowlist, resolves spans
 deterministically, and produces typed ordinal placeholders. The hook owns only
-stdin/stdout/stderr and the Codex protocol. Installation owns only dedicated
-configuration-file planning and guarded filesystem mutation.
+stdin/stdout/stderr and the Codex protocol. Installation owns only SHIM's
+matcher-group planning and guarded filesystem mutation. Install creates
+an absent `hooks.json`, or preserves a valid document and appends SHIM's exact
+matcher group last after informing the user. Revert removes only that exact
+group and retains the document even when empty. Both operations are idempotent.
+
+Inline `config.toml` hooks remain untouched and may coexist with `hooks.json`
+with a Codex warning. Malformed or ambiguous hook documents and unsafe or
+concurrently changed hook files require manual setup. Dry-run output contains
+only SHIM's fragment, not the existing hook document.
 
 ## Detector boundary and corpus
 

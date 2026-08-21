@@ -1,8 +1,7 @@
-"""Pure installation and revert planning."""
+"""Pure planning for safe shared-file changes."""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -10,14 +9,13 @@ from pathlib import Path
 
 class StateKind(StrEnum):
     ABSENT = "absent"
-    EXPECTED = "expected"
-    OTHER = "other"
+    FILE = "file"
     UNSAFE = "unsafe"
 
 
 class Action(StrEnum):
     CREATE = "create"
-    REMOVE = "remove"
+    UPDATE = "update"
     NOOP = "noop"
     CONFLICT = "conflict"
     REFUSE = "refuse"
@@ -26,56 +24,51 @@ class Action(StrEnum):
 @dataclass(frozen=True, slots=True)
 class FileState:
     kind: StateKind
+    path: Path
+    content: bytes | None = None
     parent_device: int | None = None
     parent_inode: int | None = None
-    device: int | None = None
-    inode: int | None = None
+    fingerprint: tuple[int, ...] | None = None
+    mode: int | None = None
+    max_bytes: int = 1_000_000
     reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class Plan:
-    operation: str
     target: Path
-    expected: bytes
     state: FileState
+    expected: bytes | None
     action: Action
     message: str
-    guard_path: Path | None = None
-    guard_state: os.stat_result | None = None
-
-    @property
-    def changes(self) -> bool:
-        return self.action in {Action.CREATE, Action.REMOVE}
 
 
-def plan_install(target: Path, expected: bytes, state: FileState) -> Plan:
-    """Plan installation from an already-inspected filesystem state."""
-    if state.kind is StateKind.ABSENT:
-        action, message = Action.CREATE, "create the SHIM-owned Codex hook document"
-    elif state.kind is StateKind.EXPECTED:
-        action, message = Action.NOOP, "SHIM Guard is already installed"
-    elif state.kind is StateKind.OTHER:
+def plan_change(
+    target: Path,
+    state: FileState,
+    expected: bytes | None,
+    conflict: str = "",
+) -> Plan:
+    """Plan a write from an already-inspected filesystem state."""
+    target = Path(target)
+    if state.path != target:
+        action, message = Action.REFUSE, "state was inspected for a different path"
+    elif state.kind is StateKind.UNSAFE:
+        action, message = Action.REFUSE, state.reason or "unsafe target"
+    elif expected is not None and len(expected) > state.max_bytes:
+        action, message = Action.REFUSE, "replacement exceeds the inspection limit"
+    elif conflict:
+        action, message = Action.CONFLICT, conflict
+    elif expected is None:
         action, message = (
-            Action.CONFLICT,
-            "existing hook configuration requires manual setup",
+            (Action.NOOP, "no file change is needed")
+            if state.kind is StateKind.ABSENT
+            else (Action.CONFLICT, "deletion is not supported")
         )
+    elif state.kind is StateKind.ABSENT:
+        action, message = Action.CREATE, "create target"
+    elif state.content == expected:
+        action, message = Action.NOOP, "target already matches"
     else:
-        action, message = Action.REFUSE, state.reason or "unsafe installation target"
-    return Plan("install", target, expected, state, action, message)
-
-
-def plan_revert(target: Path, expected: bytes, state: FileState) -> Plan:
-    """Plan exact revert from an already-inspected filesystem state."""
-    if state.kind is StateKind.ABSENT:
-        action, message = Action.NOOP, "SHIM Guard is not installed"
-    elif state.kind is StateKind.EXPECTED:
-        action, message = Action.REMOVE, "remove the exact SHIM-owned hook document"
-    elif state.kind is StateKind.OTHER:
-        action, message = (
-            Action.CONFLICT,
-            "hook configuration drifted; refusing to remove it",
-        )
-    else:
-        action, message = Action.REFUSE, state.reason or "unsafe revert target"
-    return Plan("revert", target, expected, state, action, message)
+        action, message = Action.UPDATE, "update target"
+    return Plan(target, state, expected, action, message)

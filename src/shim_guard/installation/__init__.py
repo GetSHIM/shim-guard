@@ -1,7 +1,7 @@
-"""Safe user-scoped integration installation."""
+"""Safe user-scoped file installation."""
 
-from .files import InstallationError, apply, inspect_install, inspect_revert
-from .plan import Action, FileState, Plan, StateKind, plan_install, plan_revert
+from .files import InstallationError, apply, inspect_file
+from .plan import Action, FileState, Plan, StateKind, plan_change
 
 __all__ = [
     "Action",
@@ -10,8 +10,6 @@ __all__ = [
     "Plan",
     "StateKind",
     "apply",
-    "inspect_install",
-    "inspect_revert",
-    "plan_install",
-    "plan_revert",
+    "inspect_file",
+    "plan_change",
 ]

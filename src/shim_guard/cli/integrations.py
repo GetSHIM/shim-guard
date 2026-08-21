@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import typer
 
@@ -29,40 +29,63 @@ def require_codex(client: str) -> None:
 
 def _codex_plan(operation: str):
     from shim_guard.clients.codex.settings import (
-        config_path,
-        hook_document,
-        inspect_inline_hooks,
+        MAX_CONFIG_BYTES,
+        add_hook,
+        remove_hook,
         target_path,
     )
-    from shim_guard.installation.files import inspect_install, inspect_revert
-    from shim_guard.installation.plan import Action
+    from shim_guard.installation.files import inspect_file
+    from shim_guard.installation.plan import StateKind, plan_change
 
     target = target_path()
-    expected = hook_document()
-    inspect = inspect_install if operation == "install" else inspect_revert
-    plan = inspect(target, expected)
-    if operation == "install":
-        config = config_path()
-        inline_hooks, config_state = inspect_inline_hooks(config)
-        plan = replace(plan, guard_path=config, guard_state=config_state)
-        if inline_hooks:
-            return replace(
-                plan,
-                action=Action.CONFLICT,
-                message="inline Codex hooks require manual setup",
-            )
-    return plan
+    state = inspect_file(target, MAX_CONFIG_BYTES)
+    if state.kind is StateKind.UNSAFE:
+        return plan_change(target, state, None)
+    if state.kind is StateKind.ABSENT:
+        expected = add_hook(None) if operation == "install" else None
+        return plan_change(target, state, expected)
+    assert state.content is not None
+    try:
+        expected = (
+            add_hook(state.content)
+            if operation == "install"
+            else remove_hook(state.content)
+        )
+    except ValueError as error:
+        return plan_change(target, state, state.content, conflict=str(error))
+    return plan_change(target, state, expected)
+
+
+def _inline_hooks_notice() -> None:
+    from shim_guard.clients.codex.settings import has_inline_hooks
+
+    try:
+        inline_hooks = has_inline_hooks()
+    except ValueError:
+        emit(
+            "WARN", "Codex config.toml could not be inspected and will stay untouched."
+        )
+        return
+    if inline_hooks:
+        emit(
+            "WARN",
+            "Inline config.toml hooks will stay untouched and may coexist with hooks.json.",
+        )
+
+
+def _hook_fragment() -> str:
+    from shim_guard.clients.codex.settings import hook_group
+
+    return json.dumps(hook_group(), ensure_ascii=False, indent=2) + "\n"
 
 
 def _plan_status(plan) -> tuple[str, str]:
     from shim_guard.installation.plan import Action
 
     if plan.action is Action.NOOP:
-        return "PASS", "installed" if plan.operation == "install" else "not_installed"
-    if plan.action is Action.CREATE:
-        return "WARN", "not_installed"
-    if plan.action is Action.REMOVE:
         return "PASS", "installed"
+    if plan.action in {Action.CREATE, Action.UPDATE}:
+        return "WARN", "not_installed"
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
 
@@ -86,40 +109,53 @@ def install(client: str, *, dry_run: bool, yes: bool) -> None:
     try:
         plan = _codex_plan("install")
         from shim_guard.installation.plan import Action
-    except Exception:
+    except (OSError, ValueError):
         _plan_error("install")
 
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
         emit("FAIL", "Codex hook configuration cannot be changed safely.", error=True)
         emit(
             "WARN",
-            "Existing or shared hooks need manual setup; review Codex hooks docs and add only SHIM's handler.",
+            "Review Codex hooks manually; SHIM did not change malformed, ambiguous, or unsafe settings.",
             error=True,
         )
         raise typer.Exit(2)
     if plan.action is Action.NOOP:
         emit("PASS", "SHIM Guard is already installed for Codex.")
         return
+    if plan.action is Action.UPDATE:
+        emit(
+            "WARN",
+            "Existing Codex hooks will be preserved; SHIM Guard will be appended last.",
+        )
+    _inline_hooks_notice()
     if dry_run:
-        emit("WARN", f"Would create SHIM Guard's Codex hook at {plan.target}.")
-        print(plan.expected.decode("utf-8"), end="")
+        verb = "create" if plan.action is Action.CREATE else "append to"
+        emit("WARN", f"Would {verb} Codex hooks at {plan.target} with this fragment:")
+        print(_hook_fragment(), end="")
         return
-    if not yes and not typer.confirm("Install SHIM Guard's Codex hook?", default=False):
+    prompt = (
+        "Create SHIM Guard's Codex hook?"
+        if plan.action is Action.CREATE
+        else "Append SHIM Guard after existing Codex hooks?"
+    )
+    if not yes and not typer.confirm(prompt, default=False):
         emit("WARN", "Installation cancelled.")
         raise typer.Exit(1)
-    try:
-        from shim_guard.installation.files import apply
+    from shim_guard.installation.files import InstallationError, apply
 
-        latest = _codex_plan("install")
-        if latest.action in {Action.CONFLICT, Action.REFUSE}:
-            raise RuntimeError("Codex hook configuration changed")
-        changed = apply(latest)
-    except Exception:
+    try:
+        changed = apply(plan)
+    except (InstallationError, OSError):
         emit("FAIL", "Codex hook configuration was not changed.", error=True)
         raise typer.Exit(2) from None
     emit(
         "PASS",
-        "Installed SHIM Guard for Codex."
+        (
+            "Appended SHIM Guard after existing Codex hooks."
+            if plan.action is Action.UPDATE
+            else "Installed SHIM Guard for Codex."
+        )
         if changed
         else "SHIM Guard is already installed for Codex.",
     )
@@ -129,7 +165,7 @@ def status(*, as_json: bool) -> None:
     try:
         plan = _codex_plan("install")
         label, state = _plan_status(plan)
-    except Exception:
+    except (OSError, ValueError):
         _plan_error("status", as_json)
     if as_json:
         emit_json(
@@ -214,14 +250,14 @@ def _hook_state() -> Check:
     try:
         plan = _codex_plan("install")
         label, state = _plan_status(plan)
-    except Exception:
+    except (OSError, ValueError):
         return Check(
             "hook_configuration", "FAIL", "Could not inspect Codex hook configuration."
         )
     messages = {
-        "installed": "Exact SHIM-owned Codex hook document is present.",
-        "not_installed": "SHIM Guard's Codex hook document is not installed.",
-        "conflict": "Codex hook configuration differs from SHIM Guard.",
+        "installed": "SHIM Guard's exact Codex matcher group is present.",
+        "not_installed": "SHIM Guard's Codex matcher group is not installed.",
+        "conflict": "Codex hook configuration needs manual review.",
         "unsafe": "Codex hook configuration cannot be trusted safely.",
     }
     return Check("hook_configuration", label, messages[state])
@@ -328,32 +364,36 @@ def revert(client: str, *, yes: bool) -> None:
     try:
         plan = _codex_plan("revert")
         from shim_guard.installation.plan import Action
-    except Exception:
+    except (OSError, ValueError):
         _plan_error("revert")
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
         emit("FAIL", "Codex hook configuration cannot be removed safely.", error=True)
         emit(
             "WARN",
-            "Review Codex hook settings; SHIM removes only its exact hook document.",
+            "Review Codex hooks manually; SHIM removes only its exact matcher group.",
             error=True,
         )
         raise typer.Exit(2)
     if plan.action is Action.NOOP:
         emit("PASS", "SHIM Guard is not installed for Codex.")
         return
+    emit(
+        "WARN",
+        "Only SHIM Guard's exact matcher group will be removed; other hooks will be preserved.",
+    )
     if not yes and not typer.confirm("Remove SHIM Guard's Codex hook?", default=False):
         emit("WARN", "Revert cancelled.")
         raise typer.Exit(1)
-    try:
-        from shim_guard.installation.files import apply
+    from shim_guard.installation.files import InstallationError, apply
 
+    try:
         changed = apply(plan)
-    except Exception:
+    except (InstallationError, OSError):
         emit("FAIL", "Codex hook configuration was not changed.", error=True)
         raise typer.Exit(2) from None
     emit(
         "PASS",
-        "Removed SHIM Guard from Codex."
+        "Removed SHIM Guard and preserved the Codex hook document."
         if changed
         else "SHIM Guard is not installed for Codex.",
     )

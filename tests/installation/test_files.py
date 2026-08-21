@@ -8,200 +8,174 @@ import pytest
 
 from shim_guard.installation import (
     Action,
-    FileState,
     InstallationError,
     StateKind,
     apply,
-    inspect_install,
-    inspect_revert,
-    plan_install,
-    plan_revert,
+    inspect_file,
+    plan_change,
 )
-
-EXPECTED = b'{"shim":"guard"}\n'
 
 
 def target_in(tmp_path: Path) -> Path:
-    parent = tmp_path / ".codex"
+    parent = tmp_path / ".config"
     parent.mkdir(mode=0o700)
-    return parent / "hooks.json"
+    return parent / "shared.json"
 
 
-def test_pure_planning_has_no_filesystem_effect(tmp_path: Path) -> None:
-    target = tmp_path / "missing" / "hooks.json"
-    absent = FileState(StateKind.ABSENT)
-    assert plan_install(target, EXPECTED, absent).action is Action.CREATE
-    assert plan_revert(target, EXPECTED, absent).action is Action.NOOP
-    assert not target.parent.exists()
+def plan(target: Path, expected: bytes | None, conflict: str = ""):
+    return plan_change(target, inspect_file(target), expected, conflict)
 
 
-def test_dry_inspection_has_zero_writes(tmp_path: Path) -> None:
+def test_create_update_and_noop(tmp_path: Path) -> None:
     target = target_in(tmp_path)
-    before = set(target.parent.iterdir())
-    plan = inspect_install(target, EXPECTED)
-    assert plan.action is Action.CREATE
-    assert set(target.parent.iterdir()) == before
 
-
-def test_install_is_exact_mode_0600_and_idempotent(tmp_path: Path) -> None:
-    target = target_in(tmp_path)
-    assert apply(inspect_install(target, EXPECTED))
-    assert target.read_bytes() == EXPECTED
+    create = plan(target, b"first\n")
+    assert create.action is Action.CREATE
+    assert apply(create)
+    assert target.read_bytes() == b"first\n"
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
-    assert list(target.parent.iterdir()) == [target]
-    assert not apply(inspect_install(target, EXPECTED))
+
+    update = plan(target, b"second\n")
+    assert update.action is Action.UPDATE
+    assert apply(update)
+    assert target.read_bytes() == b"second\n"
+
+    noop = plan(target, b"second\n")
+    assert noop.action is Action.NOOP
+    assert not apply(noop)
 
 
-def test_existing_content_is_a_manual_conflict(tmp_path: Path) -> None:
+def test_update_preserves_safe_permissions_and_gid(tmp_path: Path) -> None:
     target = target_in(tmp_path)
-    target.write_bytes(b'{"hooks":{"shared":true}}\n')
-    before = target.read_bytes()
-    plan = inspect_install(target, EXPECTED)
-    assert plan.action is Action.CONFLICT
-    with pytest.raises(InstallationError):
-        apply(plan)
-    assert target.read_bytes() == before
+    target.write_bytes(b"old")
+    target.chmod(0o640)
+    before = target.stat()
+
+    assert apply(plan(target, b"new"))
+
+    after = target.stat()
+    assert stat.S_IMODE(after.st_mode) == 0o640
+    assert after.st_gid == before.st_gid
 
 
-def test_exact_revert_and_absent_revert_are_safe(tmp_path: Path) -> None:
+def test_conflict_and_absent_none_do_not_write(tmp_path: Path) -> None:
     target = target_in(tmp_path)
-    apply(inspect_install(target, EXPECTED))
-    assert apply(inspect_revert(target, EXPECTED))
-    assert not target.exists()
-    assert not apply(inspect_revert(target, EXPECTED))
+    state = inspect_file(target)
+    absent = plan_change(target, state, None)
+    assert absent.action is Action.NOOP
+    assert not apply(absent)
+    assert (
+        plan_change(target.with_name("other"), state, b"data").action is Action.REFUSE
+    )
+
+    target.write_bytes(b"shared")
+    conflict = plan(target, b"replacement", "manual merge required")
+    assert conflict.action is Action.CONFLICT
+    with pytest.raises(InstallationError, match="manual merge"):
+        apply(conflict)
+    assert target.read_bytes() == b"shared"
 
 
-def test_revert_refuses_content_drift(tmp_path: Path) -> None:
+def test_stale_and_content_drift_plans_are_refused(tmp_path: Path) -> None:
     target = target_in(tmp_path)
-    apply(inspect_install(target, EXPECTED))
-    plan = inspect_revert(target, EXPECTED)
+    stale = plan(target, b"mine")
+    target.write_bytes(b"theirs")
+    with pytest.raises(InstallationError, match="changed"):
+        apply(stale)
+    assert target.read_bytes() == b"theirs"
+
+    update = plan(target, b"mine")
     target.write_bytes(b"drift")
-    with pytest.raises(InstallationError):
-        apply(plan)
+    with pytest.raises(InstallationError, match="changed"):
+        apply(update)
     assert target.read_bytes() == b"drift"
 
 
-def test_revert_refuses_same_content_on_a_new_inode(tmp_path: Path) -> None:
+def test_same_content_on_new_inode_is_refused(tmp_path: Path) -> None:
     target = target_in(tmp_path)
-    apply(inspect_install(target, EXPECTED))
-    plan = inspect_revert(target, EXPECTED)
+    target.write_bytes(b"old")
+    update = plan(target, b"new")
     replacement = target.with_name("replacement")
-    replacement.write_bytes(EXPECTED)
+    replacement.write_bytes(b"old")
     os.replace(replacement, target)
-    with pytest.raises(InstallationError, match="inode"):
-        apply(plan)
-    assert target.read_bytes() == EXPECTED
+
+    with pytest.raises(InstallationError, match="changed"):
+        apply(update)
+    assert target.read_bytes() == b"old"
 
 
-def test_stale_install_plans_converge_without_overwriting(tmp_path: Path) -> None:
-    target = target_in(tmp_path)
-    first = inspect_install(target, EXPECTED)
-    second = inspect_install(target, EXPECTED)
-    assert apply(first)
-    assert not apply(second)
-    assert target.read_bytes() == EXPECTED
-
-
-def test_install_refuses_file_appearing_after_plan(tmp_path: Path) -> None:
-    target = target_in(tmp_path)
-    plan = inspect_install(target, EXPECTED)
-    target.write_bytes(b"other hook")
-    with pytest.raises(InstallationError):
-        apply(plan)
-    assert target.read_bytes() == b"other hook"
-
-
-def test_symlink_target_and_parent_are_refused(tmp_path: Path) -> None:
-    target = target_in(tmp_path)
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.write_bytes(EXPECTED)
-    target.symlink_to(elsewhere)
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
-
-    real_parent = tmp_path / "real"
-    real_parent.mkdir()
-    linked_parent = tmp_path / "linked"
-    linked_parent.symlink_to(real_parent, target_is_directory=True)
-    plan = inspect_install(linked_parent / "hooks.json", EXPECTED)
-    assert plan.action is Action.REFUSE
-
-
-def test_hardlinked_target_is_never_treated_as_exclusively_owned(
-    tmp_path: Path,
-) -> None:
-    target = target_in(tmp_path)
-    shared = tmp_path / "shared-hooks.json"
-    shared.write_bytes(EXPECTED)
-    os.link(shared, target)
-
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
-    assert inspect_revert(target, EXPECTED).action is Action.REFUSE
-    assert shared.read_bytes() == EXPECTED
-
-
-def test_revert_refuses_a_hardlink_added_during_locked_revalidation(
+def test_hardlink_added_before_publish_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from shim_guard.installation import files
+
     target = target_in(tmp_path)
-    apply(inspect_install(target, EXPECTED))
-    plan = inspect_revert(target, EXPECTED)
-    shared = tmp_path / "shared-hooks.json"
-    real_stat = os.stat
-    target_stats = 0
+    target.write_bytes(b"old")
+    update = plan(target, b"new")
+    shared = tmp_path / "shared-link"
+    real_read = files._read_at
+    reads = 0
 
-    def add_link_before_final_stat(path, *args, **kwargs):
-        nonlocal target_stats
-        if path == target.name and kwargs.get("dir_fd") is not None:
-            target_stats += 1
-            if target_stats == 2:
-                os.link(target, shared)
-        return real_stat(path, *args, **kwargs)
+    def add_link_on_final_read(path: Path, parent_fd: int, max_bytes: int):
+        nonlocal reads
+        reads += 1
+        if reads == 2:
+            os.link(target, shared)
+        return real_read(path, parent_fd, max_bytes)
 
-    monkeypatch.setattr(os, "stat", add_link_before_final_stat)
-    with pytest.raises(InstallationError, match="changed before removal"):
-        apply(plan)
-    assert target.exists()
-    assert shared.read_bytes() == EXPECTED
+    monkeypatch.setattr(files, "_read_at", add_link_on_final_read)
+    with pytest.raises(InstallationError, match="hard-linked"):
+        apply(update)
+    assert target.read_bytes() == b"old"
+    assert shared.read_bytes() == b"old"
 
 
-def test_nonregular_target_is_refused(tmp_path: Path) -> None:
+def test_unsafe_targets_and_limits_are_refused(tmp_path: Path) -> None:
     target = target_in(tmp_path)
+    target.write_bytes(b"too large")
+    assert inspect_file(target, max_bytes=3).kind is StateKind.UNSAFE
+
+    target.unlink()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_bytes(b"data")
+    target.symlink_to(elsewhere)
+    assert inspect_file(target).kind is StateKind.UNSAFE
+
+    target.unlink()
+    os.link(elsewhere, target)
+    assert inspect_file(target).kind is StateKind.UNSAFE
+
+    target.unlink()
     target.mkdir()
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
+    assert inspect_file(target).kind is StateKind.UNSAFE
 
 
-def test_unsafe_parent_and_target_permissions_are_refused(tmp_path: Path) -> None:
+def test_unsafe_permissions_ownership_and_replacement_size_are_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     target = target_in(tmp_path)
     target.parent.chmod(0o770)
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
+    assert inspect_file(target).kind is StateKind.UNSAFE
 
     target.parent.chmod(0o700)
-    target.write_bytes(EXPECTED)
+    target.write_bytes(b"safe")
     target.chmod(0o620)
-    assert inspect_revert(target, EXPECTED).action is Action.REFUSE
+    assert inspect_file(target).kind is StateKind.UNSAFE
+
+    target.chmod(0o600)
+    state = inspect_file(target, max_bytes=4)
+    assert plan_change(target, state, b"large").action is Action.REFUSE
+
+    monkeypatch.setattr(os, "geteuid", lambda: target.stat().st_uid + 1)
+    assert inspect_file(target).kind is StateKind.UNSAFE
 
 
-def test_unowned_parent_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    target = target_in(tmp_path)
-    monkeypatch.setattr(os, "geteuid", lambda: target.parent.stat().st_uid + 1)
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
+def test_absent_parent_and_symlinked_ancestor_are_unsafe(tmp_path: Path) -> None:
+    assert inspect_file(tmp_path / "missing" / "file").kind is StateKind.UNSAFE
+    assert inspect_file(Path("relative")).kind is StateKind.UNSAFE
 
-
-def test_relative_and_overlong_targets_are_refused(tmp_path: Path) -> None:
-    assert inspect_install(Path("hooks.json"), EXPECTED).action is Action.REFUSE
-    unsafe_parent = tmp_path / "unsafe\x1b-parent"
-    unsafe_parent.mkdir()
-    assert (
-        inspect_install(unsafe_parent / "hooks.json", EXPECTED).action is Action.REFUSE
-    )
-    assert (
-        inspect_install(tmp_path / "missing" / "hooks.json", EXPECTED).action
-        is Action.REFUSE
-    )
-    target = tmp_path / ("x" * 250) / ("y" * 250)
-    # Keep this independent of the host's lower per-component path limit.
-    while len(os.fsencode(target)) <= 4_096:
-        target /= "z" * 250
-    assert inspect_install(target, EXPECTED).action is Action.REFUSE
+    real = tmp_path / "real"
+    real.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(real, target_is_directory=True)
+    assert inspect_file(linked / "file").kind is StateKind.UNSAFE

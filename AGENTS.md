@@ -11,7 +11,8 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 - Safe hook input must produce exactly empty stdout and stderr.
 - Handled hook errors must block with a generic native response.
 - Never modify real user configuration in development or tests; use temporary paths.
-- Install and revert may touch only an exact SHIM-owned Codex hook document and must refuse drift, shared files, symlinks, or unsafe permissions.
+- Install may create `hooks.json` or append SHIM's exact matcher group last to a valid document while preserving existing hooks; revert removes only that group and retains the document even when empty.
+- Keep install and revert idempotent, leave inline `config.toml` hooks untouched, preview only SHIM's fragment, and require manual setup for malformed, ambiguous, unsafe, or concurrently changed files.
 - Do not add clients, auth, telemetry, daemons, proxies, plugin frameworks, or compatibility shims without an approved requirement.
 
 ## Checks
