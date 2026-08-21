@@ -16,13 +16,14 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 
 ## Checks
 
-Use CPython 3.13 and uv `>=0.12.5,<0.13`:
+Use CPython 3.13 and uv `0.12.5`:
 
 ```bash
 uv sync --locked
 uv run --locked ruff check .
+uv run --locked ruff format --check .
 uv run --locked ty check
 uv run --locked pytest
-uv build
+uv build --no-build-isolation
 git diff --check
 ```

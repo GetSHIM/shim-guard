@@ -1,0 +1,50 @@
+"""Small, safe presentation helpers for the command line."""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from collections.abc import Mapping
+from typing import Any, TextIO
+
+from rich.console import Console
+from rich.text import Text
+
+SCHEMA_VERSION = 1
+
+
+def terminal_text(text: str, stream: TextIO, allowed: str = "") -> str:
+    """Escape terminal controls while preserving redirected output exactly."""
+    if not stream.isatty():
+        return text
+    return "".join(
+        character
+        if character in allowed or character.isprintable()
+        else character.encode("unicode_escape").decode("ascii")
+        for character in text
+    )
+
+
+def emit_json(command: str, status: str, **data: Any) -> None:
+    """Write the stable automation envelope. Callers supply only safe values."""
+    payload = {"schema_version": SCHEMA_VERSION, "command": command, "status": status}
+    payload.update(data)
+    print(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
+def emit(label: str, message: str, *, error: bool = False) -> None:
+    """Render one narrow, explicit human-facing status line."""
+    stream = sys.stderr if error else sys.stdout
+    color = stream.isatty() and "NO_COLOR" not in os.environ
+    console = Console(
+        file=stream, force_terminal=color, color_system="standard" if color else None
+    )
+    style = {"PASS": "green", "WARN": "yellow", "FAIL": "red"}.get(label, "")
+    line = Text(label, style=style)
+    line.append(f" {terminal_text(message, stream)}")
+    console.print(line, highlight=False, markup=False)
+
+
+def counts_dict(counts: tuple[tuple[str, int], ...]) -> Mapping[str, int]:
+    return dict(counts)

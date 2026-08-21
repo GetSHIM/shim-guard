@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "categories": [
+    "EMAIL",
+    "PHONE",
+    "CREDIT_CARD",
+    "IBAN",
+    "IP_ADDRESS",
+    "MAC_ADDRESS",
+    "US_SSN",
+    "TR_NATIONAL_ID",
+    "TR_VKN",
+    "SECRET",
+    "DB_URI",
+    "FILE_PATH"
+  ],
+  "cases": [
+    {
+      "id": "email-positive",
+      "text": "Contact alice@example.com",
+      "categories": ["EMAIL"]
+    },
+    {
+      "id": "email-safe-negative",
+      "text": "Contact alice@example.invalid",
+      "categories": []
+    },
+    {
+      "id": "phone-positive",
+      "text": "Phone +90 532 123 45 67",
+      "categories": ["PHONE"]
+    },
+    {
+      "id": "phone-safe-negative",
+      "text": "Version 1.2.3 build 4567",
+      "categories": []
+    },
+    {
+      "id": "credit-card-positive",
+      "text": "Card 4111 1111 1111 1111",
+      "categories": ["CREDIT_CARD"]
+    },
+    {
+      "id": "credit-card-safe-negative",
+      "text": "Invalid card 4111 1111 1111 1112",
+      "categories": []
+    },
+    {
+      "id": "iban-positive",
+      "text": "IBAN TR330006100519786457841326",
+      "categories": ["IBAN"]
+    },
+    {
+      "id": "iban-safe-negative",
+      "text": "Invalid IBAN TR000006100519786457841326",
+      "categories": []
+    },
+    {
+      "id": "ip-positive",
+      "text": "Host 192.168.1.1",
+      "categories": ["IP_ADDRESS"]
+    },
+    {
+      "id": "ip-address-safe-negative",
+      "text": "Host 999.168.1.1 is invalid",
+      "categories": []
+    },
+    {
+      "id": "mac-positive",
+      "text": "MAC 00:1A:2B:3C:4D:5E",
+      "categories": ["MAC_ADDRESS"]
+    },
+    {
+      "id": "mac-address-safe-negative",
+      "text": "MAC 00:1A:2B:3C:4D:GG is invalid",
+      "categories": []
+    },
+    {
+      "id": "us-ssn-positive",
+      "text": "SSN 219-09-9999",
+      "categories": ["US_SSN"]
+    },
+    {
+      "id": "us-ssn-safe-negative",
+      "text": "SSN 000-12-3456 is invalid",
+      "categories": []
+    },
+    {
+      "id": "tr-national-id-positive",
+      "text": "TCKN 10000000146",
+      "categories": ["TR_NATIONAL_ID"]
+    },
+    {
+      "id": "tr-national-id-safe-negative",
+      "text": "TCKN 10000000145 is invalid",
+      "categories": []
+    },
+    {
+      "id": "tr-vkn-positive",
+      "text": "VKN 1234567890",
+      "categories": ["TR_VKN"]
+    },
+    {
+      "id": "tr-vkn-safe-negative",
+      "text": "Reference number 1000000000 appears here",
+      "categories": []
+    },
+    {
+      "id": "secret-positive",
+      "text": "password = SuperSecret123!",
+      "categories": ["SECRET"]
+    },
+    {
+      "id": "secret-safe-negative",
+      "text": "A password should never be shared in prose",
+      "categories": []
+    },
+    {
+      "id": "secret-prose-token-regression",
+      "text": "Rotate the token and password regularly",
+      "categories": []
+    },
+    {
+      "id": "db-uri-positive",
+      "text": "Connect postgresql://alice:secret@db.example.com/app.",
+      "categories": ["DB_URI"],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "db-uri-safe-negative",
+      "text": "The postgres adapter has no configured URI",
+      "categories": []
+    },
+    {
+      "id": "file-path-positive",
+      "text": "Read /Users/alice/private/key.pem, then continue",
+      "categories": ["FILE_PATH"],
+      "redacted": "Read <FILE_PATH_1>, then continue"
+    },
+    {
+      "id": "file-path-safe-negative",
+      "text": "Read project/src/main.py from the repository",
+      "categories": []
+    },
+    {
+      "id": "percent-normalization",
+      "text": "Contact alice%40example.com",
+      "categories": ["EMAIL"],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "invisible-normalization",
+      "text": "Contact alice​@example.com",
+      "categories": ["EMAIL"],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "overlap-db-uri-secret",
+      "text": "postgresql://alice:sk_live_abcdefghijklmnop@db.example.com/app.",
+      "categories": ["DB_URI"],
+      "redacted": "<DB_URI_1>."
+    },
+    {
+      "id": "overlap-phone-ssn",
+      "text": "SSN 219-09-9999",
+      "categories": ["US_SSN"],
+      "redacted": "SSN <US_SSN_1>"
+    },
+    {
+      "id": "windows-path-punctuation-regression",
+      "text": "Open C:\\Users\\alice\\secret.txt; then continue",
+      "categories": ["FILE_PATH"],
+      "redacted": "Open <FILE_PATH_1>; then continue"
+    }
+  ],
+  "generated_cases": [
+    {
+      "id": "source-oversize",
+      "kind": "repeat",
+      "value": "a",
+      "count": 100001,
+      "error": "ValueError"
+    },
+    {
+      "id": "normalization-intermediate-oversize",
+      "kind": "repeat",
+      "value": "ﷺ",
+      "count": 12000,
+      "error": "ValueError"
+    },
+    {
+      "id": "finding-count-oversize",
+      "kind": "email-sequence",
+      "count": 101,
+      "error": "ValueError"
+    },
+    {
+      "id": "invalid-analyzer-span",
+      "kind": "analyzer-result",
+      "entity_type": "EMAIL_ADDRESS",
+      "start": 0,
+      "end": 999,
+      "score": 0.9,
+      "error": "ValueError"
+    },
+    {
+      "id": "deterministic-hash-seed",
+      "kind": "hash-seeds",
+      "seeds": ["1", "8675309"]
+    },
+    {
+      "id": "no-network-no-cache",
+      "kind": "offline",
+      "suffix_list_urls": [],
+      "cache_dir": null
+    }
+  ]
+}

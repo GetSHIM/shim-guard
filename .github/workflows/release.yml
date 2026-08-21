@@ -1,0 +1,215 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@20cfd1bf5a88efc99e6f00d84b7524177933953f # v10.0.1
+      - name: Require matching version and completed release evidence
+        run: |
+          python -c 'import os, pathlib, tomllib; version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]; assert os.environ["GITHUB_REF_NAME"] == f"v{version}"'
+          python -c 'from pathlib import Path; assert "PENDING_RELEASE_EVIDENCE" not in Path("docs/compatibility.md").read_text()'
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked ty check
+      - run: uv run --locked pytest
+      - name: Require verification inputs to match the tagged tree
+        run: |
+          mkdir /tmp/shim-guard-verified-source
+          /usr/bin/git archive "$GITHUB_SHA" | /usr/bin/tar -x -C /tmp/shim-guard-verified-source
+          git diff --exit-code "$GITHUB_SHA" --
+          diff -qr --exclude=.git --exclude=.venv --exclude=.pytest_cache --exclude=.ruff_cache --exclude=__pycache__ /tmp/shim-guard-verified-source .
+      - run: uv build --no-build-isolation --no-create-gitignore --out-dir dist/tested
+      - name: Allow only the versioned wheel and source distribution
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/tested").iterdir()} == expected'
+      - run: uv export --locked --no-dev --no-emit-project --output-file dist/requirements.lock
+      - run: uv export --locked --only-dev --no-emit-project --output-file /tmp/shim-dev.lock
+      - name: Verify packaged wheel contracts
+        run: |
+          uv venv --python 3.13 /tmp/shim-guard-wheel
+          uv pip install --python /tmp/shim-guard-wheel --require-hashes -r dist/requirements.lock -r /tmp/shim-dev.lock
+          uv pip install --python /tmp/shim-guard-wheel --no-deps "dist/tested/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl"
+          /tmp/shim-guard-wheel/bin/shim demo codex --json
+          /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+          python scripts/benchmark_hook.py --self-check
+      - name: Verify packaged source distribution contracts
+        run: |
+          uv venv --python 3.13 /tmp/shim-guard-sdist
+          uv pip install --python /tmp/shim-guard-sdist --require-hashes -r dist/requirements.lock -r /tmp/shim-dev.lock
+          uv pip install --python /tmp/shim-guard-sdist --no-deps --no-build-isolation "dist/tested/shim_guard-${GITHUB_REF_NAME#v}.tar.gz"
+          /tmp/shim-guard-sdist/bin/shim demo codex --json
+          /tmp/shim-guard-sdist/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+      - name: Recheck the verified package allowlist
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/tested").iterdir()} == expected'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: verified-dist
+          path: dist/tested/*
+          if-no-files-found: error
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Snapshot the tagged source before dependency execution
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir /tmp/shim-guard-build-source
+          /usr/bin/git archive "$GITHUB_SHA" | /usr/bin/tar -x -C /tmp/shim-guard-build-source
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@20cfd1bf5a88efc99e6f00d84b7524177933953f # v10.0.1
+      - name: Require matching version and completed release evidence
+        run: |
+          python -c 'import os, pathlib, tomllib; root = pathlib.Path("/tmp/shim-guard-build-source"); version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]; assert os.environ["GITHUB_REF_NAME"] == f"v{version}"'
+          python -c 'from pathlib import Path; assert "PENDING_RELEASE_EVIDENCE" not in Path("/tmp/shim-guard-build-source/docs/compatibility.md").read_text()'
+      - run: uv sync --project /tmp/shim-guard-build-source --locked --only-dev --no-install-project
+      - run: uv build --python /tmp/shim-guard-build-source/.venv/bin/python --no-build-isolation --no-create-gitignore /tmp/shim-guard-build-source --out-dir dist/packages
+      - name: Allow only the versioned wheel and source distribution
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: verified-dist
+          path: verified
+      - name: Require the fresh tagged build to match the tested artifacts
+        run: |
+          python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("verified").iterdir()} == expected'
+          cmp "verified/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl"
+          cmp "verified/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz"
+      - name: Re-extract immutable release evidence inputs
+        run: |
+          mkdir /tmp/shim-guard-evidence-source
+          /usr/bin/git archive "$GITHUB_SHA" | /usr/bin/tar -x -C /tmp/shim-guard-evidence-source
+          python -c 'import os, pathlib, tomllib; root = pathlib.Path("/tmp/shim-guard-evidence-source"); version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]; assert os.environ["GITHUB_REF_NAME"] == f"v{version}"'
+          python -c 'from pathlib import Path; assert "PENDING_RELEASE_EVIDENCE" not in Path("/tmp/shim-guard-evidence-source/docs/compatibility.md").read_text()'
+      - run: uv export --project /tmp/shim-guard-evidence-source --locked --no-dev --no-emit-project --output-file dist/requirements.lock
+      - name: Benchmark the clean tagged wheel
+        run: |
+          uv venv --python 3.13 /tmp/shim-guard-benchmark
+          uv pip install --python /tmp/shim-guard-benchmark --require-hashes -r dist/requirements.lock
+          uv pip install --python /tmp/shim-guard-benchmark --no-deps "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl"
+          python /tmp/shim-guard-evidence-source/scripts/benchmark_hook.py --self-check
+          python /tmp/shim-guard-evidence-source/scripts/benchmark_hook.py /tmp/shim-guard-benchmark/bin/python --samples-per-fixture 20 --output dist/benchmark-hook.json
+      - run: |
+          cp /tmp/shim-guard-evidence-source/docs/compatibility.md dist/COMPATIBILITY.md
+          cp /tmp/shim-guard-evidence-source/tests/corpus/guard-v1.json dist/guard-v1.json
+          cp /tmp/shim-guard-evidence-source/tests/corpus/guard-v1-metrics.json dist/guard-v1-metrics.json
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: dist/packages
+          format: cyclonedx-json
+          output-file: dist/shim-guard.sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Recheck the package artifact allowlist
+        run: |
+          python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
+          cmp "verified/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl"
+          cmp "verified/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz"
+      - name: Hash flattened release assets
+        run: |
+          (
+            cd dist/packages
+            sha256sum "shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "shim_guard-${GITHUB_REF_NAME#v}.tar.gz"
+            cd ..
+            sha256sum COMPATIBILITY.md guard-v1.json guard-v1-metrics.json benchmark-hook.json requirements.lock shim-guard.sbom.cdx.json
+          ) > dist/SHA256SUMS
+      - name: Verify checksums from a flat download directory
+        run: |
+          mkdir dist/download
+          cp "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/guard-v1.json dist/guard-v1-metrics.json dist/benchmark-hook.json dist/requirements.lock dist/shim-guard.sbom.cdx.json dist/SHA256SUMS dist/download/
+          cd dist/download
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-dist
+          path: |
+            dist/packages/
+            dist/COMPATIBILITY.md
+            dist/guard-v1.json
+            dist/guard-v1-metrics.json
+            dist/benchmark-hook.json
+            dist/requirements.lock
+            dist/SHA256SUMS
+            dist/shim-guard.sbom.cdx.json
+          if-no-files-found: error
+
+  attest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dist
+          path: dist
+      - name: Verify the package artifact allowlist
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/packages/*
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/packages/*
+          sbom-path: dist/shim-guard.sbom.cdx.json
+
+  release:
+    needs: [build, attest]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dist
+          path: dist
+      - name: Verify the package artifact allowlist
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/guard-v1.json dist/guard-v1-metrics.json dist/benchmark-hook.json dist/requirements.lock dist/SHA256SUMS dist/shim-guard.sbom.cdx.json --generate-notes
+
+  publish:
+    needs: [build, attest, release]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dist
+          path: dist
+      - name: Verify the package artifact allowlist
+        run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/packages

@@ -1,0 +1,401 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+COMMAND = (sys.executable, "-I", "-B", "-m", "shim_guard.hook")
+GENERIC_BLOCK = (
+    b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
+    b'prompt. Try again or run `shim scan` locally."}'
+)
+EMAIL_BLOCK = (
+    b'{"decision":"block","reason":"SHIM Guard blocked this prompt: EMAIL (1).'
+    b'\\nReview and resubmit this typed redacted suggestion:\\nContact <EMAIL_1>"}'
+)
+
+
+def _payload(prompt: str, **changes: object) -> bytes:
+    event: dict[str, object] = {
+        "session_id": "thr_test",
+        "transcript_path": None,
+        "cwd": "/workspace",
+        "hook_event_name": "UserPromptSubmit",
+        "model": "gpt-5",
+        "turn_id": "turn_test",
+        "permission_mode": "default",
+        "prompt": prompt,
+    }
+    event.update(changes)
+    return json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode()
+
+
+def _run(
+    raw: bytes,
+    *,
+    cwd: Path = ROOT,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        COMMAND,
+        input=raw,
+        capture_output=True,
+        cwd=cwd,
+        env=env,
+        check=False,
+        timeout=60,
+    )
+
+
+def _assert_output(result: subprocess.CompletedProcess[bytes], expected: bytes) -> None:
+    assert result.returncode == 0
+    assert result.stdout == expected
+    assert result.stderr == b""
+
+
+def test_safe_prompt_is_byte_for_byte_silent() -> None:
+    _assert_output(_run(_payload("Explain merge sort. Merhaba İstanbul 🌍")), b"")
+
+
+def test_finding_uses_exact_compact_codex_block() -> None:
+    result = _run(_payload("Contact alice@example.com"))
+
+    _assert_output(result, EMAIL_BLOCK)
+    assert b"alice@example.com" not in result.stdout
+
+
+def test_block_reason_escapes_terminal_controls_from_the_prompt() -> None:
+    controls = "\x1b]0;owned\x07\u009b31m"
+    result = _run(_payload(f"Contact alice@example.com{controls}"))
+    reason = json.loads(result.stdout)["reason"]
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert all(character not in reason for character in "\x1b\x07\u009b")
+    assert all(escaped in reason for escaped in (r"\x1b", r"\x07", r"\x9b"))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"",
+        b"{",
+        b"\xff",
+        b"[]",
+        b'{"hook_event_name":"Stop","prompt":"hello"}',
+        b'{"prompt":"hello"}',
+        b'{"hook_event_name":"UserPromptSubmit"}',
+        b'{"hook_event_name":"UserPromptSubmit","prompt":7}',
+        b'{"hook_event_name":"UserPromptSubmit","prompt":"a"} {}',
+        b'{"hook_event_name":"UserPromptSubmit","prompt":"a","prompt":"b"}',
+    ],
+)
+def test_hostile_input_fails_closed(raw: bytes) -> None:
+    _assert_output(_run(raw), GENERIC_BLOCK)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"x" * 1_000_001,
+        _payload("x" * 1_000_000),
+    ],
+    ids=("oversized-bytes", "oversized-text"),
+)
+def test_oversized_input_fails_closed(raw: bytes) -> None:
+    assert len(raw) > 1_000_000
+    _assert_output(_run(raw), GENERIC_BLOCK)
+
+
+def test_block_output_is_bounded_and_contains_no_raw_values() -> None:
+    raw_values = [f"person{index}@example.com" for index in range(50)]
+    result = _run(_payload(" ".join(raw_values)))
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert len(result.stdout) <= 4_096
+    assert json.loads(result.stdout)["decision"] == "block"
+    assert all(value.encode() not in result.stdout for value in raw_values)
+
+
+def test_environment_secret_and_dependency_noise_are_suppressed() -> None:
+    secret = "SHIM_TEST_ENV_SECRET_4f8d1"
+    code = r"""
+import os
+import sys
+import types
+import warnings
+from shim_guard import hook as runner
+
+clients = types.ModuleType("shim_guard.clients")
+clients.__path__ = []
+codex = types.ModuleType("shim_guard.clients.codex")
+codex.__path__ = []
+adapter = types.ModuleType("shim_guard.clients.codex.hook")
+guard = types.ModuleType("shim_guard.guard")
+
+def noisy(label):
+    secret = os.environ["SHIM_TEST_SECRET"]
+    print(label, secret)
+    print(label, secret, file=sys.stderr)
+    os.write(1, (label + " fd1 " + secret).encode())
+    os.write(2, (label + " fd2 " + secret).encode())
+    warnings.warn(label + " warning " + secret)
+
+def parse_input(raw):
+    noisy("parse")
+    return "safe"
+
+def evaluate(prompt):
+    noisy("evaluate")
+    return object()
+
+def block_output(decision):
+    noisy("serialize")
+    return b""
+
+adapter.parse_input = parse_input
+adapter.block_output = block_output
+adapter.error_output = lambda: b"unreachable"
+guard.evaluate = evaluate
+sys.modules.update({
+    "shim_guard.clients": clients,
+    "shim_guard.clients.codex": codex,
+    "shim_guard.clients.codex.hook": adapter,
+    "shim_guard.guard": guard,
+})
+runner.main()
+"""
+    env = os.environ.copy()
+    env["SHIM_TEST_SECRET"] = secret
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=b"{}",
+        capture_output=True,
+        cwd=ROOT,
+        env=env,
+        check=False,
+        timeout=30,
+    )
+
+    _assert_output(result, b"")
+    assert secret.encode() not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("stage", ["detector", "serialization"])
+def test_dependency_errors_use_the_same_generic_block(stage: str) -> None:
+    code = r"""
+import os
+import sys
+import types
+from shim_guard import hook as runner
+
+clients = types.ModuleType("shim_guard.clients")
+clients.__path__ = []
+codex = types.ModuleType("shim_guard.clients.codex")
+codex.__path__ = []
+adapter = types.ModuleType("shim_guard.clients.codex.hook")
+guard = types.ModuleType("shim_guard.guard")
+
+adapter.parse_input = lambda raw: "safe"
+adapter.error_output = lambda: runner._ERROR_OUTPUT
+
+def evaluate(prompt):
+    if os.environ["SHIM_TEST_STAGE"] == "detector":
+        raise RuntimeError(os.environ["SHIM_TEST_SECRET"])
+    return object()
+
+def block_output(decision):
+    if os.environ["SHIM_TEST_STAGE"] == "serialization":
+        raise RuntimeError(os.environ["SHIM_TEST_SECRET"])
+    return b""
+
+adapter.block_output = block_output
+guard.evaluate = evaluate
+sys.modules.update({
+    "shim_guard.clients": clients,
+    "shim_guard.clients.codex": codex,
+    "shim_guard.clients.codex.hook": adapter,
+    "shim_guard.guard": guard,
+})
+runner.main()
+"""
+    env = os.environ.copy()
+    env["SHIM_TEST_STAGE"] = stage
+    env["SHIM_TEST_SECRET"] = "raw-value-must-not-leak"
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=b"{}",
+        capture_output=True,
+        cwd=ROOT,
+        env=env,
+        check=False,
+        timeout=30,
+    )
+
+    _assert_output(result, GENERIC_BLOCK)
+    assert b"raw-value-must-not-leak" not in result.stdout + result.stderr
+
+
+def test_adapter_import_error_uses_the_same_generic_block() -> None:
+    code = r"""
+import builtins
+import os
+from shim_guard import hook as runner
+
+real_import = builtins.__import__
+
+def fail_adapter_import(name, *args, **kwargs):
+    if name == "shim_guard.clients.codex.hook":
+        raise ImportError(os.environ["SHIM_TEST_SECRET"])
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = fail_adapter_import
+runner.main()
+"""
+    env = os.environ.copy()
+    env["SHIM_TEST_SECRET"] = "import-error-must-not-leak"
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=b"{}",
+        capture_output=True,
+        cwd=ROOT,
+        env=env,
+        check=False,
+        timeout=30,
+    )
+
+    _assert_output(result, GENERIC_BLOCK)
+    assert b"import-error-must-not-leak" not in result.stdout + result.stderr
+
+
+def test_hook_processing_deadline_uses_the_generic_block() -> None:
+    code = r"""
+import sys
+import time
+import types
+from shim_guard import hook as runner
+
+clients = types.ModuleType("shim_guard.clients")
+clients.__path__ = []
+codex = types.ModuleType("shim_guard.clients.codex")
+codex.__path__ = []
+adapter = types.ModuleType("shim_guard.clients.codex.hook")
+guard = types.ModuleType("shim_guard.guard")
+adapter.parse_input = lambda raw: "safe"
+adapter.block_output = lambda decision: b""
+adapter.error_output = lambda: runner._ERROR_OUTPUT
+guard.evaluate = lambda prompt: time.sleep(1)
+sys.modules.update({
+    "shim_guard.clients": clients,
+    "shim_guard.clients.codex": codex,
+    "shim_guard.clients.codex.hook": adapter,
+    "shim_guard.guard": guard,
+})
+runner.HOOK_DEADLINE_SECONDS = 0.05
+runner.main()
+"""
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=b"{}",
+        capture_output=True,
+        cwd=ROOT,
+        check=False,
+        timeout=5,
+    )
+
+    _assert_output(result, GENERIC_BLOCK)
+
+
+def test_hook_deadline_includes_waiting_for_stdin_eof() -> None:
+    code = (
+        "from shim_guard import hook as runner; "
+        "runner.HOOK_DEADLINE_SECONDS = 0.05; runner.main()"
+    )
+    process = subprocess.Popen(
+        (sys.executable, "-I", "-B", "-c", code),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=ROOT,
+    )
+    assert process.stdin is not None
+    process.stdin.write(b"{")
+    process.stdin.flush()
+    process.wait(timeout=5)
+    process.stdin.close()
+    assert process.stdout is not None
+    assert process.stderr is not None
+    assert process.returncode == 0
+    assert process.stdout.read() == GENERIC_BLOCK
+    assert process.stderr.read() == b""
+
+
+def test_isolated_mode_ignores_a_hostile_working_directory(tmp_path: Path) -> None:
+    marker = tmp_path / "imported"
+    package = tmp_path / "shim_guard"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('bad')\n"
+    )
+
+    result = _run(_payload("Explain merge sort."), cwd=tmp_path)
+
+    _assert_output(result, b"")
+    assert not marker.exists()
+
+
+def test_hook_does_not_persist_prompt_or_create_cache_files(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    cache = tmp_path / "cache"
+    temporary = tmp_path / "tmp"
+    work = tmp_path / "work"
+    for directory in (home, cache, temporary, work):
+        directory.mkdir()
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "XDG_CACHE_HOME": str(cache),
+            "TMPDIR": str(temporary),
+        }
+    )
+    prompt = "Contact persistence-canary@example.com"
+
+    result = _run(_payload(prompt), cwd=work, env=env)
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert prompt.encode() not in result.stdout
+    assert not [path for path in tmp_path.rglob("*") if path.is_file()]
+
+
+def test_hook_does_not_attempt_network_access() -> None:
+    code = r"""
+import socket
+
+def no_network(*args, **kwargs):
+    raise AssertionError("network access attempted")
+
+socket.socket.connect = no_network
+socket.create_connection = no_network
+socket.getaddrinfo = no_network
+
+from shim_guard import hook
+hook.main()
+"""
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=_payload("Contact alice@example.com"),
+        capture_output=True,
+        cwd=ROOT,
+        check=False,
+        timeout=60,
+    )
+
+    _assert_output(result, EMAIL_BLOCK)
