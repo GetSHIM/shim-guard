@@ -24,8 +24,15 @@ app = typer.Typer(
 
 @app.callback(invoke_without_command=True)
 def root(context: typer.Context) -> None:
+    """Show the next action when no command is provided."""
     if context.invoked_subcommand is None:
-        typer.echo("SHIM Guard — local prompt privacy for Codex. Try: shim demo codex")
+        typer.echo("SHIM Guard — local prompt privacy for Codex. Try: shim help")
+
+
+@app.command()
+def help(context: typer.Context) -> None:
+    """Show command usage and descriptions."""
+    typer.echo(context.find_root().get_help())
 
 
 @app.command()
@@ -33,6 +40,7 @@ def demo(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
+    """Run the local synthetic detector proof."""
     from shim_guard.cli.privacy import demo as run_demo
 
     run_demo(client, as_json=json_output)
@@ -110,6 +118,7 @@ def install(
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
+    """Preview or install the Codex prompt hook."""
     from shim_guard.cli.integrations import install as run_install
 
     run_install(client, dry_run=dry_run, yes=yes)
@@ -119,6 +128,7 @@ def install(
 def status(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
+    """Show the Codex hook installation state."""
     from shim_guard.cli.integrations import status as run_status
 
     run_status(as_json=json_output)
@@ -129,6 +139,7 @@ def doctor(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
+    """Run Codex compatibility and hook health checks."""
     from shim_guard.cli.integrations import doctor as run_doctor
 
     run_doctor(client, as_json=json_output)
@@ -139,6 +150,7 @@ def revert(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
+    """Remove only SHIM Guard's Codex prompt hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
     run_revert(client, yes=yes)

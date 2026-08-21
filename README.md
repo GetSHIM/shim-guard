@@ -21,6 +21,7 @@ The command is `shim`:
 
 ```console
 shim
+shim help
 shim demo codex
 shim config
 shim install codex --dry-run

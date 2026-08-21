@@ -66,6 +66,25 @@ def test_help_remains_readable_at_narrow_terminal_width() -> None:
     assert max(map(len, result.output.splitlines())) <= 20
 
 
+def test_help_command_lists_a_description_for_every_command() -> None:
+    result = runner.invoke(app, ["help"], color=False)
+    descriptions = (
+        "Show command usage and descriptions.",
+        "Run the local synthetic detector proof.",
+        "Scan bounded UTF-8 text from standard input.",
+        "Redact bounded UTF-8 text from standard input.",
+        "Show or change locally enabled sensitive-data entities.",
+        "Preview or install the Codex prompt hook.",
+        "Show the Codex hook installation state.",
+        "Run Codex compatibility and hook health checks.",
+        "Remove only SHIM Guard's Codex prompt hook.",
+    )
+
+    assert result.exit_code == 0
+    assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in result.output
+    assert all(description in result.output for description in descriptions)
+
+
 def test_client_arguments_list_and_enforce_available_value() -> None:
     assert CLIENT_NAMES
     for command in ("demo", "install", "doctor", "revert"):
