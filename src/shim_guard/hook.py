@@ -6,8 +6,10 @@ import contextlib
 import os
 import signal
 import sys
+import tempfile
 import warnings
 from collections.abc import Iterator
+from pathlib import Path
 
 MAX_INPUT_BYTES = 1_000_000
 HOOK_DEADLINE_SECONDS = 25
@@ -60,6 +62,27 @@ def _deadline() -> Iterator[None]:
         signal.signal(signal.SIGALRM, previous)
 
 
+def _write_redacted_prompt(text: str) -> str:
+    stream = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        prefix="shim-guard-redacted-",
+        suffix=".txt",
+        delete=False,
+    )
+    path = Path(stream.name)
+    try:
+        with stream:
+            if not path.is_absolute() or not str(path).isprintable():
+                raise ValueError("temporary suggestion path is invalid")
+            stream.write(text)
+    except Exception:
+        with contextlib.suppress(OSError):
+            path.unlink()
+        raise
+    return str(path)
+
+
 def _output(raw: bytes) -> bytes:
     if len(raw) > MAX_INPUT_BYTES:
         return _ERROR_OUTPUT
@@ -77,7 +100,18 @@ def _output(raw: bytes) -> bytes:
                 from shim_guard.config import load_entities
                 from shim_guard.guard import evaluate
 
-                return block_output(evaluate(prompt, load_entities()))
+                decision = evaluate(prompt, load_entities())
+                if not decision.blocked:
+                    return block_output(decision)
+                suggestion_path = None
+                try:
+                    suggestion_path = _write_redacted_prompt(decision.redacted_text)
+                    return block_output(decision, suggestion_path)
+                except Exception:
+                    if suggestion_path:
+                        with contextlib.suppress(OSError):
+                            Path(suggestion_path).unlink()
+                    raise
             except Exception:
                 return error_output()
     except Exception:

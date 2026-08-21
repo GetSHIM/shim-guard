@@ -39,7 +39,6 @@ ENTITY_MAP = {
     "TR_VKN": "TR_VKN",
     "SECRET": "SECRET",
     "DB_URI": "DB_URI",
-    "FILE_PATH": "FILE_PATH",
 }
 
 _TRAILING_PROSE = ".,;:!?)]}>"
@@ -150,30 +149,14 @@ class SecretRecognizer(EntityRecognizer):
         return results
 
 
-class UriAndPathRecognizer(EntityRecognizer):
-    _PATTERNS = (
-        (
-            "DB_URI",
-            re.compile(
-                r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis(?:s)?|"
-                r"mssql)://[^\s'\"<>]+"
-            ),
-            0.99,
-        ),
-        (
-            "FILE_PATH",
-            re.compile(
-                r"(?<![\w:/])(?:/(?:Users|home|var|etc|opt|srv|tmp)/"
-                r"[^\s,;\"'<>|]+|[A-Za-z]:\\[^\s,;\"'<>|]+)"
-            ),
-            0.85,
-        ),
+class DatabaseUriRecognizer(EntityRecognizer):
+    _PATTERN = re.compile(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis(?:s)?|"
+        r"mssql)://[^\s'\"<>]+"
     )
 
     def __init__(self) -> None:
-        super().__init__(
-            supported_entities=["DB_URI", "FILE_PATH"], supported_language=LANGUAGE
-        )
+        super().__init__(supported_entities=["DB_URI"], supported_language=LANGUAGE)
 
     def load(self) -> None:
         pass
@@ -184,16 +167,14 @@ class UriAndPathRecognizer(EntityRecognizer):
         entities: list[str],
         nlp_artifacts: NlpArtifacts | None,
     ) -> list[RecognizerResult]:
-        enabled = frozenset(entities)
+        if "DB_URI" not in entities:
+            return []
         results: list[RecognizerResult] = []
-        for entity_type, pattern, score in self._PATTERNS:
-            if entity_type not in enabled:
-                continue
-            for match in pattern.finditer(text):
-                start, end = match.span()
-                end = _trim_trailing_prose(text, start, end)
-                if start < end:
-                    results.append(RecognizerResult(entity_type, start, end, score))
+        for match in self._PATTERN.finditer(text):
+            start, end = match.span()
+            end = _trim_trailing_prose(text, start, end)
+            if start < end:
+                results.append(RecognizerResult("DB_URI", start, end, 0.99))
         return results
 
 
@@ -267,7 +248,7 @@ def analyzer() -> AnalyzerEngine:
             TrNationalIdRecognizer(supported_language=LANGUAGE),
             TurkishTaxIdRecognizer(),
             SecretRecognizer(),
-            UriAndPathRecognizer(),
+            DatabaseUriRecognizer(),
         ],
         supported_languages=[LANGUAGE],
     )

@@ -18,5 +18,6 @@ advisory.
 ## Scope notes
 
 The hook is a local best-effort guard, not an enforcement boundary. A report
-involving prompt leakage, unsafe hook output, unexpected persistence or network
-access, installer ownership failures, or a fail-open path is in scope.
+involving prompt leakage, unsafe hook output, persistence beyond the documented
+private redaction file in OS temporary storage, network access, installer
+ownership failures, or a fail-open path is in scope.

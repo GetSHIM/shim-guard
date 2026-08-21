@@ -16,7 +16,6 @@ def test_entity_settings_default_preset_and_round_trip_a_selection(
     target = tmp_path / "shim-guard" / "config.toml"
 
     assert load_entities(target) == DEFAULT_ENTITIES
-    assert "FILE_PATH" not in DEFAULT_ENTITIES
 
     target.parent.mkdir()
     target.write_bytes(render_entities(("SECRET", "EMAIL")))

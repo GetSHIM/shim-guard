@@ -30,7 +30,6 @@ _PRIORITY = {
     "IP_ADDRESS": 40,
     "EMAIL": 30,
     "PHONE": 20,
-    "FILE_PATH": 10,
 }
 
 

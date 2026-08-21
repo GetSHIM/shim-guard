@@ -4,19 +4,28 @@
 
 ```text
 Codex prompt -> trusted SHIM command hook -> in-memory offline detector
-           <- empty success | native stop response with categories and typed suggestion
+           <- empty success | native stop response with categories and file path
+                                      |
+                                      -> 0600 typed redaction in OS temporary storage
 ```
 
 The hook reads the submitted-prompt fields needed for the native contract. It
-does not send prompt data to SHIM, write it to disk, keep history, or create a
-replacement map. Safe input produces exactly empty stdout and stderr. A
-supported finding or handled hook error returns the tested native blocking
-response without raw detected values.
+does not send prompt data to SHIM, keep history, or create a replacement map.
+Safe input produces exactly empty stdout and stderr. For a supported finding,
+the hook writes one typed redaction to a `0600` file in the operating system's
+temporary directory and returns a tested native block containing its absolute
+path. A handled hook error returns the generic block and leaves no suggestion
+file. The raw prompt and detected raw values are not written by SHIM.
+
+The temporary redaction remains until the user deletes it or the operating
+system cleans temporary storage. It can still contain sensitive content the
+detector missed, so users must review it before resubmission and delete it when
+finished.
 
 Users may enable or disable public entity types with `shim config`. The default
-preset enables all except the stricter `FILE_PATH` detector. The local settings
-file contains entity names only. An invalid or unsafe settings file causes the
-hook to return its generic block rather than silently ignoring the policy.
+preset enables all supported types. The local settings file contains entity
+names only. An invalid or unsafe settings file causes the hook to return its
+generic block rather than silently ignoring the policy.
 
 ## Outside SHIM's boundary
 
@@ -36,5 +45,5 @@ isolation boundary against a malicious process already running as the same OS
 user. Such a process has equivalent authority over user-scoped Codex files and
 can race POSIX pathname operations despite advisory locking.
 
-Review every suggested redaction before resubmission. The detector can miss
+Review every temporary redaction before resubmission. The detector can miss
 sensitive content.

@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import platform
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -14,13 +16,13 @@ SAFE_INPUT = b'{"hook_event_name":"UserPromptSubmit","prompt":"Explain merge sor
 BLOCK_INPUT = (
     b'{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}'
 )
-BLOCK_OUTPUT = (
-    b'{"decision":"block","reason":"SHIM Guard blocked this prompt: EMAIL (1).'
-    b'\\nReview and resubmit this typed redacted suggestion:\\nContact <EMAIL_1>"}'
-)
 HOOK_COMMAND = ("-I", "-B", "-m", "shim_guard.hook")
 HOOK_TIMEOUT_SECONDS = 35
 DEFAULT_P95_CEILING_MS = 5_000.0
+PATH_INSTRUCTION = (
+    "Paste this file path as your next prompt. Review the file first; "
+    "detection can miss sensitive data."
+)
 
 
 def percentile(samples: list[float], fraction: float) -> float:
@@ -38,7 +40,34 @@ def summary(samples: list[float]) -> dict[str, float]:
     }
 
 
-def run_hook(python: Path, payload: bytes, expected: bytes, raw: bytes) -> float:
+def _valid_block(output: bytes, temporary: Path) -> bool:
+    try:
+        document = json.loads(output)
+        lines = document["reason"].splitlines()
+        path = Path(lines[2])
+        return (
+            document["decision"] == "block"
+            and lines[:2]
+            == [
+                "SHIM Guard blocked this prompt: EMAIL (1).",
+                "Redacted prompt saved to:",
+            ]
+            and len(lines) == 4
+            and lines[3] == PATH_INSTRUCTION
+            and path.parent == temporary
+            and path.read_bytes() == b"Contact <EMAIL_1>"
+        )
+    except (AttributeError, IndexError, KeyError, OSError, TypeError, ValueError):
+        return False
+
+
+def run_hook(
+    python: Path,
+    payload: bytes,
+    expected: bytes | None,
+    raw: bytes,
+    environment: dict[str, str],
+) -> float:
     started = time.perf_counter()
     try:
         result = subprocess.run(
@@ -46,14 +75,20 @@ def run_hook(python: Path, payload: bytes, expected: bytes, raw: bytes) -> float
             input=payload,
             capture_output=True,
             check=False,
+            env=environment,
             timeout=HOOK_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise RuntimeError("hook benchmark could not run") from error
     elapsed_ms = (time.perf_counter() - started) * 1_000
+    matches = (
+        result.stdout == expected
+        if expected is not None
+        else _valid_block(result.stdout, Path(environment["TMPDIR"]))
+    )
     if (
         result.returncode != 0
-        or result.stdout != expected
+        or not matches
         or result.stderr
         or (raw and raw in result.stdout + result.stderr)
     ):
@@ -84,11 +119,22 @@ def benchmark(
         raise ValueError("samples and p95 ceiling must be positive")
     safe_samples: list[float] = []
     block_samples: list[float] = []
-    for _ in range(samples_per_fixture):
-        safe_samples.append(run_hook(python, SAFE_INPUT, b"", b""))
-        block_samples.append(
-            run_hook(python, BLOCK_INPUT, BLOCK_OUTPUT, b"alice@example.com")
-        )
+    with tempfile.TemporaryDirectory(prefix="shim-guard-benchmark-") as directory:
+        temporary = Path(directory).resolve()
+        environment = os.environ.copy()
+        environment["SHIM_GUARD_CONFIG"] = str(temporary / "config.toml")
+        environment["TMPDIR"] = str(temporary)
+        for _ in range(samples_per_fixture):
+            safe_samples.append(run_hook(python, SAFE_INPUT, b"", b"", environment))
+            block_samples.append(
+                run_hook(
+                    python,
+                    BLOCK_INPUT,
+                    None,
+                    b"alice@example.com",
+                    environment,
+                )
+            )
     timings = {"safe": summary(safe_samples), "block": summary(block_samples)}
     if any(values["p95_ms"] > p95_ceiling_ms for values in timings.values()):
         raise RuntimeError("hook benchmark exceeded the p95 ceiling")

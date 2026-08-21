@@ -3,7 +3,7 @@
   "corpus": {
     "file": "guard-v1.json",
     "version": 1,
-    "case_count": 30
+    "case_count": 27
   },
   "evaluation_unit": "case-category presence",
   "claim_scope": "Synthetic fixture-bound evidence only; not a real-world statistical claim.",
@@ -16,7 +16,7 @@
       "true_positive": 3,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 27,
+      "negative_cases": 24,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -24,7 +24,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -32,7 +32,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -40,7 +40,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -48,7 +48,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -56,7 +56,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -64,7 +64,7 @@
       "true_positive": 2,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 28,
+      "negative_cases": 25,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -72,7 +72,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -80,7 +80,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -88,7 +88,7 @@
       "true_positive": 1,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 29,
+      "negative_cases": 26,
       "precision": 1.0,
       "recall": 1.0
     },
@@ -96,24 +96,16 @@
       "true_positive": 2,
       "false_positive": 0,
       "false_negative": 0,
-      "negative_cases": 28,
-      "precision": 1.0,
-      "recall": 1.0
-    },
-    "FILE_PATH": {
-      "true_positive": 2,
-      "false_positive": 0,
-      "false_negative": 0,
-      "negative_cases": 28,
+      "negative_cases": 25,
       "precision": 1.0,
       "recall": 1.0
     }
   },
   "micro": {
-    "true_positive": 17,
+    "true_positive": 15,
     "false_positive": 0,
     "false_negative": 0,
-    "negative_cases": 343,
+    "negative_cases": 282,
     "precision": 1.0,
     "recall": 1.0
   }

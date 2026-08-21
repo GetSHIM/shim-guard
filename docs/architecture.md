@@ -1,7 +1,9 @@
 # Architecture
 
-SHIM Guard is one stateless Python distribution. The CLI is a management and
-local-inspection interface; the Codex hook is the prompt path.
+SHIM Guard is one local Python distribution. The CLI is a management and
+local-inspection interface; the Codex hook is the prompt path. It has no daemon,
+history, or service state and creates one temporary redaction per supported
+block.
 
 ```text
 shim config -> guarded local entity policy
@@ -9,25 +11,25 @@ shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
 
 Codex UserPromptSubmit -> hook adapter -> policy -> detector
-                       -> allow | native block
+                       -> allow | 0600 temporary redaction -> native block with path
 shim install/status/doctor/revert -> guarded merge/revert -> Codex hooks.json
 ```
 
 The detector is functional and offline. It normalizes input once, validates
 bounded findings against a selected subset of the fixed entity allowlist,
 resolves spans deterministically, and produces typed ordinal placeholders. The
-hook owns only stdin/stdout/stderr and the Codex protocol. Installation owns
-only SHIM's matcher-group and entity-policy planning plus guarded filesystem
-I/O. Install creates an absent `hooks.json`, or preserves a valid document and
-appends SHIM's exact matcher group last after informing the user. Revert removes
-only that exact group and retains the document even when empty. Both operations
-are idempotent.
+hook owns stdin/stdout/stderr, the Codex protocol, and its per-block temporary
+redaction file. Installation owns only SHIM's matcher-group and entity-policy
+planning plus guarded filesystem I/O. Install creates an absent `hooks.json`,
+or preserves a valid document and appends SHIM's exact matcher group last after
+informing the user. Revert removes only that exact group and retains the
+document even when empty. Both operations are idempotent.
 
-The local TOML policy defaults to every public entity except the opt-in
-`FILE_PATH` detector. The CLI and hook validate it through the same bounded,
-no-symlink file inspection path; the detector itself remains pure and receives
-the enabled tuple explicitly. Malformed or unsafe policy files fail closed.
-Configuration stores entity names only—never prompt-derived data.
+The local TOML policy defaults to every public entity. The CLI and hook validate
+it through the same bounded, no-symlink file inspection path; the detector
+itself remains pure and receives the enabled tuple explicitly. Malformed or
+unsafe policy files fail closed. Configuration stores entity names only—never
+prompt-derived data.
 
 Inline `config.toml` hooks remain untouched and may coexist with `hooks.json`
 with a Codex warning. Malformed or ambiguous hook documents and unsafe or

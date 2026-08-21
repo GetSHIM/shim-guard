@@ -306,6 +306,7 @@ def _runner_check() -> Check:
             environment["SHIM_GUARD_CONFIG"] = str(
                 Path(directory).resolve() / "config.toml"
             )
+            environment["TMPDIR"] = directory
             safe_result = subprocess.run(
                 command,
                 input=safe,

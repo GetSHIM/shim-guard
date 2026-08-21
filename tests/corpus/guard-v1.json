@@ -11,8 +11,7 @@
     "TR_NATIONAL_ID",
     "TR_VKN",
     "SECRET",
-    "DB_URI",
-    "FILE_PATH"
+    "DB_URI"
   ],
   "cases": [
     {
@@ -132,17 +131,6 @@
       "categories": []
     },
     {
-      "id": "file-path-positive",
-      "text": "Read /Users/alice/private/key.pem, then continue",
-      "categories": ["FILE_PATH"],
-      "redacted": "Read <FILE_PATH_1>, then continue"
-    },
-    {
-      "id": "file-path-safe-negative",
-      "text": "Read project/src/main.py from the repository",
-      "categories": []
-    },
-    {
       "id": "percent-normalization",
       "text": "Contact alice%40example.com",
       "categories": ["EMAIL"],
@@ -165,12 +153,6 @@
       "text": "SSN 219-09-9999",
       "categories": ["US_SSN"],
       "redacted": "SSN <US_SSN_1>"
-    },
-    {
-      "id": "windows-path-punctuation-regression",
-      "text": "Open C:\\Users\\alice\\secret.txt; then continue",
-      "categories": ["FILE_PATH"],
-      "redacted": "Open <FILE_PATH_1>; then continue"
     }
   ],
   "generated_cases": [

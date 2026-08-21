@@ -129,7 +129,7 @@ def test_config_selects_entities_for_privacy_commands(
     target = _guard_config(monkeypatch, tmp_path)
 
     initial = runner.invoke(app, ["config"], color=False)
-    default_path_scan = runner.invoke(
+    path_scan = runner.invoke(
         app,
         ["scan", "--json"],
         input="Read /Users/alice/.ssh/id_rsa, then continue",
@@ -152,11 +152,11 @@ def test_config_selects_entities_for_privacy_commands(
     )
     final = runner.invoke(app, ["config", "--json"])
 
-    assert default_path_scan.exit_code == 0
-    assert json.loads(default_path_scan.output)["status"] == "safe"
+    assert path_scan.exit_code == 0
+    assert json.loads(path_scan.output)["status"] == "safe"
     assert initial.exit_code == saved.exit_code == current.exit_code == 0
     assert adjusted.exit_code == final.exit_code == 0
-    assert "Current detection: 11/12 enabled" in initial.output
+    assert "Current detection: 11/11 enabled" in initial.output
     assert "ON" in saved.output and "OFF" in saved.output
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
     assert json.loads(scan.output)["counts"] == {"EMAIL": 1}

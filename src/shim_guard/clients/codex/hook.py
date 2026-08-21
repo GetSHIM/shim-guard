@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -78,31 +79,23 @@ def _summary(counts: Iterable[tuple[str, int]]) -> str:
     return f"SHIM Guard blocked this prompt: {rendered}."
 
 
-def _display_text(text: str) -> str:
-    return "".join(
-        character
-        if character in "\n\t" or character.isprintable()
-        else character.encode("unicode_escape").decode("ascii")
-        for character in text
-    )
-
-
-def block_output(decision: GuardDecision) -> bytes:
+def block_output(decision: GuardDecision, suggestion_path: str | None = None) -> bytes:
     """Serialize a Guard decision using Codex's native block shape."""
     if not decision.blocked:
         return b""
-    summary = _summary(decision.counts)
-    with_suggestion = (
-        f"{summary}\nReview and resubmit this typed redacted suggestion:\n"
-        f"{_display_text(decision.redacted_text)}"
-    )
-    if len(with_suggestion) <= MAX_REASON_CHARS:
-        try:
-            return _json_block(with_suggestion)
-        except ValueError:
-            pass
+    if not isinstance(suggestion_path, str) or not suggestion_path:
+        raise ValueError("Codex suggestion path is invalid")
+    path = Path(suggestion_path)
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or not suggestion_path.isprintable()
+    ):
+        raise ValueError("Codex suggestion path is invalid")
     return _json_block(
-        f"{summary} Run `shim redact` to create a typed redacted suggestion."
+        f"{_summary(decision.counts)}\nRedacted prompt saved to:\n{suggestion_path}\n"
+        "Paste this file path as your next prompt. Review the file first; "
+        "detection can miss sensitive data."
     )
 
 

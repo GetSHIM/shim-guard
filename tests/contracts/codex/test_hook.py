@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -14,9 +15,9 @@ GENERIC_BLOCK = (
     b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
     b'prompt. Try again or run `shim scan` locally."}'
 )
-EMAIL_BLOCK = (
-    b'{"decision":"block","reason":"SHIM Guard blocked this prompt: EMAIL (1).'
-    b'\\nReview and resubmit this typed redacted suggestion:\\nContact <EMAIL_1>"}'
+PATH_INSTRUCTION = (
+    "Paste this file path as your next prompt. Review the file first; "
+    "detection can miss sensitive data."
 )
 
 
@@ -58,15 +59,36 @@ def _assert_output(result: subprocess.CompletedProcess[bytes], expected: bytes) 
     assert result.stderr == b""
 
 
+def _suggestion_path(result: subprocess.CompletedProcess[bytes], summary: str) -> Path:
+    assert result.returncode == 0
+    assert result.stderr == b""
+    document = json.loads(result.stdout)
+    assert document["decision"] == "block"
+    reason = document["reason"]
+    lines = reason.splitlines()
+    assert len(lines) == 4
+    assert lines[:2] == [summary, "Redacted prompt saved to:"]
+    assert lines[3] == PATH_INSTRUCTION
+    path = Path(lines[2])
+    assert path.is_absolute()
+    assert path.is_file()
+    return path
+
+
 def test_safe_prompt_is_byte_for_byte_silent() -> None:
     _assert_output(_run(_payload("Explain merge sort. Merhaba İstanbul 🌍")), b"")
 
 
-def test_finding_uses_exact_compact_codex_block() -> None:
-    result = _run(_payload("Contact alice@example.com"))
+def test_finding_writes_a_secure_redacted_prompt(tmp_path: Path) -> None:
+    environment = os.environ.copy()
+    environment["TMPDIR"] = str(tmp_path)
+    result = _run(_payload("Contact alice@example.com"), env=environment)
+    path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
 
-    _assert_output(result, EMAIL_BLOCK)
     assert b"alice@example.com" not in result.stdout
+    assert path.parent == tmp_path
+    assert path.read_text() == "Contact <EMAIL_1>"
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 def test_hook_honors_entity_settings_and_rejects_invalid_settings(
@@ -79,25 +101,29 @@ def test_hook_honors_entity_settings_and_rejects_invalid_settings(
     target.write_bytes(render_entities(("PHONE",)))
     environment = os.environ.copy()
     environment["SHIM_GUARD_CONFIG"] = str(target)
+    environment["TMPDIR"] = str(tmp_path)
 
     _assert_output(_run(_payload("Contact alice@example.com"), env=environment), b"")
     phone = _run(_payload("Call +90 532 123 45 67"), env=environment)
-    assert json.loads(phone.stdout)["decision"] == "block"
-    assert b"PHONE" in phone.stdout
+    path = _suggestion_path(phone, "SHIM Guard blocked this prompt: PHONE (1).")
+    assert path.read_text() == "Call <PHONE_1>"
 
     target.write_bytes(b"invalid")
     _assert_output(_run(_payload("Explain merge sort"), env=environment), GENERIC_BLOCK)
 
 
-def test_block_reason_escapes_terminal_controls_from_the_prompt() -> None:
+def test_block_reason_excludes_terminal_controls_from_the_prompt(
+    tmp_path: Path,
+) -> None:
     controls = "\x1b]0;owned\x07\u009b31m"
-    result = _run(_payload(f"Contact alice@example.com{controls}"))
+    environment = os.environ.copy()
+    environment["TMPDIR"] = str(tmp_path)
+    result = _run(_payload(f"Contact alice@example.com{controls}"), env=environment)
     reason = json.loads(result.stdout)["reason"]
 
     assert result.returncode == 0
     assert result.stderr == b""
     assert all(character not in reason for character in "\x1b\x07\u009b")
-    assert all(escaped in reason for escaped in (r"\x1b", r"\x07", r"\x9b"))
 
 
 @pytest.mark.parametrize(
@@ -132,15 +158,16 @@ def test_oversized_input_fails_closed(raw: bytes) -> None:
     _assert_output(_run(raw), GENERIC_BLOCK)
 
 
-def test_block_output_is_bounded_and_contains_no_raw_values() -> None:
+def test_block_output_is_bounded_and_contains_no_raw_values(tmp_path: Path) -> None:
     raw_values = [f"person{index}@example.com" for index in range(50)]
-    result = _run(_payload(" ".join(raw_values)))
+    environment = os.environ.copy()
+    environment["TMPDIR"] = str(tmp_path)
+    result = _run(_payload(" ".join(raw_values)), env=environment)
+    path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (50).")
 
-    assert result.returncode == 0
-    assert result.stderr == b""
     assert len(result.stdout) <= 4_096
-    assert json.loads(result.stdout)["decision"] == "block"
     assert all(value.encode() not in result.stdout for value in raw_values)
+    assert all(value not in path.read_text() for value in raw_values)
 
 
 def test_environment_secret_and_dependency_noise_are_suppressed() -> None:
@@ -173,9 +200,9 @@ def parse_input(raw):
 
 def evaluate(prompt, enabled_entities):
     noisy("evaluate")
-    return object()
+    return types.SimpleNamespace(blocked=False)
 
-def block_output(decision):
+def block_output(decision, suggestion_path=None):
     noisy("serialize")
     return b""
 
@@ -208,7 +235,9 @@ runner.main()
 
 
 @pytest.mark.parametrize("stage", ["detector", "serialization"])
-def test_dependency_errors_use_the_same_generic_block(stage: str) -> None:
+def test_dependency_errors_use_the_same_generic_block(
+    stage: str, tmp_path: Path
+) -> None:
     code = r"""
 import os
 import sys
@@ -228,9 +257,9 @@ adapter.error_output = lambda: runner._ERROR_OUTPUT
 def evaluate(prompt, enabled_entities):
     if os.environ["SHIM_TEST_STAGE"] == "detector":
         raise RuntimeError(os.environ["SHIM_TEST_SECRET"])
-    return object()
+    return types.SimpleNamespace(blocked=True, redacted_text="redacted")
 
-def block_output(decision):
+def block_output(decision, suggestion_path=None):
     if os.environ["SHIM_TEST_STAGE"] == "serialization":
         raise RuntimeError(os.environ["SHIM_TEST_SECRET"])
     return b""
@@ -248,6 +277,8 @@ runner.main()
     env = os.environ.copy()
     env["SHIM_TEST_STAGE"] = stage
     env["SHIM_TEST_SECRET"] = "raw-value-must-not-leak"
+    env["SHIM_GUARD_CONFIG"] = str(tmp_path / "config.toml")
+    env["TMPDIR"] = str(tmp_path)
     result = subprocess.run(
         (sys.executable, "-I", "-B", "-c", code),
         input=b"{}",
@@ -260,6 +291,7 @@ runner.main()
 
     _assert_output(result, GENERIC_BLOCK)
     assert b"raw-value-must-not-leak" not in result.stdout + result.stderr
+    assert not list(tmp_path.iterdir())
 
 
 def test_adapter_import_error_uses_the_same_generic_block() -> None:
@@ -308,9 +340,9 @@ codex.__path__ = []
 adapter = types.ModuleType("shim_guard.clients.codex.hook")
 guard = types.ModuleType("shim_guard.guard")
 adapter.parse_input = lambda raw: "safe"
-adapter.block_output = lambda decision: b""
+adapter.block_output = lambda decision, suggestion_path=None: b""
 adapter.error_output = lambda: runner._ERROR_OUTPUT
-guard.evaluate = lambda prompt: time.sleep(1)
+guard.evaluate = lambda prompt, enabled_entities: time.sleep(1)
 sys.modules.update({
     "shim_guard.clients": clients,
     "shim_guard.clients.codex": codex,
@@ -370,7 +402,7 @@ def test_isolated_mode_ignores_a_hostile_working_directory(tmp_path: Path) -> No
     assert not marker.exists()
 
 
-def test_hook_does_not_persist_prompt_or_create_cache_files(tmp_path: Path) -> None:
+def test_hook_persists_only_the_redacted_prompt_in_os_temp(tmp_path: Path) -> None:
     home = tmp_path / "home"
     cache = tmp_path / "cache"
     temporary = tmp_path / "tmp"
@@ -388,14 +420,16 @@ def test_hook_does_not_persist_prompt_or_create_cache_files(tmp_path: Path) -> N
     prompt = "Contact persistence-canary@example.com"
 
     result = _run(_payload(prompt), cwd=work, env=env)
+    path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
+    files = [item for item in tmp_path.rglob("*") if item.is_file()]
 
-    assert result.returncode == 0
-    assert result.stderr == b""
     assert prompt.encode() not in result.stdout
-    assert not [path for path in tmp_path.rglob("*") if path.is_file()]
+    assert files == [path]
+    assert path.read_text() == "Contact <EMAIL_1>"
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
-def test_hook_does_not_attempt_network_access() -> None:
+def test_hook_does_not_attempt_network_access(tmp_path: Path) -> None:
     code = r"""
 import socket
 
@@ -409,13 +443,17 @@ socket.getaddrinfo = no_network
 from shim_guard import hook
 hook.main()
 """
+    environment = os.environ.copy()
+    environment["TMPDIR"] = str(tmp_path)
     result = subprocess.run(
         (sys.executable, "-I", "-B", "-c", code),
         input=_payload("Contact alice@example.com"),
         capture_output=True,
         cwd=ROOT,
+        env=environment,
         check=False,
         timeout=60,
     )
 
-    _assert_output(result, EMAIL_BLOCK)
+    path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
+    assert path.read_text() == "Contact <EMAIL_1>"

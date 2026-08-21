@@ -2,7 +2,7 @@
 
 SHIM Guard is a local, Codex-first pre-submit prompt guard for common sensitive
 values. It scans a submitted prompt in the hook process and either stays silent
-or asks Codex to stop before submission with a typed redaction suggestion.
+or asks Codex to stop and saves a typed redaction for easy resubmission.
 
 It is an alpha. Treat the compatibility and release gates below as part of the
 product boundary.
@@ -53,28 +53,30 @@ submitted prompt
   -> Codex invokes the local SHIM hook
   -> bounded offline detector evaluates the prompt in memory
   -> safe: exit 0 with empty stdout and stderr
-  -> finding or handled guard error: native Codex stop response
+  -> finding: write a private temporary redaction and return its path
+  -> handled guard error: native Codex stop response
 ```
 
 The hook does not require a SHIM account, API key, network request, daemon,
-telemetry, prompt log, finding log, suggestion store, or replacement map.
-Detected raw values are not included in SHIM's hook messages. Redactions are
+telemetry, prompt log, finding log, or replacement map. For each supported
+finding, it creates one `0600` redacted text file in the operating system's
+temporary directory and puts only its absolute path in the block response.
+Paste that path as the next prompt so Codex can read the redaction. Detected raw
+values are not included in SHIM's hook messages or that file. Redactions are
 typed and ordinal, for example `<EMAIL_1>`.
 
 The initial public entity allowlist is:
 
 `EMAIL`, `PHONE`, `CREDIT_CARD`, `SECRET`, `US_SSN`, `IP_ADDRESS`,
-`MAC_ADDRESS`, `DB_URI`, `FILE_PATH`, `TR_NATIONAL_ID`, `TR_VKN`, and `IBAN`.
+`MAC_ADDRESS`, `DB_URI`, `TR_NATIONAL_ID`, `TR_VKN`, and `IBAN`.
 
-The default preset enables every entity except `FILE_PATH`, which is opt-in to
-avoid noisy path matches in coding workflows. `shim config` shows an explicit
-`ON` or `OFF` state for each entity. Changes are previewed before they are
-saved:
+The default preset enables every supported entity. `shim config` shows an
+explicit `ON` or `OFF` state for each entity. Changes are previewed before they
+are saved:
 
 ```console
 shim config --only EMAIL --only SECRET
 shim config --disable IP_ADDRESS --disable MAC_ADDRESS
-shim config --enable FILE_PATH
 shim config --enable PHONE
 shim config --reset
 ```
@@ -89,7 +91,7 @@ paths remain untouched for manual review. Selecting no entities is allowed but
 shown as a warning.
 
 `guard-v1-metrics.json` reports 100% synthetic case-category precision and
-recall across its 30 fixtures, with a positive and targeted safe negative for
+recall across its 27 fixtures, with a positive and targeted safe negative for
 each category. That narrow fixture-bound result is not a real-world statistical
 guarantee.
 
@@ -109,7 +111,9 @@ of every sensitive value.
 - Users can intentionally disable individual entity detectors, including all
   of them. `shim config` shows the active policy.
 - A redacted suggestion can still contain content the detector missed. Review
-  it before sending.
+  the temporary file before sending it, then delete it when it is no longer
+  needed. Otherwise it remains until the user or operating system cleans the
+  temporary directory.
 - SHIM does not claim secure memory erasure in Python and does not inspect
   files, tool output, transcript content, images, audio, clipboard history, or
   unsupported client events.

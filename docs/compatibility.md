@@ -20,9 +20,9 @@ claim or an implementation target.
 
 ## Development evidence
 
-The versioned `guard-v1` corpus contains 30 exact category-set cases. Its
+The versioned `guard-v1` corpus contains 27 exact category-set cases. Its
 published metrics report 100% synthetic case-category precision and recall;
-every one of the 12 implementation categories has at least one positive and
+every one of the 11 implementation categories has at least one positive and
 one targeted safe negative. This is deterministic, fixture-bound contract
 evidence—not a real-world statistical guarantee.
 

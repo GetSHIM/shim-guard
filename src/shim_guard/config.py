@@ -19,9 +19,8 @@ ENTITY_TYPES = (
     "TR_VKN",
     "SECRET",
     "DB_URI",
-    "FILE_PATH",
 )
-DEFAULT_ENTITIES = tuple(entity for entity in ENTITY_TYPES if entity != "FILE_PATH")
+DEFAULT_ENTITIES = ENTITY_TYPES
 MAX_CONFIG_BYTES = 16_384
 
 

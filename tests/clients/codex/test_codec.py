@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 
 import pytest
@@ -54,33 +53,32 @@ def test_safe_decision_emits_nothing() -> None:
 
 def test_block_is_exact_compact_native_json() -> None:
     output = block_output(
-        Decision(True, (("EMAIL", 1), ("SECRET", 2)), "Email <EMAIL_1>; <SECRET_1>")
+        Decision(True, (("EMAIL", 1), ("SECRET", 2))),
+        "/tmp/shim-guard-redacted-test.txt",
     )
     assert output == (
         b'{"decision":"block","reason":"SHIM Guard blocked this prompt: '
-        b"EMAIL (1), SECRET (2).\\nReview and resubmit this typed redacted "
-        b'suggestion:\\nEmail <EMAIL_1>; <SECRET_1>"}'
+        b"EMAIL (1), SECRET (2).\\nRedacted prompt saved to:\\n"
+        b"/tmp/shim-guard-redacted-test.txt\\nPaste this file path as your next "
+        b'prompt. Review the file first; detection can miss sensitive data."}'
     )
 
 
-def test_oversized_suggestion_is_not_emitted() -> None:
-    output = block_output(Decision(True, (("SECRET", 1),), "x" * MAX_REASON_CHARS))
-    decoded = json.loads(output)
-    assert decoded == {
-        "decision": "block",
-        "reason": (
-            "SHIM Guard blocked this prompt: SECRET (1). "
-            "Run `shim redact` to create a typed redacted suggestion."
-        ),
-    }
-    assert len(decoded["reason"]) <= MAX_REASON_CHARS
-    assert "x" not in decoded["reason"]
+@pytest.mark.parametrize(
+    "path",
+    [None, "relative.txt", "/tmp/../unsafe.txt", "/tmp/unsafe\x1b.txt"],
+)
+def test_block_rejects_unsafe_suggestion_paths(path: str | None) -> None:
+    with pytest.raises(ValueError, match="path"):
+        block_output(Decision(True, (("SECRET", 1),)), path)
 
-    unicode_output = block_output(
-        Decision(True, (("SECRET", 1),), "😀" * (MAX_OUTPUT_BYTES // 2))
-    )
-    assert len(unicode_output) <= MAX_OUTPUT_BYTES
-    assert "😀" not in json.loads(unicode_output)["reason"]
+
+def test_block_output_remains_bounded() -> None:
+    with pytest.raises(ValueError, match="4,000"):
+        block_output(Decision(True, (("SECRET", 1),)), "/" + "x" * MAX_REASON_CHARS)
+
+    output = block_output(Decision(True, (("SECRET", 1),)), "/tmp/prompt.txt")
+    assert len(output) <= MAX_OUTPUT_BYTES
 
 
 def test_error_block_is_generic_and_compact() -> None:
