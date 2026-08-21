@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
+from shim_guard.clients import CLIENT_NAMES
 
 runner = CliRunner()
 
@@ -57,6 +58,18 @@ def test_help_remains_readable_at_narrow_terminal_width() -> None:
     assert "Usage:" in result.output
     assert "Commands" in result.output
     assert max(map(len, result.output.splitlines())) <= 20
+
+
+def test_client_arguments_list_and_enforce_available_value() -> None:
+    assert CLIENT_NAMES
+    for command in ("demo", "install", "doctor", "revert"):
+        help_result = runner.invoke(app, [command, "--help"], color=False)
+        invalid_result = runner.invoke(app, [command, "other"], color=False)
+
+        assert help_result.exit_code == 0
+        assert all(name in help_result.output for name in CLIENT_NAMES)
+        assert invalid_result.exit_code == 2
+        assert all(repr(name) in invalid_result.output for name in CLIENT_NAMES)
 
 
 def test_privacy_stdin_json_and_no_color(monkeypatch) -> None:

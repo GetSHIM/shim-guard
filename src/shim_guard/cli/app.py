@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+from typing import Annotated
+
 import typer
+
+from shim_guard.clients import CLIENT_NAMES
+
+Client = StrEnum("Client", {name.upper(): name for name in CLIENT_NAMES})
+
 
 app = typer.Typer(
     name="shim",
@@ -20,7 +28,7 @@ def root(context: typer.Context) -> None:
 
 @app.command()
 def demo(
-    client: str = typer.Argument(..., metavar="CLIENT"),
+    client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
     from shim_guard.cli.privacy import demo as run_demo
@@ -50,7 +58,7 @@ def redact(
 
 @app.command()
 def install(
-    client: str = typer.Argument(..., metavar="CLIENT"),
+    client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
@@ -70,7 +78,7 @@ def status(
 
 @app.command()
 def doctor(
-    client: str = typer.Argument(..., metavar="CLIENT"),
+    client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
     from shim_guard.cli.integrations import doctor as run_doctor
@@ -80,7 +88,7 @@ def doctor(
 
 @app.command()
 def revert(
-    client: str = typer.Argument(..., metavar="CLIENT"),
+    client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
     from shim_guard.cli.integrations import revert as run_revert
