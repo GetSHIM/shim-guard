@@ -11,7 +11,7 @@ shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
 
 Codex UserPromptSubmit -> hook adapter -> policy -> detector
-                       -> allow | 0600 temporary redaction -> native block with path
+                       -> allow | 0600 temporary redaction -> block with read instruction
 shim install/status/doctor/revert -> guarded merge/revert -> Codex hooks.json
 ```
 

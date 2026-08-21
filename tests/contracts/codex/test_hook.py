@@ -15,10 +15,8 @@ GENERIC_BLOCK = (
     b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
     b'prompt. Try again or run `shim scan` locally."}'
 )
-PATH_INSTRUCTION = (
-    "Paste this file path as your next prompt. Review the file first; "
-    "detection can miss sensitive data."
-)
+COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
+REVIEW_INSTRUCTION = "Review the file first; detection can miss sensitive data."
 
 
 def _payload(prompt: str, **changes: object) -> bytes:
@@ -67,9 +65,10 @@ def _suggestion_path(result: subprocess.CompletedProcess[bytes], summary: str) -
     reason = document["reason"]
     lines = reason.splitlines()
     assert len(lines) == 4
-    assert lines[:2] == [summary, "Redacted prompt saved to:"]
-    assert lines[3] == PATH_INSTRUCTION
-    path = Path(lines[2])
+    assert lines[:2] == [summary, COPY_INSTRUCTION]
+    assert lines[2].startswith("Read file: ")
+    assert lines[3] == REVIEW_INSTRUCTION
+    path = Path(lines[2].removeprefix("Read file: "))
     assert path.is_absolute()
     assert path.is_file()
     return path

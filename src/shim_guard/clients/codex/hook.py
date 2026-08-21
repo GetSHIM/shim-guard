@@ -93,9 +93,9 @@ def block_output(decision: GuardDecision, suggestion_path: str | None = None) ->
     ):
         raise ValueError("Codex suggestion path is invalid")
     return _json_block(
-        f"{_summary(decision.counts)}\nRedacted prompt saved to:\n{suggestion_path}\n"
-        "Paste this file path as your next prompt. Review the file first; "
-        "detection can miss sensitive data."
+        f"{_summary(decision.counts)}\nCopy and paste this as your next prompt:\n"
+        f"Read file: {suggestion_path}\nReview the file first; detection can miss "
+        "sensitive data."
     )
 
 
