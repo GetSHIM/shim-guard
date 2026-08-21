@@ -59,8 +59,7 @@ def test_block_is_exact_compact_native_json() -> None:
     assert output == (
         b'{"decision":"block","reason":"SHIM Guard blocked this prompt: '
         b"EMAIL (1), SECRET (2).\\nCopy and paste this as your next prompt:\\n"
-        b"Read file: /tmp/shim-guard-redacted-test.txt\\nReview the file first; "
-        b'detection can miss sensitive data."}'
+        b'Read file: /tmp/shim-guard-redacted-test.txt"}'
     )
 
 

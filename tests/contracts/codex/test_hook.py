@@ -16,7 +16,6 @@ GENERIC_BLOCK = (
     b'prompt. Try again or run `shim scan` locally."}'
 )
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
-REVIEW_INSTRUCTION = "Review the file first; detection can miss sensitive data."
 
 
 def _payload(prompt: str, **changes: object) -> bytes:
@@ -64,10 +63,9 @@ def _suggestion_path(result: subprocess.CompletedProcess[bytes], summary: str) -
     assert document["decision"] == "block"
     reason = document["reason"]
     lines = reason.splitlines()
-    assert len(lines) == 4
+    assert len(lines) == 3
     assert lines[:2] == [summary, COPY_INSTRUCTION]
     assert lines[2].startswith("Read file: ")
-    assert lines[3] == REVIEW_INSTRUCTION
     path = Path(lines[2].removeprefix("Read file: "))
     assert path.is_absolute()
     assert path.is_file()
