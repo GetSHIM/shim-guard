@@ -5,20 +5,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-ENTITY_TYPES = (
-    "EMAIL",
-    "PHONE",
-    "CREDIT_CARD",
-    "IBAN",
-    "IP_ADDRESS",
-    "MAC_ADDRESS",
-    "US_SSN",
-    "TR_NATIONAL_ID",
-    "TR_VKN",
-    "SECRET",
-    "DB_URI",
-    "FILE_PATH",
-)
+from shim_guard.config import ENTITY_TYPES
+
 _ENTITY_TYPES = frozenset(ENTITY_TYPES)
 
 

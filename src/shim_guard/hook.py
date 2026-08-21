@@ -74,9 +74,10 @@ def _output(raw: bytes) -> bytes:
 
             try:
                 prompt = parse_input(raw)
+                from shim_guard.config import load_entities
                 from shim_guard.guard import evaluate
 
-                return block_output(evaluate(prompt))
+                return block_output(evaluate(prompt, load_entities()))
             except Exception:
                 return error_output()
     except Exception:

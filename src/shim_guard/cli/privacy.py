@@ -33,9 +33,10 @@ def read_stdin() -> str:
 
 def evaluate(text: str):
     """Import the detector only after a privacy command is actually invoked."""
+    from shim_guard.config import load_entities
     from shim_guard.guard import evaluate as evaluate_guard
 
-    return evaluate_guard(text)
+    return evaluate_guard(text, load_entities())
 
 
 def _read_and_evaluate(command: str, as_json: bool):
@@ -86,7 +87,9 @@ def redact(*, as_json: bool) -> None:
 def demo(client: str, *, as_json: bool) -> None:
     require_codex(client)
     try:
-        decision = evaluate(_DEMO_TEXT)
+        from shim_guard.guard import evaluate as evaluate_guard
+
+        decision = evaluate_guard(_DEMO_TEXT)
     except Exception:
         _privacy_error("demo", as_json)
     if as_json:

@@ -69,6 +69,26 @@ def test_finding_uses_exact_compact_codex_block() -> None:
     assert b"alice@example.com" not in result.stdout
 
 
+def test_hook_honors_entity_settings_and_rejects_invalid_settings(
+    tmp_path: Path,
+) -> None:
+    from shim_guard.config import render_entities
+
+    target = tmp_path / "settings" / "config.toml"
+    target.parent.mkdir()
+    target.write_bytes(render_entities(("PHONE",)))
+    environment = os.environ.copy()
+    environment["SHIM_GUARD_CONFIG"] = str(target)
+
+    _assert_output(_run(_payload("Contact alice@example.com"), env=environment), b"")
+    phone = _run(_payload("Call +90 532 123 45 67"), env=environment)
+    assert json.loads(phone.stdout)["decision"] == "block"
+    assert b"PHONE" in phone.stdout
+
+    target.write_bytes(b"invalid")
+    _assert_output(_run(_payload("Explain merge sort"), env=environment), GENERIC_BLOCK)
+
+
 def test_block_reason_escapes_terminal_controls_from_the_prompt() -> None:
     controls = "\x1b]0;owned\x07\u009b31m"
     result = _run(_payload(f"Contact alice@example.com{controls}"))
@@ -151,7 +171,7 @@ def parse_input(raw):
     noisy("parse")
     return "safe"
 
-def evaluate(prompt):
+def evaluate(prompt, enabled_entities):
     noisy("evaluate")
     return object()
 
@@ -205,7 +225,7 @@ guard = types.ModuleType("shim_guard.guard")
 adapter.parse_input = lambda raw: "safe"
 adapter.error_output = lambda: runner._ERROR_OUTPUT
 
-def evaluate(prompt):
+def evaluate(prompt, enabled_entities):
     if os.environ["SHIM_TEST_STAGE"] == "detector":
         raise RuntimeError(os.environ["SHIM_TEST_SECRET"])
     return object()

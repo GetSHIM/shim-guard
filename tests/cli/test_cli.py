@@ -39,6 +39,12 @@ def _codex(monkeypatch, tmp_path: Path, version: str = "0.149.0") -> None:
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
 
 
+def _guard_config(monkeypatch, tmp_path: Path) -> Path:
+    target = tmp_path / "settings" / "config.toml"
+    monkeypatch.setenv("SHIM_GUARD_CONFIG", str(target))
+    return target
+
+
 def test_help_does_not_load_detector() -> None:
     script = (
         "import sys; from typer.testing import CliRunner; "
@@ -98,6 +104,72 @@ def test_privacy_stdin_json_and_no_color(monkeypatch) -> None:
     assert "Unable to process stdin" in invalid.output
 
 
+def test_config_selects_entities_for_privacy_commands(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+
+    initial = runner.invoke(app, ["config"], color=False)
+    default_path_scan = runner.invoke(
+        app,
+        ["scan", "--json"],
+        input="Read /Users/alice/.ssh/id_rsa, then continue",
+    )
+    saved = runner.invoke(
+        app,
+        ["config", "--only", "EMAIL", "--only", "SECRET", "--yes"],
+        color=False,
+    )
+    scan = runner.invoke(
+        app,
+        ["scan", "--json"],
+        input="alice@example.com +90 532 123 45 67",
+    )
+    current = runner.invoke(app, ["config", "--json"])
+    narrow = runner.invoke(app, ["config"], env={"COLUMNS": "20"}, color=False)
+    adjusted = runner.invoke(
+        app,
+        ["config", "--enable", "phone", "--disable", "secret", "--yes"],
+    )
+    final = runner.invoke(app, ["config", "--json"])
+
+    assert default_path_scan.exit_code == 0
+    assert json.loads(default_path_scan.output)["status"] == "safe"
+    assert initial.exit_code == saved.exit_code == current.exit_code == 0
+    assert adjusted.exit_code == final.exit_code == 0
+    assert "Current detection: 11/12 enabled" in initial.output
+    assert "ON" in saved.output and "OFF" in saved.output
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert json.loads(scan.output)["counts"] == {"EMAIL": 1}
+    payload = json.loads(current.output)
+    assert payload["enabled_entities"] == ["EMAIL", "SECRET"]
+    assert "PHONE" in payload["disabled_entities"]
+    assert "OFF TR_NATIONAL_ID" in narrow.output
+    assert max(map(len, narrow.output.splitlines())) <= 20
+    assert json.loads(final.output)["enabled_entities"] == ["EMAIL", "PHONE"]
+
+
+def test_config_recovers_invalid_settings_and_rejects_conflicts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_bytes(b"not toml")
+
+    blocked = runner.invoke(app, ["scan"], input="plain text")
+    conflict = runner.invoke(
+        app, ["config", "--enable", "EMAIL", "--disable", "EMAIL", "--yes"]
+    )
+    reset = runner.invoke(app, ["config", "--reset", "--yes"])
+
+    assert blocked.exit_code == 1
+    assert "Unable to process stdin" in blocked.output
+    assert conflict.exit_code == 2
+    assert "cannot be enabled and disabled" in conflict.output
+    assert reset.exit_code == 0
+    assert "EMAIL" in target.read_text()
+
+
 def test_empty_no_color_value_disables_ansi(monkeypatch) -> None:
     stream = io.StringIO()
     monkeypatch.setattr(stream, "isatty", lambda: True)
@@ -150,6 +222,7 @@ def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
         "codex",
         "hooks_feature",
         "hook_configuration",
+        "entity_settings",
         "runner",
         "hook_activation",
     }

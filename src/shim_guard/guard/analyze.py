@@ -9,6 +9,8 @@ from collections.abc import Iterable, Iterator
 
 from presidio_analyzer import RecognizerResult
 
+from shim_guard.config import ENTITY_TYPES, normalize_entities
+
 from .models import Finding
 from .normalize import normalize
 from .recognizers import ENTITY_MAP, LANGUAGE, analyzer
@@ -168,16 +170,22 @@ def _source_findings(
     return _resolve_overlaps(mapped)
 
 
-def analyze(text: str) -> tuple[Finding, ...]:
+def analyze(
+    text: str, enabled_entities: Iterable[str] = ENTITY_TYPES
+) -> tuple[Finding, ...]:
     normalized = normalize(text)
-    if not normalized.text:
+    enabled = frozenset(normalize_entities(enabled_entities))
+    if not normalized.text or not enabled:
         return ()
+    source_entities = sorted(
+        source for source, public in ENTITY_MAP.items() if public in enabled
+    )
     try:
         with _deadline():
             raw = analyzer().analyze(
                 text=normalized.text,
                 language=LANGUAGE,
-                entities=sorted(ENTITY_MAP),
+                entities=source_entities,
                 score_threshold=0.4,
                 return_decision_process=False,
             )

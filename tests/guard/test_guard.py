@@ -134,6 +134,17 @@ def test_ordinals_are_per_category_in_source_order_without_a_value_map() -> None
     assert not hasattr(decision, "raw_values")
 
 
+def test_evaluation_runs_only_selected_entities() -> None:
+    text = "alice@example.com +90 532 123 45 67"
+
+    decision = evaluate(text, ("PHONE",))
+
+    assert [finding.entity_type for finding in decision.findings] == ["PHONE"]
+    assert decision.redacted_text == "alice@example.com <PHONE_1>"
+    with pytest.raises(ValueError, match="unsupported entity"):
+        evaluate(text, ("NOT_AN_ENTITY",))
+
+
 def test_source_normalized_intermediate_and_finding_limits() -> None:
     generated = {case["id"]: case for case in CORPUS["generated_cases"]}
     with pytest.raises(ValueError, match="safe analysis limit"):

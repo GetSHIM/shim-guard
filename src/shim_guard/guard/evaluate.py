@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
+from shim_guard.config import ENTITY_TYPES
+
 from .analyze import analyze
 from .models import GuardDecision
 
 
-def evaluate(text: str) -> GuardDecision:
-    findings = analyze(text)
+def evaluate(
+    text: str, enabled_entities: Iterable[str] = ENTITY_TYPES
+) -> GuardDecision:
+    findings = analyze(text, enabled_entities)
     if not findings:
         return GuardDecision((), text)
 

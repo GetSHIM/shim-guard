@@ -22,6 +22,7 @@ The command is `shim`:
 ```console
 shim
 shim demo codex
+shim config
 shim install codex --dry-run
 shim install codex
 shim doctor codex
@@ -64,6 +65,28 @@ The initial public entity allowlist is:
 `EMAIL`, `PHONE`, `CREDIT_CARD`, `SECRET`, `US_SSN`, `IP_ADDRESS`,
 `MAC_ADDRESS`, `DB_URI`, `FILE_PATH`, `TR_NATIONAL_ID`, `TR_VKN`, and `IBAN`.
 
+The default preset enables every entity except `FILE_PATH`, which is opt-in to
+avoid noisy path matches in coding workflows. `shim config` shows an explicit
+`ON` or `OFF` state for each entity. Changes are previewed before they are
+saved:
+
+```console
+shim config --only EMAIL --only SECRET
+shim config --disable IP_ADDRESS --disable MAC_ADDRESS
+shim config --enable FILE_PATH
+shim config --enable PHONE
+shim config --reset
+```
+
+The repeatable options can be combined except that `--only` and `--reset` are
+standalone modes. `scan`, `redact`, and the installed hook use the selection;
+the synthetic demo always checks its built-in fixture. Settings are stored in
+`$XDG_CONFIG_HOME/shim-guard/config.toml`, or
+`~/.config/shim-guard/config.toml` when XDG is unset. Malformed contents block
+inspection safely and can be replaced with `shim config --reset --yes`. Unsafe
+paths remain untouched for manual review. Selecting no entities is allowed but
+shown as a warning.
+
 `guard-v1-metrics.json` reports 100% synthetic case-category precision and
 recall across its 30 fixtures, with a positive and targeted safe negative for
 each category. That narrow fixture-bound result is not a real-world statistical
@@ -82,6 +105,8 @@ of every sensitive value.
 - A disabled, untrusted, missing, crashed, or timed-out hook is client
   controlled and can fail open. Changed non-managed Codex hooks need review and
   trust again.
+- Users can intentionally disable individual entity detectors, including all
+  of them. `shim config` shows the active policy.
 - A redacted suggestion can still contain content the detector missed. Review
   it before sending.
 - SHIM does not claim secure memory erasure in Python and does not inspect

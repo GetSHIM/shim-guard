@@ -13,6 +13,11 @@ replacement map. Safe input produces exactly empty stdout and stderr. A
 supported finding or handled hook error returns the tested native blocking
 response without raw detected values.
 
+Users may enable or disable public entity types with `shim config`. The default
+preset enables all except the stricter `FILE_PATH` detector. The local settings
+file contains entity names only. An invalid or unsafe settings file causes the
+hook to return its generic block rather than silently ignoring the policy.
+
 ## Outside SHIM's boundary
 
 Codex receives the raw prompt. Matching hooks can start concurrently, so SHIM

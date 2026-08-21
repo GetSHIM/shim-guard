@@ -8,8 +8,10 @@ from typing import Annotated
 import typer
 
 from shim_guard.clients import CLIENT_NAMES
+from shim_guard.config import ENTITY_TYPES
 
 Client = StrEnum("Client", {name.upper(): name for name in CLIENT_NAMES})
+Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})
 
 
 app = typer.Typer(
@@ -54,6 +56,52 @@ def redact(
     from shim_guard.cli.privacy import redact as run_redact
 
     run_redact(as_json=json_output)
+
+
+@app.command("config")
+def config_command(
+    only: Annotated[
+        list[Entity] | None,
+        typer.Option(
+            "--only",
+            case_sensitive=False,
+            metavar="ENTITY",
+            help="Enable only this entity; repeatable.",
+        ),
+    ] = None,
+    enable: Annotated[
+        list[Entity] | None,
+        typer.Option(
+            "--enable",
+            case_sensitive=False,
+            metavar="ENTITY",
+            help="Enable this entity; repeatable.",
+        ),
+    ] = None,
+    disable: Annotated[
+        list[Entity] | None,
+        typer.Option(
+            "--disable",
+            case_sensitive=False,
+            metavar="ENTITY",
+            help="Disable this entity; repeatable.",
+        ),
+    ] = None,
+    reset: bool = typer.Option(False, "--reset", help="Restore all defaults."),
+    yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Show or change locally enabled sensitive-data entities."""
+    from shim_guard.cli.configuration import configure
+
+    configure(
+        only=tuple(map(str, only or ())),
+        enable=tuple(map(str, enable or ())),
+        disable=tuple(map(str, disable or ())),
+        reset=reset,
+        yes=yes,
+        as_json=json_output,
+    )
 
 
 @app.command()

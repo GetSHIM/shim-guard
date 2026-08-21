@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import typer
 
@@ -263,6 +266,30 @@ def _hook_state() -> Check:
     return Check("hook_configuration", label, messages[state])
 
 
+def _entity_settings() -> Check:
+    from shim_guard.config import ENTITY_TYPES, load_entities
+
+    try:
+        enabled = load_entities()
+    except (OSError, ValueError):
+        return Check(
+            "entity_settings",
+            "FAIL",
+            "Entity settings are unsafe or invalid; reset malformed contents or review the path.",
+        )
+    if not enabled:
+        return Check(
+            "entity_settings",
+            "WARN",
+            "All sensitive-data detection is disabled; review with `shim config`.",
+        )
+    return Check(
+        "entity_settings",
+        "PASS",
+        f"{len(enabled)}/{len(ENTITY_TYPES)} sensitive-data entities are enabled.",
+    )
+
+
 def _runner_check() -> Check:
     from shim_guard.clients.codex.settings import HOOK_TIMEOUT_SECONDS
 
@@ -274,22 +301,29 @@ def _runner_check() -> Check:
         {"hook_event_name": "UserPromptSubmit", "prompt": "email demo@example.com"}
     )
     try:
-        safe_result = subprocess.run(
-            command,
-            input=safe,
-            text=True,
-            capture_output=True,
-            timeout=HOOK_TIMEOUT_SECONDS + 5,
-            check=False,
-        )
-        block_result = subprocess.run(
-            command,
-            input=blocked,
-            text=True,
-            capture_output=True,
-            timeout=HOOK_TIMEOUT_SECONDS + 5,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="shim-guard-doctor-") as directory:
+            environment = os.environ.copy()
+            environment["SHIM_GUARD_CONFIG"] = str(
+                Path(directory).resolve() / "config.toml"
+            )
+            safe_result = subprocess.run(
+                command,
+                input=safe,
+                text=True,
+                capture_output=True,
+                timeout=HOOK_TIMEOUT_SECONDS + 5,
+                check=False,
+                env=environment,
+            )
+            block_result = subprocess.run(
+                command,
+                input=blocked,
+                text=True,
+                capture_output=True,
+                timeout=HOOK_TIMEOUT_SECONDS + 5,
+                check=False,
+                env=environment,
+            )
         block = json.loads(block_result.stdout)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         return Check(
@@ -333,6 +367,7 @@ def doctor(client: str, *, as_json: bool) -> None:
         _codex_version(),
         _hooks_feature(),
         _hook_state(),
+        _entity_settings(),
         _runner_check(),
         _activation_check(),
     )
