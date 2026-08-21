@@ -60,11 +60,11 @@ submitted prompt
 The hook does not require a SHIM account, API key, network request, daemon,
 telemetry, prompt log, finding log, or replacement map. For each supported
 finding, it creates one `0600` redacted text file in the operating system's
-temporary directory and puts a ready-to-copy `Read file: <absolute path>`
-instruction in the block response. Paste that whole line as the next prompt so
-Codex can read the redaction. Detected raw values are not included in SHIM's
-hook messages or that file. Redactions are typed and ordinal, for example
-`<EMAIL_1>`.
+temporary directory and puts a ready-to-copy `Read this file and use its
+contents as my prompt: <absolute path>` instruction in the block response.
+Paste that whole line as the next prompt so Codex can read the redaction.
+Detected raw values are not included in SHIM's hook messages or that file.
+Redactions are typed and ordinal, for example `<EMAIL_1>`.
 
 The initial public entity allowlist is:
 

@@ -16,6 +16,7 @@ GENERIC_BLOCK = (
     b'prompt. Try again or run `shim scan` locally."}'
 )
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
+READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
 def _payload(prompt: str, **changes: object) -> bytes:
@@ -65,8 +66,8 @@ def _suggestion_path(result: subprocess.CompletedProcess[bytes], summary: str) -
     lines = reason.splitlines()
     assert len(lines) == 3
     assert lines[:2] == [summary, COPY_INSTRUCTION]
-    assert lines[2].startswith("Read file: ")
-    path = Path(lines[2].removeprefix("Read file: "))
+    assert lines[2].startswith(READ_INSTRUCTION)
+    path = Path(lines[2].removeprefix(READ_INSTRUCTION))
     assert path.is_absolute()
     assert path.is_file()
     return path

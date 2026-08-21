@@ -20,6 +20,7 @@ HOOK_COMMAND = ("-I", "-B", "-m", "shim_guard.hook")
 HOOK_TIMEOUT_SECONDS = 35
 DEFAULT_P95_CEILING_MS = 5_000.0
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
+READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
 def percentile(samples: list[float], fraction: float) -> float:
@@ -41,13 +42,13 @@ def _valid_block(output: bytes, temporary: Path) -> bool:
     try:
         document = json.loads(output)
         lines = document["reason"].splitlines()
-        path = Path(lines[2].removeprefix("Read file: "))
+        path = Path(lines[2].removeprefix(READ_INSTRUCTION))
         return (
             document["decision"] == "block"
             and lines[:2]
             == ["SHIM Guard blocked this prompt: EMAIL (1).", COPY_INSTRUCTION]
             and len(lines) == 3
-            and lines[2].startswith("Read file: ")
+            and lines[2].startswith(READ_INSTRUCTION)
             and path.parent == temporary
             and path.read_bytes() == b"Contact <EMAIL_1>"
         )

@@ -14,9 +14,9 @@ does not send prompt data to SHIM, keep history, or create a replacement map.
 Safe input produces exactly empty stdout and stderr. For a supported finding,
 the hook writes one typed redaction to a `0600` file in the operating system's
 temporary directory and returns a tested native block containing its absolute
-path in a ready-to-copy `Read file:` instruction. A handled hook error returns
-the generic block and leaves no suggestion file. The raw prompt and detected
-raw values are not written by SHIM.
+path in a ready-to-copy instruction to use the file contents as the prompt. A
+handled hook error returns the generic block and leaves no suggestion file. The
+raw prompt and detected raw values are not written by SHIM.
 
 The temporary redaction remains until the user deletes it or the operating
 system cleans temporary storage. It can still contain sensitive content the
