@@ -147,11 +147,12 @@ def test_evaluation_runs_only_selected_entities() -> None:
 
 def test_source_normalized_intermediate_and_finding_limits() -> None:
     generated = {case["id"]: case for case in CORPUS["generated_cases"]}
+    oversized = (
+        generated["source-oversize"]["value"] * generated["source-oversize"]["count"]
+    )
     with pytest.raises(ValueError, match="safe analysis limit"):
-        analyze(
-            generated["source-oversize"]["value"]
-            * generated["source-oversize"]["count"]
-        )
+        analyze(oversized)
+    assert analyze(oversized, ()) == ()
     with pytest.raises(ValueError, match="safe analysis limit"):
         normalize(
             generated["normalization-intermediate-oversize"]["value"]

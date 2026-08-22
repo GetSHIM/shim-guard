@@ -127,7 +127,7 @@ def _resolve_overlaps(items: Iterable[Finding]) -> list[Finding]:
             collapse()
             component = []
         component.append(item)
-        component_end = max(component_end, item.end) if len(component) > 1 else item.end
+        component_end = max(component_end, item.end)
     collapse()
 
     for item in ordered:
@@ -172,9 +172,11 @@ def _source_findings(
 def analyze(
     text: str, enabled_entities: Iterable[str] = ENTITY_TYPES
 ) -> tuple[Finding, ...]:
-    normalized = normalize(text)
     enabled = frozenset(normalize_entities(enabled_entities))
-    if not normalized.text or not enabled:
+    if not enabled:
+        return ()
+    normalized = normalize(text)
+    if not normalized.text:
         return ()
     source_entities = sorted(
         source for source, public in ENTITY_MAP.items() if public in enabled

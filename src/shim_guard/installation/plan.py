@@ -55,6 +55,12 @@ def plan_change(
         action, message = Action.REFUSE, "state was inspected for a different path"
     elif state.kind is StateKind.UNSAFE:
         action, message = Action.REFUSE, state.reason or "unsafe target"
+    elif (
+        state.kind is StateKind.ABSENT
+        and expected is not None
+        and None in (state.parent_device, state.parent_inode)
+    ):
+        action, message = Action.REFUSE, state.reason or "target parent is absent"
     elif expected is not None and len(expected) > state.max_bytes:
         action, message = Action.REFUSE, "replacement exceeds the inspection limit"
     elif conflict:

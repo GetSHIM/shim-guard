@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Mapping
 from typing import Any, TextIO
 
 from rich.console import Console
@@ -51,7 +50,3 @@ def emit(label: str, message: str, *, error: bool = False) -> None:
     line = Text(label, style=style)
     line.append(f" {terminal_text(message, stream)}")
     console(stream).print(line, highlight=False, markup=False)
-
-
-def counts_dict(counts: tuple[tuple[str, int], ...]) -> Mapping[str, int]:
-    return dict(counts)

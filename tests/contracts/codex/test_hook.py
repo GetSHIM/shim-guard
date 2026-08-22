@@ -367,23 +367,23 @@ def test_hook_deadline_includes_waiting_for_stdin_eof() -> None:
         "from shim_guard import hook as runner; "
         "runner.HOOK_DEADLINE_SECONDS = 0.05; runner.main()"
     )
-    process = subprocess.Popen(
+    with subprocess.Popen(
         (sys.executable, "-I", "-B", "-c", code),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=ROOT,
-    )
-    assert process.stdin is not None
-    process.stdin.write(b"{")
-    process.stdin.flush()
-    process.wait(timeout=5)
-    process.stdin.close()
-    assert process.stdout is not None
-    assert process.stderr is not None
-    assert process.returncode == 0
-    assert process.stdout.read() == GENERIC_BLOCK
-    assert process.stderr.read() == b""
+    ) as process:
+        assert process.stdin is not None
+        process.stdin.write(b"{")
+        process.stdin.flush()
+        process.wait(timeout=5)
+        process.stdin.close()
+        assert process.stdout is not None
+        assert process.stderr is not None
+        assert process.returncode == 0
+        assert process.stdout.read() == GENERIC_BLOCK
+        assert process.stderr.read() == b""
 
 
 def test_isolated_mode_ignores_a_hostile_working_directory(tmp_path: Path) -> None:

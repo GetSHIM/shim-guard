@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import Never
 
 import typer
@@ -10,7 +9,7 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from shim_guard.cli.output import console, emit, emit_json, terminal_text
+from shim_guard.cli.output import console, emit, emit_json
 from shim_guard.config import (
     DEFAULT_ENTITIES,
     ENTITY_TYPES,
@@ -20,7 +19,13 @@ from shim_guard.config import (
     normalize_entities,
     render_entities,
 )
-from shim_guard.installation import InstallationError, apply, inspect_file, plan_change
+from shim_guard.installation import (
+    InstallationError,
+    apply,
+    ensure_parent,
+    inspect_file,
+    plan_change,
+)
 
 
 def _show(enabled: tuple[str, ...], title: str) -> None:
@@ -115,20 +120,20 @@ def configure(
             _emit_settings_json(enabled)
             return
         _show(enabled, "Current detection")
-        emit("PASS", f"File: {terminal_text(str(target), sys.stdout)}")
+        emit("PASS", f"File: {target}")
         return
 
     if as_json and not yes:
         _fail(True)
     if not as_json:
         _show(enabled, "New detection")
-        emit("WARN", f"File: {terminal_text(str(target), sys.stdout)}")
+        emit("WARN", f"File: {target}")
         if not yes and not typer.confirm("Save these settings?", default=False):
             emit("WARN", "Settings unchanged.")
             raise typer.Exit(1)
 
     try:
-        target.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        ensure_parent(target)
         state = inspect_file(target, MAX_CONFIG_BYTES)
         changed = apply(plan_change(target, state, render_entities(enabled)))
     except (InstallationError, OSError, ValueError):

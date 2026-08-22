@@ -28,7 +28,9 @@ def _validate_target(target: Path) -> None:
         or not str(target).isprintable()
     ):
         raise InstallationError("target must be an absolute normalized path")
-    if len(os.fsencode(target)) > MAX_PATH_BYTES or not target.name:
+    if not target.name:
+        raise InstallationError("target must name a file")
+    if len(os.fsencode(target)) > MAX_PATH_BYTES:
         raise InstallationError("target path is too long")
 
 
@@ -166,6 +168,13 @@ def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
         if max_bytes < 0:
             raise InstallationError("inspection limit must not be negative")
         parent_fd = _open_parent(target)
+    except FileNotFoundError:
+        return FileState(
+            StateKind.ABSENT,
+            path=target,
+            max_bytes=max_bytes,
+            reason="target parent does not exist",
+        )
     except (InstallationError, OSError) as error:
         detail = str(error) if isinstance(error, InstallationError) else error.strerror
         return FileState(
@@ -178,6 +187,38 @@ def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
         return _read_at(target, parent_fd, max_bytes)
     finally:
         os.close(parent_fd)
+
+
+def ensure_parent(path: Path) -> None:
+    """Create missing target parents without following symlinks."""
+    target = Path(path)
+    _validate_target(target)
+    descriptor = -1
+    try:
+        descriptor = os.open("/", _DIRECTORY_FLAGS)
+        for component in target.parent.parts[1:]:
+            try:
+                next_descriptor = os.open(
+                    component, _DIRECTORY_FLAGS, dir_fd=descriptor
+                )
+            except FileNotFoundError:
+                if reason := _unsafe_reason(os.fstat(descriptor), "target ancestor"):
+                    raise InstallationError(reason) from None
+                os.mkdir(component, 0o700, dir_fd=descriptor)
+                next_descriptor = os.open(
+                    component, _DIRECTORY_FLAGS, dir_fd=descriptor
+                )
+            os.close(descriptor)
+            descriptor = next_descriptor
+        if reason := _unsafe_reason(os.fstat(descriptor), "target parent"):
+            raise InstallationError(reason)
+    except OSError as error:
+        raise InstallationError(
+            f"cannot create target parent safely: {error.strerror or error}"
+        ) from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _path_matches_parent(target: Path, parent_fd: int) -> bool:

@@ -1,6 +1,6 @@
 """Safe user-scoped file installation."""
 
-from .files import InstallationError, apply, inspect_file
+from .files import InstallationError, apply, ensure_parent, inspect_file
 from .plan import Action, FileState, Plan, StateKind, plan_change
 
 __all__ = [
@@ -10,6 +10,7 @@ __all__ = [
     "Plan",
     "StateKind",
     "apply",
+    "ensure_parent",
     "inspect_file",
     "plan_change",
 ]

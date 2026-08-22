@@ -3,21 +3,16 @@
 from __future__ import annotations
 
 import sys
+from typing import Never
 
 import typer
 
-from shim_guard.cli.output import counts_dict, emit, emit_json, terminal_text
+from shim_guard.cli.output import emit, emit_json, terminal_text
 
 MAX_STDIN_BYTES = 1_000_000
 _DEMO_TEXT = (
     "Send the synthetic report to demo@example.com using token=sk_demo_1234567890."
 )
-
-
-def require_codex(client: str) -> None:
-    if client != "codex":
-        emit("FAIL", "Unsupported client; only codex is supported.", error=True)
-        raise typer.Exit(2)
 
 
 def read_stdin() -> str:
@@ -42,14 +37,11 @@ def evaluate(text: str):
 def _read_and_evaluate(command: str, as_json: bool):
     try:
         return evaluate(read_stdin())
-    except (OSError, UnicodeError, ValueError):
+    except Exception:  # Do not expose stdin or detector errors at this boundary.
         _privacy_error(command, as_json)
-    except Exception:  # Detector errors are deliberately not exposed at this boundary.
-        _privacy_error(command, as_json)
-    raise AssertionError("unreachable")
 
 
-def _privacy_error(command: str, as_json: bool) -> None:
+def _privacy_error(command: str, as_json: bool) -> Never:
     if as_json:
         emit_json(command, "error", error="unable to process stdin")
     else:
@@ -59,7 +51,7 @@ def _privacy_error(command: str, as_json: bool) -> None:
 
 def scan(*, as_json: bool) -> None:
     decision = _read_and_evaluate("scan", as_json)
-    counts = counts_dict(decision.counts)
+    counts = dict(decision.counts)
     if as_json:
         emit_json("scan", "findings" if decision.blocked else "safe", counts=counts)
     elif decision.blocked:
@@ -77,15 +69,14 @@ def redact(*, as_json: bool) -> None:
         emit_json(
             "redact",
             "findings" if decision.blocked else "safe",
-            counts=counts_dict(decision.counts),
+            counts=dict(decision.counts),
         )
     else:
         # This command intentionally emits the typed text so it can be piped onward.
         print(terminal_text(decision.redacted_text, sys.stdout, "\n\t"))
 
 
-def demo(client: str, *, as_json: bool) -> None:
-    require_codex(client)
+def demo(*, as_json: bool) -> None:
     try:
         from shim_guard.guard import evaluate as evaluate_guard
 
@@ -97,7 +88,7 @@ def demo(client: str, *, as_json: bool) -> None:
             "demo",
             "findings" if decision.blocked else "error",
             client="codex",
-            counts=counts_dict(decision.counts),
+            counts=dict(decision.counts),
         )
     elif decision.blocked:
         emit("PASS", "Synthetic local demo detected sensitive data.")

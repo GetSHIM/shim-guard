@@ -110,7 +110,11 @@ def installed_python_version(python: Path) -> str:
 def benchmark(
     python: Path, samples_per_fixture: int, p95_ceiling_ms: float
 ) -> dict[str, object]:
-    if samples_per_fixture < 1 or p95_ceiling_ms <= 0:
+    if (
+        samples_per_fixture < 1
+        or not math.isfinite(p95_ceiling_ms)
+        or p95_ceiling_ms <= 0
+    ):
         raise ValueError("samples and p95 ceiling must be positive")
     safe_samples: list[float] = []
     block_samples: list[float] = []

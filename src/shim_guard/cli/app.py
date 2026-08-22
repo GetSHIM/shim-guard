@@ -7,10 +7,13 @@ from typing import Annotated
 
 import typer
 
-from shim_guard.clients import CLIENT_NAMES
 from shim_guard.config import ENTITY_TYPES
 
-Client = StrEnum("Client", {name.upper(): name for name in CLIENT_NAMES})
+
+class Client(StrEnum):
+    CODEX = "codex"
+
+
 Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})
 
 
@@ -43,7 +46,7 @@ def demo(
     """Run the local synthetic detector proof."""
     from shim_guard.cli.privacy import demo as run_demo
 
-    run_demo(client, as_json=json_output)
+    run_demo(as_json=json_output)
 
 
 @app.command()
@@ -121,7 +124,7 @@ def install(
     """Preview or install the Codex prompt hook."""
     from shim_guard.cli.integrations import install as run_install
 
-    run_install(client, dry_run=dry_run, yes=yes)
+    run_install(dry_run=dry_run, yes=yes)
 
 
 @app.command()
@@ -142,7 +145,7 @@ def doctor(
     """Run Codex compatibility and hook health checks."""
     from shim_guard.cli.integrations import doctor as run_doctor
 
-    run_doctor(client, as_json=json_output)
+    run_doctor(as_json=json_output)
 
 
 @app.command()
@@ -153,7 +156,7 @@ def revert(
     """Remove only SHIM Guard's Codex prompt hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
-    run_revert(client, yes=yes)
+    run_revert(yes=yes)
 
 
 def main() -> None:

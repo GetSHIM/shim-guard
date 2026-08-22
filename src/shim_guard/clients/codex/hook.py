@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from shim_guard.guard import GuardDecision
@@ -19,12 +19,10 @@ _ERROR_REASON = (
 )
 
 
-def _object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    value: dict[str, Any] = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError("duplicate JSON key")
-        value[key] = item
+def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value = dict(pairs)
+    if len(value) != len(pairs):
+        raise ValueError("duplicate JSON key")
     return value
 
 
@@ -40,12 +38,7 @@ def parse_input(raw: bytes) -> str:
             object_pairs_hook=_object,
             parse_constant=_reject_constant,
         )
-    except (
-        UnicodeDecodeError,
-        json.JSONDecodeError,
-        RecursionError,
-        ValueError,
-    ) as error:
+    except (UnicodeDecodeError, RecursionError, ValueError) as error:
         raise ValueError("invalid Codex hook payload") from error
     if not isinstance(payload, dict):
         raise ValueError("Codex hook payload must be an object")

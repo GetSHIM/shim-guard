@@ -57,3 +57,7 @@ def test_unsafe_or_relative_settings_paths_are_rejected(
     monkeypatch.setenv("SHIM_GUARD_CONFIG", "relative/config.toml")
     with pytest.raises(ValueError, match="path"):
         config_path()
+
+    monkeypatch.setenv("SHIM_GUARD_CONFIG", "~shim_guard_missing_user/config.toml")
+    with pytest.raises(ValueError, match="path"):
+        config_path()

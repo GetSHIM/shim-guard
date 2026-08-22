@@ -68,8 +68,8 @@ Redactions are typed and ordinal, for example `<EMAIL_1>`.
 
 The initial public entity allowlist is:
 
-`EMAIL`, `PHONE`, `CREDIT_CARD`, `SECRET`, `US_SSN`, `IP_ADDRESS`,
-`MAC_ADDRESS`, `DB_URI`, `TR_NATIONAL_ID`, `TR_VKN`, and `IBAN`.
+`EMAIL`, `PHONE`, `CREDIT_CARD`, `IBAN`, `IP_ADDRESS`, `MAC_ADDRESS`,
+`US_SSN`, `TR_NATIONAL_ID`, `TR_VKN`, `SECRET`, and `DB_URI`.
 
 The default preset enables every supported entity. `shim config` shows an
 explicit `ON` or `OFF` state for each entity. Changes are previewed before they

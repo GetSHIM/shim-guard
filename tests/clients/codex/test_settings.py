@@ -84,6 +84,13 @@ def test_inline_hook_detection_is_bounded_and_refuses_links(tmp_path: Path) -> N
     with pytest.raises(ValueError):
         has_inline_hooks(config)
 
+    real = tmp_path / "real"
+    real.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(real, target_is_directory=True)
+    with pytest.raises(ValueError):
+        has_inline_hooks(linked / "config.toml")
+
     fifo = tmp_path / "config.fifo"
     os.mkfifo(fifo)
     with pytest.raises(ValueError):

@@ -13,7 +13,6 @@ from typer.testing import CliRunner
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
-from shim_guard.clients import CLIENT_NAMES
 
 runner = CliRunner()
 
@@ -86,15 +85,14 @@ def test_help_command_lists_a_description_for_every_command() -> None:
 
 
 def test_client_arguments_list_and_enforce_available_value() -> None:
-    assert CLIENT_NAMES
     for command in ("demo", "install", "doctor", "revert"):
         help_result = runner.invoke(app, [command, "--help"], color=False)
         invalid_result = runner.invoke(app, [command, "other"], color=False)
 
         assert help_result.exit_code == 0
-        assert all(name in help_result.output for name in CLIENT_NAMES)
+        assert "codex" in help_result.output
         assert invalid_result.exit_code == 2
-        assert all(repr(name) in invalid_result.output for name in CLIENT_NAMES)
+        assert "'codex'" in invalid_result.output
 
 
 def test_privacy_stdin_json_and_no_color(monkeypatch) -> None:

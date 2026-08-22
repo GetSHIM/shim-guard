@@ -11,6 +11,7 @@ from shim_guard.installation import (
     InstallationError,
     StateKind,
     apply,
+    ensure_parent,
     inspect_file,
     plan_change,
 )
@@ -170,8 +171,19 @@ def test_unsafe_permissions_ownership_and_replacement_size_are_refused(
     assert inspect_file(target).kind is StateKind.UNSAFE
 
 
-def test_absent_parent_and_symlinked_ancestor_are_unsafe(tmp_path: Path) -> None:
-    assert inspect_file(tmp_path / "missing" / "file").kind is StateKind.UNSAFE
+def test_absent_parent_and_symlinked_ancestor_are_handled_safely(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing" / "nested" / "file"
+    state = inspect_file(missing)
+    assert state.kind is StateKind.ABSENT
+    assert plan_change(missing, state, b"data").action is Action.REFUSE
+    assert plan_change(missing, state, None).action is Action.NOOP
+
+    ensure_parent(missing)
+    ensure_parent(missing)
+    assert stat.S_IMODE(missing.parent.stat().st_mode) == 0o700
+    assert inspect_file(missing).kind is StateKind.ABSENT
     assert inspect_file(Path("relative")).kind is StateKind.UNSAFE
 
     real = tmp_path / "real"
@@ -179,3 +191,11 @@ def test_absent_parent_and_symlinked_ancestor_are_unsafe(tmp_path: Path) -> None
     linked = tmp_path / "linked"
     linked.symlink_to(real, target_is_directory=True)
     assert inspect_file(linked / "file").kind is StateKind.UNSAFE
+    with pytest.raises(InstallationError):
+        ensure_parent(linked / "nested" / "file")
+
+    unsafe = tmp_path / "unsafe"
+    unsafe.mkdir()
+    unsafe.chmod(0o770)
+    with pytest.raises(InstallationError, match="writable by another user"):
+        ensure_parent(unsafe / "nested" / "file")

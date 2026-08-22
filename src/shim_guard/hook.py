@@ -75,6 +75,7 @@ def _write_redacted_prompt(text: str) -> str:
         with stream:
             if not path.is_absolute() or not str(path).isprintable():
                 raise ValueError("temporary suggestion path is invalid")
+            os.fchmod(stream.fileno(), 0o600)
             stream.write(text)
     except Exception:
         with contextlib.suppress(OSError):
@@ -103,14 +104,12 @@ def _output(raw: bytes) -> bytes:
                 decision = evaluate(prompt, load_entities())
                 if not decision.blocked:
                     return block_output(decision)
-                suggestion_path = None
+                suggestion_path = _write_redacted_prompt(decision.redacted_text)
                 try:
-                    suggestion_path = _write_redacted_prompt(decision.redacted_text)
                     return block_output(decision, suggestion_path)
                 except Exception:
-                    if suggestion_path:
-                        with contextlib.suppress(OSError):
-                            Path(suggestion_path).unlink()
+                    with contextlib.suppress(OSError):
+                        Path(suggestion_path).unlink()
                     raise
             except Exception:
                 return error_output()

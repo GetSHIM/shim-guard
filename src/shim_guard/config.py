@@ -26,14 +26,17 @@ MAX_CONFIG_BYTES = 16_384
 
 def config_path(home: Path | None = None) -> Path:
     """Return the user-scoped SHIM Guard settings path."""
-    if home is not None:
-        target = Path(home) / ".config" / "shim-guard" / "config.toml"
-    elif configured := os.environ.get("SHIM_GUARD_CONFIG"):
-        target = Path(configured).expanduser()
-    elif configured := os.environ.get("XDG_CONFIG_HOME"):
-        target = Path(configured).expanduser() / "shim-guard" / "config.toml"
-    else:
-        target = Path.home() / ".config" / "shim-guard" / "config.toml"
+    try:
+        if home is not None:
+            target = Path(home) / ".config" / "shim-guard" / "config.toml"
+        elif configured := os.environ.get("SHIM_GUARD_CONFIG"):
+            target = Path(configured).expanduser()
+        elif configured := os.environ.get("XDG_CONFIG_HOME"):
+            target = Path(configured).expanduser() / "shim-guard" / "config.toml"
+        else:
+            target = Path.home() / ".config" / "shim-guard" / "config.toml"
+    except RuntimeError as error:
+        raise ValueError("SHIM Guard settings path is invalid") from error
     return _validated_path(target)
 
 
@@ -73,13 +76,6 @@ def render_entities(entities: Iterable[str]) -> bytes:
 def load_entities(path: Path | None = None) -> tuple[str, ...]:
     """Load enabled entities, using the default preset when no file exists."""
     target = config_path() if path is None else _validated_path(path)
-    try:
-        target.parent.stat()
-    except FileNotFoundError:
-        return DEFAULT_ENTITIES
-    except OSError as error:
-        raise ValueError("SHIM Guard settings cannot be read safely") from error
-
     from shim_guard.installation import StateKind, inspect_file
 
     state = inspect_file(target, MAX_CONFIG_BYTES)

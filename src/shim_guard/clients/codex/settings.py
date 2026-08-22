@@ -6,25 +6,28 @@ import json
 import math
 import os
 import shlex
-import stat
 import sys
 import tomllib
 from pathlib import Path
 from typing import cast
 
+from shim_guard.installation import StateKind, inspect_file
+
 TESTED_CODEX_VERSION = "0.149.0"
 MINIMUM_CODEX_VERSION = "0.149.0"
 HOOK_TIMEOUT_SECONDS = 30
 MAX_CONFIG_BYTES = 1_000_000
-_UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
 
 def _codex_home(home: Path | None = None) -> Path:
-    if home is not None:
-        return Path(home) / ".codex"
-    if configured := os.environ.get("CODEX_HOME"):
-        return Path(configured).expanduser()
-    return Path.home() / ".codex"
+    try:
+        if home is not None:
+            return Path(home) / ".codex"
+        if configured := os.environ.get("CODEX_HOME"):
+            return Path(configured).expanduser()
+        return Path.home() / ".codex"
+    except RuntimeError as error:
+        raise ValueError("Codex home path is invalid") from error
 
 
 def target_path(home: Path | None = None) -> Path:
@@ -40,46 +43,14 @@ def config_path(home: Path | None = None) -> Path:
 def has_inline_hooks(path: Path | None = None) -> bool:
     """Detect hooks in Codex TOML without following links or exposing content."""
     target = config_path() if path is None else Path(path)
-    if (
-        not target.is_absolute()
-        or ".." in target.parts
-        or not str(target).isprintable()
-    ):
-        raise ValueError("Codex config path cannot be inspected safely")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    descriptor = -1
-    try:
-        descriptor = os.open(target, flags)
-        opened = os.fstat(descriptor)
-        if (
-            not stat.S_ISREG(opened.st_mode)
-            or opened.st_nlink != 1
-            or opened.st_uid != os.geteuid()
-            or opened.st_mode & _UNSAFE_WRITABLE
-            or opened.st_size > MAX_CONFIG_BYTES
-        ):
-            raise ValueError("Codex config cannot be inspected safely")
-        with os.fdopen(descriptor, "rb") as stream:
-            descriptor = -1
-            data = stream.read(MAX_CONFIG_BYTES + 1)
-            closed = os.fstat(stream.fileno())
-    except FileNotFoundError:
+    state = inspect_file(target, MAX_CONFIG_BYTES)
+    if state.kind is StateKind.ABSENT:
         return False
-    except OSError as error:
-        raise ValueError("Codex config cannot be inspected safely") from error
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-    if len(data) > MAX_CONFIG_BYTES:
+    if state.kind is not StateKind.FILE:
         raise ValueError("Codex config cannot be inspected safely")
-    if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (
-        closed.st_size,
-        closed.st_mtime_ns,
-        closed.st_ctime_ns,
-    ):
-        raise ValueError("Codex config changed during inspection")
+    assert state.content is not None
     try:
-        config = tomllib.loads(data.decode("utf-8"))
+        config = tomllib.loads(state.content.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError, RecursionError) as error:
         raise ValueError("Codex config cannot be inspected safely") from error
     return "hooks" in config
