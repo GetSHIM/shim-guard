@@ -48,6 +48,7 @@ jobs:
           uv pip install --python /tmp/shim-guard-wheel --no-deps "dist/tested/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl"
           /tmp/shim-guard-wheel/bin/shim demo codex --json
           /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+          /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/claude/test_claude_hook.py
           python scripts/benchmark_hook.py --self-check
       - name: Verify packaged source distribution contracts
         run: |
@@ -56,6 +57,7 @@ jobs:
           uv pip install --python /tmp/shim-guard-sdist --no-deps --no-build-isolation "dist/tested/shim_guard-${GITHUB_REF_NAME#v}.tar.gz"
           /tmp/shim-guard-sdist/bin/shim demo codex --json
           /tmp/shim-guard-sdist/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+          /tmp/shim-guard-sdist/bin/python -I -B -m pytest tests/contracts/claude/test_claude_hook.py
       - name: Recheck the verified package allowlist
         run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/tested").iterdir()} == expected'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

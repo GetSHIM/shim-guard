@@ -11,6 +11,7 @@ from shim_guard.config import ENTITY_TYPES
 
 
 class Client(StrEnum):
+    CLAUDE = "claude"
     CODEX = "codex"
 
 
@@ -48,7 +49,7 @@ def demo(
     """Run the local synthetic detector proof."""
     from shim_guard.cli.privacy import demo as run_demo
 
-    run_demo(as_json=json_output)
+    run_demo(client=str(client), as_json=json_output)
 
 
 @app.command()
@@ -126,17 +127,18 @@ def install(
     """Preview or install a client prompt hook."""
     from shim_guard.cli.integrations import install as run_install
 
-    run_install(dry_run=dry_run, yes=yes)
+    run_install(client=str(client), dry_run=dry_run, yes=yes)
 
 
 @app.command()
 def status(
+    client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
     """Show the prompt-hook installation state."""
     from shim_guard.cli.integrations import status as run_status
 
-    run_status(as_json=json_output)
+    run_status(client=str(client), as_json=json_output)
 
 
 @app.command()
@@ -145,9 +147,9 @@ def doctor(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
     """Run client compatibility and hook health checks."""
-    from shim_guard.cli.integrations import doctor as run_doctor
+    from shim_guard.cli.diagnostics import doctor as run_doctor
 
-    run_doctor(as_json=json_output)
+    run_doctor(client=str(client), as_json=json_output)
 
 
 @app.command()
@@ -158,7 +160,7 @@ def revert(
     """Remove only SHIM Guard's client prompt hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
-    run_revert(yes=yes)
+    run_revert(client=str(client), yes=yes)
 
 
 def main() -> None:

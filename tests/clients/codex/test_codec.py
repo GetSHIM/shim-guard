@@ -38,6 +38,7 @@ def test_parse_exact_codex_prompt_contract() -> None:
         b'{"hook_event_name":"UserPromptSubmit","prompt":false}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":"a","prompt":"b"}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":"a","number":NaN}',
+        b'{"hook_event_name":"UserPromptSubmit","prompt":"a","number":1e999}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":"\\ud800"}',
         b"\xff",
     ],

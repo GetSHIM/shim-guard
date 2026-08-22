@@ -24,12 +24,17 @@ The command is `shim`:
 shim
 shim help
 shim demo codex
+shim demo claude
 shim config
 shim install codex --dry-run
 shim install codex
 shim doctor codex
-shim status
+shim install claude
+shim doctor claude
+shim status codex
+shim status claude
 shim revert codex
+shim revert claude
 ```
 
 For direct local inspection, pipe text instead of placing it in shell history
@@ -47,8 +52,8 @@ while an interactive terminal escapes non-printing control characters.
 
 ## What the prompt hook does
 
-The first supported integration is Codex's `UserPromptSubmit` command-hook
-event.
+Codex and Claude Code integrations use each client's native
+`UserPromptSubmit` command-hook event.
 
 ```text
 submitted prompt
@@ -124,7 +129,7 @@ detection of every sensitive value.
 For the exact trust boundary and current client evidence, see
 [Privacy](docs/privacy.md) and [Compatibility](docs/compatibility.md).
 
-## Current Codex installation ownership
+## Client installation ownership
 
 `shim install codex --dry-run` shows the target and exact owned fragment. It
 uses `$CODEX_HOME/hooks.json` when `CODEX_HOME` is set and otherwise
@@ -143,15 +148,26 @@ Repeated install and revert are safe no-ops. `shim revert codex` removes only
 SHIM's exact matcher group, preserves every other hook, and retains the hook
 document even when it becomes empty.
 
+`shim install claude --dry-run` follows the same ownership rules for
+`$CLAUDE_CONFIG_DIR/settings.json` when `CLAUDE_CONFIG_DIR` is set and
+`~/.claude/settings.json` otherwise. Claude Code stores hooks alongside other
+user settings, so SHIM preserves every unrelated key and hook, appends its
+exact group last, and uses the client's shell-free `command` plus `args` form.
+Its block response asks Claude Code not to repeat the original prompt in the
+block message. `shim revert claude` removes only that exact group and retains
+the settings file.
+
 ## Compatibility and release gates
 
 The implementation target is CPython 3.13 on macOS and Linux. Codex CLI
-`0.149.0` was locally inspected, reported its hook feature as stable and
-enabled, and native hook contract fixtures are tested.
-This is not a claim that a live interactive Codex session, every authentication
-mode, trust review, or timeout behavior has been verified. Additional
-hook-capable clients require their own native adapters and compatibility
-evidence. SHIM Protect remains deferred.
+`0.149.0` and Claude Code `2.1.210` were locally inspected. Codex reported its
+hook feature as stable and enabled; Claude Code accepted SHIM's generated user
+settings through its native `doctor` command. Both native hook contracts have
+repository fixtures.
+This is not a claim that a live interactive session, every authentication mode,
+trust review, or timeout behavior has been verified. Each additional client
+still requires a native adapter and compatibility evidence. SHIM Protect
+remains deferred.
 
 Before a public release, maintainers must record real-client compatibility,
 trusted-hook activation, the supported authentication routes, corpus results,

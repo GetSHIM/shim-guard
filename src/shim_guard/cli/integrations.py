@@ -1,32 +1,15 @@
-"""Codex installation, inspection, and local compatibility workflows."""
+"""Client prompt-hook installation, inspection, and revert workflows."""
 
 from __future__ import annotations
 
 import json
-import os
-import re
-import shutil
-import subprocess
-import sys
-import tempfile
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal, Never
 
 import typer
 
 from shim_guard.cli.output import emit, emit_json
-from shim_guard.clients.codex.settings import (
-    HOOK_TIMEOUT_SECONDS,
-    MAX_CONFIG_BYTES,
-    MINIMUM_CODEX_VERSION,
-    TESTED_CODEX_VERSION,
-    add_hook,
-    has_inline_hooks,
-    hook_group,
-    remove_hook,
-    target_path,
-)
+from shim_guard.clients.claude import settings as claude_settings
+from shim_guard.clients.codex import settings as codex_settings
 from shim_guard.installation import (
     Action,
     InstallationError,
@@ -38,16 +21,28 @@ from shim_guard.installation import (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class Check:
-    name: str
-    status: str
-    detail: str
+def client_name(client: str) -> str:
+    if client == "claude":
+        return "Claude Code"
+    if client == "codex":
+        return "Codex"
+    raise ValueError("unsupported client")
 
 
-def _codex_plan(operation: Literal["install", "revert"]) -> Plan:
-    target = target_path()
-    state = inspect_file(target, MAX_CONFIG_BYTES)
+def client_plan(client: str, operation: Literal["install", "revert"]) -> Plan:
+    if client == "claude":
+        target = claude_settings.target_path()
+        limit = claude_settings.MAX_CONFIG_BYTES
+        add_hook = claude_settings.add_hook
+        remove_hook = claude_settings.remove_hook
+    elif client == "codex":
+        target = codex_settings.target_path()
+        limit = codex_settings.MAX_CONFIG_BYTES
+        add_hook = codex_settings.add_hook
+        remove_hook = codex_settings.remove_hook
+    else:
+        raise ValueError("unsupported client")
+    state = inspect_file(target, limit)
     if state.kind is StateKind.UNSAFE:
         return plan_change(target, state, None)
     if state.kind is StateKind.ABSENT:
@@ -65,9 +60,19 @@ def _codex_plan(operation: Literal["install", "revert"]) -> Plan:
     return plan_change(target, state, expected)
 
 
-def _inline_hooks_notice() -> None:
+def _hook_group(client: str) -> dict[str, object]:
+    if client == "claude":
+        return claude_settings.hook_group()
+    if client == "codex":
+        return codex_settings.hook_group()
+    raise ValueError("unsupported client")
+
+
+def _inline_hooks_notice(client: str) -> None:
+    if client != "codex":
+        return
     try:
-        inline_hooks = has_inline_hooks()
+        inline_hooks = codex_settings.has_inline_hooks()
     except ValueError:
         emit(
             "WARN", "Codex config.toml could not be inspected and will stay untouched."
@@ -80,7 +85,7 @@ def _inline_hooks_notice() -> None:
         )
 
 
-def _plan_status(plan: Plan) -> tuple[str, str]:
+def plan_status(plan: Plan) -> tuple[str, str]:
     if plan.action is Action.NOOP:
         return "PASS", "installed"
     if plan.action in {Action.CREATE, Action.UPDATE}:
@@ -88,46 +93,53 @@ def _plan_status(plan: Plan) -> tuple[str, str]:
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
 
-def _plan_error(command: str, as_json: bool = False) -> Never:
+def _plan_error(client: str, command: str, as_json: bool = False) -> Never:
+    name = client_name(client)
     if as_json:
-        emit_json(command, "error", error="unable to inspect Codex hook configuration")
+        emit_json(
+            command,
+            "error",
+            client=client,
+            error=f"unable to inspect {name} hook configuration",
+        )
     else:
-        emit("FAIL", "Unable to inspect Codex hook configuration.", error=True)
+        emit("FAIL", f"Unable to inspect {name} hook configuration.", error=True)
     raise typer.Exit(2)
 
 
-def install(*, dry_run: bool, yes: bool) -> None:
+def install(*, client: str, dry_run: bool, yes: bool) -> None:
+    name = client_name(client)
     try:
-        plan = _codex_plan("install")
+        plan = client_plan(client, "install")
     except (OSError, ValueError):
-        _plan_error("install")
+        _plan_error(client, "install")
 
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
-        emit("FAIL", "Codex hook configuration cannot be changed safely.", error=True)
+        emit("FAIL", f"{name} hook configuration cannot be changed safely.", error=True)
         emit(
             "WARN",
-            "Review Codex hooks manually; SHIM did not change malformed, ambiguous, or unsafe settings.",
+            f"Review {name} hooks manually; SHIM did not change malformed, ambiguous, or unsafe settings.",
             error=True,
         )
         raise typer.Exit(2)
     if plan.action is Action.NOOP:
-        emit("PASS", "SHIM Guard is already installed for Codex.")
+        emit("PASS", f"SHIM Guard is already installed for {name}.")
         return
     if plan.action is Action.UPDATE:
         emit(
             "WARN",
-            "Existing Codex hooks will be preserved; SHIM Guard will be appended last.",
+            f"Existing {name} hooks will be preserved; SHIM Guard will be appended last.",
         )
-    _inline_hooks_notice()
+    _inline_hooks_notice(client)
     if dry_run:
         verb = "create" if plan.action is Action.CREATE else "append to"
-        emit("WARN", f"Would {verb} Codex hooks at {plan.target} with this fragment:")
-        print(json.dumps(hook_group(), ensure_ascii=False, indent=2))
+        emit("WARN", f"Would {verb} {name} hooks at {plan.target} with this fragment:")
+        print(json.dumps(_hook_group(client), ensure_ascii=False, indent=2))
         return
     prompt = (
-        "Create SHIM Guard's Codex hook?"
+        f"Create SHIM Guard's {name} hook?"
         if plan.action is Action.CREATE
-        else "Append SHIM Guard after existing Codex hooks?"
+        else f"Append SHIM Guard after existing {name} hooks?"
     )
     if not yes and not typer.confirm(prompt, default=False):
         emit("WARN", "Installation cancelled.")
@@ -135,34 +147,35 @@ def install(*, dry_run: bool, yes: bool) -> None:
     try:
         apply(plan)
     except (InstallationError, OSError):
-        emit("FAIL", "Codex hook configuration was not changed.", error=True)
+        emit("FAIL", f"{name} hook configuration was not changed.", error=True)
         raise typer.Exit(2) from None
     emit(
         "PASS",
-        "Appended SHIM Guard after existing Codex hooks."
+        f"Appended SHIM Guard after existing {name} hooks."
         if plan.action is Action.UPDATE
-        else "Installed SHIM Guard for Codex.",
+        else f"Installed SHIM Guard for {name}.",
     )
 
 
-def status(*, as_json: bool) -> None:
+def status(*, client: str, as_json: bool) -> None:
+    name = client_name(client)
     try:
-        plan = _codex_plan("install")
-        label, state = _plan_status(plan)
+        plan = client_plan(client, "install")
+        label, state = plan_status(plan)
     except (OSError, ValueError):
-        _plan_error("status", as_json)
+        _plan_error(client, "status", as_json)
     if as_json:
         emit_json(
-            "status", "ok" if label != "FAIL" else "error", client="codex", state=state
+            "status", "ok" if label != "FAIL" else "error", client=client, state=state
         )
     elif state == "installed":
-        emit("PASS", "Codex hook configuration is installed.")
+        emit("PASS", f"{name} hook configuration is installed.")
     elif state == "not_installed":
-        emit("WARN", "Codex hook configuration is not installed.")
+        emit("WARN", f"{name} hook configuration is not installed.")
     else:
         emit(
             "FAIL",
-            "Codex hook configuration is unsafe or differs from SHIM Guard.",
+            f"{name} hook configuration is unsafe or differs from SHIM Guard.",
             error=True,
         )
     if label == "WARN":
@@ -171,232 +184,35 @@ def status(*, as_json: bool) -> None:
         raise typer.Exit(2)
 
 
-def _codex_version() -> Check:
-    path = shutil.which("codex")
-    if path is None:
-        return Check("codex", "FAIL", "Codex executable was not found on PATH.")
+def revert(*, client: str, yes: bool) -> None:
+    name = client_name(client)
     try:
-        result = subprocess.run(
-            [path, "--version"], capture_output=True, text=True, timeout=5, check=False
-        )
-    except (OSError, subprocess.SubprocessError):
-        return Check("codex", "FAIL", f"Codex at {path} could not report its version.")
-    match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", result.stdout + result.stderr)
-    if result.returncode or match is None:
-        return Check("codex", "FAIL", f"Codex at {path} has an unrecognized version.")
-    version_text = match.group(0)
-    version = tuple(int(part) for part in match.groups())
-    minimum = tuple(int(part) for part in MINIMUM_CODEX_VERSION.split("."))
-    tested = tuple(int(part) for part in TESTED_CODEX_VERSION.split("."))
-    if version < minimum:
-        return Check(
-            "codex",
-            "FAIL",
-            f"Codex {version_text} is older than {MINIMUM_CODEX_VERSION}.",
-        )
-    if version > tested:
-        return Check(
-            "codex",
-            "WARN",
-            f"Codex {version_text} is newer than tested {TESTED_CODEX_VERSION}.",
-        )
-    return Check("codex", "PASS", f"Codex {version_text} at {path} is tested.")
-
-
-def _hooks_feature() -> Check:
-    path = shutil.which("codex")
-    if path is None:
-        return Check("hooks_feature", "FAIL", "Codex executable was not found on PATH.")
-    try:
-        result = subprocess.run(
-            [path, "features", "list"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return Check(
-            "hooks_feature", "FAIL", "Codex hook support could not be checked."
-        )
-    enabled = any(
-        line.split()[:1] == ["hooks"] and line.split()[-1:] == ["true"]
-        for line in result.stdout.splitlines()
-    )
-    if result.returncode or not enabled:
-        return Check("hooks_feature", "FAIL", "Codex hook support is not enabled.")
-    return Check("hooks_feature", "PASS", "Codex hook support is enabled.")
-
-
-def _hook_state() -> Check:
-    try:
-        plan = _codex_plan("install")
-        label, state = _plan_status(plan)
+        plan = client_plan(client, "revert")
     except (OSError, ValueError):
-        return Check(
-            "hook_configuration", "FAIL", "Could not inspect Codex hook configuration."
-        )
-    messages = {
-        "installed": "SHIM Guard's exact Codex matcher group is present.",
-        "not_installed": "SHIM Guard's Codex matcher group is not installed.",
-        "conflict": "Codex hook configuration needs manual review.",
-        "unsafe": "Codex hook configuration cannot be trusted safely.",
-    }
-    return Check("hook_configuration", label, messages[state])
-
-
-def _entity_settings() -> Check:
-    from shim_guard.config import ENTITY_TYPES, load_entities
-
-    try:
-        enabled = load_entities()
-    except (OSError, ValueError):
-        return Check(
-            "entity_settings",
-            "FAIL",
-            "Entity settings are unsafe or invalid; reset malformed contents or review the path.",
-        )
-    if not enabled:
-        return Check(
-            "entity_settings",
-            "WARN",
-            "All sensitive-data detection is disabled; review with `shim config`.",
-        )
-    return Check(
-        "entity_settings",
-        "PASS",
-        f"{len(enabled)}/{len(ENTITY_TYPES)} sensitive-data entities are enabled.",
-    )
-
-
-def _runner_check() -> Check:
-    command = [sys.executable, "-I", "-B", "-m", "shim_guard.hook"]
-    safe = json.dumps(
-        {"hook_event_name": "UserPromptSubmit", "prompt": "Synthetic safe prompt"}
-    )
-    blocked = json.dumps(
-        {"hook_event_name": "UserPromptSubmit", "prompt": "email demo@example.com"}
-    )
-    try:
-        with tempfile.TemporaryDirectory(prefix="shim-guard-doctor-") as directory:
-            environment = os.environ.copy()
-            environment["SHIM_GUARD_CONFIG"] = str(
-                Path(directory).resolve() / "config.toml"
-            )
-            environment["TMPDIR"] = directory
-            safe_result = subprocess.run(
-                command,
-                input=safe,
-                text=True,
-                capture_output=True,
-                timeout=HOOK_TIMEOUT_SECONDS + 5,
-                check=False,
-                env=environment,
-            )
-            block_result = subprocess.run(
-                command,
-                input=blocked,
-                text=True,
-                capture_output=True,
-                timeout=HOOK_TIMEOUT_SECONDS + 5,
-                check=False,
-                env=environment,
-            )
-        block = json.loads(block_result.stdout)
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
-        return Check(
-            "runner", "FAIL", "The local hook runner fixtures did not complete."
-        )
-    if safe_result.returncode or safe_result.stdout or safe_result.stderr:
-        return Check(
-            "runner",
-            "FAIL",
-            "The local hook runner did not allow the safe fixture silently.",
-        )
-    if (
-        block_result.returncode
-        or block_result.stderr
-        or not isinstance(block, dict)
-        or block.get("decision") != "block"
-    ):
-        return Check(
-            "runner",
-            "FAIL",
-            "The local hook runner did not block the sensitive fixture.",
-        )
-    return Check(
-        "runner",
-        "PASS",
-        "Local hook runner allowed and blocked direct fixtures correctly.",
-    )
-
-
-def _activation_check() -> Check:
-    return Check(
-        "hook_activation",
-        "WARN",
-        "Codex trust activation is client UI state; verify SHIM with /hooks.",
-    )
-
-
-def doctor(*, as_json: bool) -> None:
-    checks = (
-        _codex_version(),
-        _hooks_feature(),
-        _hook_state(),
-        _entity_settings(),
-        _runner_check(),
-        _activation_check(),
-    )
-    labels = {check.status for check in checks}
-    if as_json:
-        if "FAIL" in labels:
-            status = "error"
-        elif "WARN" in labels:
-            status = "warning"
-        else:
-            status = "ok"
-        emit_json(
-            "doctor",
-            status,
-            client="codex",
-            checks=[{"name": check.name, "status": check.status} for check in checks],
-        )
-    else:
-        for check in checks:
-            emit(check.status, check.detail, error=check.status == "FAIL")
-    if "FAIL" in labels:
-        raise typer.Exit(2)
-    if "WARN" in labels:
-        raise typer.Exit(1)
-
-
-def revert(*, yes: bool) -> None:
-    try:
-        plan = _codex_plan("revert")
-    except (OSError, ValueError):
-        _plan_error("revert")
+        _plan_error(client, "revert")
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
-        emit("FAIL", "Codex hook configuration cannot be removed safely.", error=True)
+        emit("FAIL", f"{name} hook configuration cannot be removed safely.", error=True)
         emit(
             "WARN",
-            "Review Codex hooks manually; SHIM removes only its exact matcher group.",
+            f"Review {name} hooks manually; SHIM removes only its exact hook group.",
             error=True,
         )
         raise typer.Exit(2)
     if plan.action is Action.NOOP:
-        emit("PASS", "SHIM Guard is not installed for Codex.")
+        emit("PASS", f"SHIM Guard is not installed for {name}.")
         return
     emit(
         "WARN",
-        "Only SHIM Guard's exact matcher group will be removed; other hooks will be preserved.",
+        "Only SHIM Guard's exact hook group will be removed; other hooks will be preserved.",
     )
-    if not yes and not typer.confirm("Remove SHIM Guard's Codex hook?", default=False):
+    if not yes and not typer.confirm(
+        f"Remove SHIM Guard's {name} hook?", default=False
+    ):
         emit("WARN", "Revert cancelled.")
         raise typer.Exit(1)
     try:
         apply(plan)
     except (InstallationError, OSError):
-        emit("FAIL", "Codex hook configuration was not changed.", error=True)
+        emit("FAIL", f"{name} hook configuration was not changed.", error=True)
         raise typer.Exit(2) from None
-    emit("PASS", "Removed SHIM Guard and preserved the Codex hook document.")
+    emit("PASS", f"Removed SHIM Guard and preserved the {name} settings file.")

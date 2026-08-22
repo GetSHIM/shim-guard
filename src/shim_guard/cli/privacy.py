@@ -76,7 +76,7 @@ def redact(*, as_json: bool) -> None:
         print(terminal_text(decision.redacted_text, sys.stdout, "\n\t"))
 
 
-def demo(*, as_json: bool) -> None:
+def demo(*, client: str, as_json: bool) -> None:
     try:
         from shim_guard.guard import evaluate as evaluate_guard
 
@@ -87,7 +87,7 @@ def demo(*, as_json: bool) -> None:
         emit_json(
             "demo",
             "findings" if decision.blocked else "error",
-            client="codex",
+            client=client,
             counts=dict(decision.counts),
         )
     elif decision.blocked:

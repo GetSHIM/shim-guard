@@ -38,6 +38,20 @@ def _codex(monkeypatch, tmp_path: Path, version: str = "0.149.0") -> None:
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
 
 
+def _claude_home(monkeypatch, tmp_path: Path) -> Path:
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
+def _claude(monkeypatch, tmp_path: Path, version: str = "2.1.210") -> None:
+    executable = tmp_path / "claude"
+    executable.write_text(f"#!/bin/sh\nprintf '{version} (Claude Code)\\n'\n")
+    executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+
+
 def _guard_config(monkeypatch, tmp_path: Path) -> Path:
     target = tmp_path / "settings" / "config.toml"
     monkeypatch.setenv("SHIM_GUARD_CONFIG", str(target))
@@ -85,13 +99,15 @@ def test_help_command_lists_a_description_for_every_command() -> None:
 
 
 def test_client_arguments_list_and_enforce_available_value() -> None:
-    for command in ("demo", "install", "doctor", "revert"):
+    for command in ("demo", "install", "status", "doctor", "revert"):
         help_result = runner.invoke(app, [command, "--help"], color=False)
         invalid_result = runner.invoke(app, [command, "other"], color=False)
 
         assert help_result.exit_code == 0
+        assert "claude" in help_result.output
         assert "codex" in help_result.output
         assert invalid_result.exit_code == 2
+        assert "'claude'" in invalid_result.output
         assert "'codex'" in invalid_result.output
 
 
@@ -215,13 +231,55 @@ def test_install_status_and_revert(monkeypatch, tmp_path: Path) -> None:
     assert not target.exists()
 
     installed = runner.invoke(app, ["install", "codex", "--yes"])
-    current = runner.invoke(app, ["status", "--json"])
+    current = runner.invoke(app, ["status", "codex", "--json"])
     reverted = runner.invoke(app, ["revert", "codex", "--yes"])
 
     assert installed.exit_code == 0
     assert json.loads(current.output)["state"] == "installed"
     assert reverted.exit_code == 0
     assert target.read_bytes() == b"{}\n"
+
+
+def test_claude_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) -> None:
+    from shim_guard.clients.claude.settings import hook_group
+
+    home = _claude_home(monkeypatch, tmp_path)
+    _claude(monkeypatch, tmp_path)
+    target = home / ".claude" / "settings.json"
+    original = {
+        "permissions": {"allow": ["Read"]},
+        "hooks": {
+            "UserPromptSubmit": [
+                {"hooks": [{"type": "command", "command": "existing-hook"}]}
+            ]
+        },
+    }
+    target.write_text(json.dumps(original))
+
+    preview = runner.invoke(app, ["install", "claude", "--dry-run"])
+    installed = runner.invoke(app, ["install", "claude", "--yes"])
+    installed_document = json.loads(target.read_bytes())
+    current = runner.invoke(app, ["status", "claude", "--json"])
+    doctor = runner.invoke(app, ["doctor", "claude", "--json"])
+    reverted = runner.invoke(app, ["revert", "claude", "--yes"])
+
+    assert preview.exit_code == installed.exit_code == reverted.exit_code == 0
+    assert "existing-hook" not in preview.output
+    assert "appended last" in " ".join(installed.output.split())
+    assert json.loads(current.output)["state"] == "installed"
+    doctor_payload = json.loads(doctor.output)
+    assert doctor_payload["client"] == "claude"
+    assert doctor_payload["status"] == "warning"
+    assert {item["name"] for item in doctor_payload["checks"]} == {
+        "claude",
+        "hook_configuration",
+        "entity_settings",
+        "runner",
+        "hook_activation",
+    }
+    assert installed_document["permissions"] == original["permissions"]
+    assert installed_document["hooks"]["UserPromptSubmit"][-1] == hook_group()
+    assert json.loads(target.read_bytes()) == original
 
 
 def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:

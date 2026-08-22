@@ -43,6 +43,7 @@ jobs:
           /tmp/shim-guard-wheel/bin/shim --help
           /tmp/shim-guard-wheel/bin/shim demo codex --json
           /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+          /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/claude/test_claude_hook.py
           python scripts/benchmark_hook.py --self-check
           python scripts/benchmark_hook.py /tmp/shim-guard-wheel/bin/python --samples-per-fixture 1 --output /tmp/shim-benchmark.json
       - name: Verify packaged source distribution contracts
@@ -52,3 +53,4 @@ jobs:
           uv pip install --python /tmp/shim-guard-sdist --no-deps --no-build-isolation dist/*.tar.gz
           /tmp/shim-guard-sdist/bin/shim demo codex --json
           /tmp/shim-guard-sdist/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
+          /tmp/shim-guard-sdist/bin/python -I -B -m pytest tests/contracts/claude/test_claude_hook.py

@@ -31,11 +31,13 @@ itself remains pure and receives the enabled tuple explicitly. Malformed or
 unsafe policy files fail closed. Configuration stores entity names only—never
 prompt-derived data.
 
-Each adapter owns its client's configuration and coexistence rules. The current
-Codex adapter leaves inline `config.toml` hooks untouched; they may coexist with
-`hooks.json` with a client warning. Malformed or ambiguous hook documents and
-unsafe or concurrently changed hook files require manual setup. Dry-run output
-contains only SHIM's fragment, not the existing hook document.
+Each adapter owns its client's configuration and coexistence rules. The Codex
+adapter leaves inline `config.toml` hooks untouched; they may coexist with
+`hooks.json` with a client warning. The Claude Code adapter changes only the
+`hooks.UserPromptSubmit` array in user `settings.json` and preserves every
+unrelated setting. Malformed or ambiguous documents and unsafe or concurrently
+changed files require manual setup. Dry-run output contains only SHIM's
+fragment, not the existing document.
 
 ## Detector boundary and corpus
 
@@ -56,11 +58,11 @@ boundary without claiming complete secret detection.
 
 No daemon, database, HTTP client, account, analytics, plugin framework,
 provider-neutral adapter layer, or reversible raw-value store belongs in this
-MVP. A later client gets its own native adapter and fixtures; it does not widen
-the hook's trust boundary.
+MVP. Every client gets its own native adapter and fixtures; adding one does not
+widen the hook's trust boundary.
 
-The [Codex hooks reference](https://developers.openai.com/codex/hooks/) is the
-authoritative protocol source. Codex runs matching command hooks concurrently,
-requires trust for non-managed hooks, and treats exit 0 with no output as a
-continuation. SHIM uses `UserPromptSubmit`, not a generic cross-client hook
-format.
+The [Codex hooks reference](https://developers.openai.com/codex/hooks/) and
+Claude Code [hooks](https://code.claude.com/docs/en/hooks) and
+[settings](https://code.claude.com/docs/en/settings) references are the
+authoritative protocol sources. Both adapters use `UserPromptSubmit` and their
+native settings and output, not a generic cross-client hook format.

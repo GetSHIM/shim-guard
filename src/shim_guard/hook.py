@@ -1,4 +1,4 @@
-"""Isolated Codex hook runner."""
+"""Isolated client-native prompt-hook runner."""
 
 from __future__ import annotations
 
@@ -17,6 +17,14 @@ _ERROR_OUTPUT = (
     b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
     b'prompt. Try again or run `shim scan` locally."}'
 )
+_CLAUDE_ERROR_OUTPUT = (
+    b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
+    b'prompt. Try again or run `shim scan` locally.","suppressOriginalPrompt":true}'
+)
+
+
+def _error_output(client: str) -> bytes:
+    return _CLAUDE_ERROR_OUTPUT if client == "claude" else _ERROR_OUTPUT
 
 
 @contextlib.contextmanager
@@ -84,17 +92,26 @@ def _write_redacted_prompt(text: str) -> str:
     return str(path)
 
 
-def _output(raw: bytes) -> bytes:
+def _output(raw: bytes, client: str = "codex") -> bytes:
     if len(raw) > MAX_INPUT_BYTES:
-        return _ERROR_OUTPUT
+        return _error_output(client)
 
     try:
         with _silence_dependencies():
-            from shim_guard.clients.codex.hook import (
-                block_output,
-                error_output,
-                parse_input,
-            )
+            if client == "codex":
+                from shim_guard.clients.codex.hook import (
+                    block_output,
+                    error_output,
+                    parse_input,
+                )
+            elif client == "claude":
+                from shim_guard.clients.claude.hook import (
+                    block_output,
+                    error_output,
+                    parse_input,
+                )
+            else:
+                return _error_output(client)
 
             try:
                 prompt = parse_input(raw)
@@ -114,19 +131,24 @@ def _output(raw: bytes) -> bytes:
             except Exception:
                 return error_output()
     except Exception:
-        return _ERROR_OUTPUT
+        return _error_output(client)
 
 
 def main() -> None:
-    """Read one hook event and write its Codex-native decision."""
+    """Read one hook event and write the selected client's native decision."""
+    client = "codex"
     try:
         with _deadline():
             raw = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
-            output = _output(raw)
+            arguments = sys.argv[1:]
+            client = "codex" if not arguments else arguments[0]
+            if len(arguments) > 1:
+                client = ""
+            output = _output(raw, client)
         sys.stdout.buffer.write(output)
     except Exception:
         try:
-            sys.stdout.buffer.write(_ERROR_OUTPUT)
+            sys.stdout.buffer.write(_error_output(client))
         except Exception:
             pass
 

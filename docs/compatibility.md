@@ -4,19 +4,21 @@
 | --- | --- |
 | Python | CPython 3.13 target |
 | Operating systems | macOS and Linux target |
-| Client | Codex CLI 0.149.0 locally inspected |
-| Hook feature | `hooks stable true` observed locally |
-| Hook contract | Native fixture coverage in the repository |
+| Clients | Codex CLI 0.149.0 and Claude Code 2.1.210 locally inspected |
+| Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor` |
+| Hook contract | Native fixture coverage for both clients in the repository |
 | Live interactive client | PENDING_RELEASE_EVIDENCE |
 | Authentication routes | PENDING_RELEASE_EVIDENCE |
 | Trust review and client timeout behavior | PENDING_RELEASE_EVIDENCE |
-| Claude Code / second client | Deferred |
 | SHIM Protect | Deferred; separate process and threat model |
 
 The local inspection follows the current [Codex hook docs](https://developers.openai.com/codex/hooks/).
-Claude Code has its own independently changing hook contract; its current
-[documentation](https://code.claude.com/docs/en/hooks) is not a compatibility
-claim or an implementation target.
+The Claude Code adapter follows its current
+[hooks](https://code.claude.com/docs/en/hooks) and
+[settings](https://code.claude.com/docs/en/settings) references. It uses the
+user-scoped `settings.json`, shell-free command arguments, empty safe output,
+and the native structured block response with original-prompt display
+suppressed.
 
 ## Development evidence
 
@@ -38,16 +40,16 @@ Darwin 25.5.0 arm64, macOS 26.5.2, CPython 3.13.9:
 
 This is development evidence, not tag-generated release evidence. Detector
 analysis has a 20-second deadline; the 25-second outer hook deadline covers
-stdin, bootstrap, and evaluation; the Codex configuration timeout is 30
-seconds. Loaded hosts and cold filesystem caches can be slower; a client
+stdin, bootstrap, and evaluation; both client configurations use a 30-second
+timeout. Loaded hosts and cold filesystem caches can be slower; a client
 timeout remains fail-open behavior outside SHIM's control.
 
 ## Release evidence gate
 
 The tag workflow refuses publication while a release-evidence marker remains.
-Before removing those markers, record a real interactive Codex run for the
-release tag, its authentication route, trust activation, and observed
-timeout/fail-open behavior. CI fixtures do not establish those facts.
+Before removing those markers, record real interactive Codex and Claude Code
+runs for the release tag, their authentication routes, hook activation, and
+observed timeout/fail-open behavior. CI fixtures do not establish those facts.
 Repository setup must also protect `v*` tags and require reviewers for the
 `release` and `pypi` environments; a workflow file cannot enforce those
 GitHub-side controls.
@@ -68,7 +70,7 @@ The release record must contain:
 
 | Evidence | Release value |
 | --- | --- |
-| Supported Codex version and platform | PENDING_RELEASE_EVIDENCE |
+| Supported client versions and platforms | PENDING_RELEASE_EVIDENCE |
 | Authentication route(s) tested | PENDING_RELEASE_EVIDENCE |
 | Trusted-hook activation and fail-open observations | PENDING_RELEASE_EVIDENCE |
 | Synthetic corpus and quality metrics | `guard-v1` and `guard-v1-metrics.json` |

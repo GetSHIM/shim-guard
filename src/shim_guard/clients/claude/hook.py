@@ -1,4 +1,4 @@
-"""Codex ``UserPromptSubmit`` input and output codec."""
+"""Claude Code ``UserPromptSubmit`` input and output codec."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _float(value: str) -> float:
 
 
 def parse_input(raw: bytes) -> str:
-    """Return the submitted prompt from one strict Codex hook payload."""
+    """Return the submitted prompt from one strict Claude Code hook payload."""
     try:
         payload = json.loads(
             raw.decode("utf-8", errors="strict"),
@@ -48,31 +48,39 @@ def parse_input(raw: bytes) -> str:
             parse_float=_float,
         )
     except (UnicodeDecodeError, RecursionError, ValueError) as error:
-        raise ValueError("invalid Codex hook payload") from error
+        raise ValueError("invalid Claude Code hook payload") from error
     if not isinstance(payload, dict):
-        raise ValueError("Codex hook payload must be an object")
+        raise ValueError("Claude Code hook payload must be an object")
     if payload.get("hook_event_name") != EVENT_NAME:
-        raise ValueError("unexpected Codex hook event")
+        raise ValueError("unexpected Claude Code hook event")
     prompt = payload.get("prompt")
     if not isinstance(prompt, str):
-        raise ValueError("Codex hook prompt must be a string")
+        raise ValueError("Claude Code hook prompt must be a string")
     try:
         prompt.encode("utf-8", errors="strict")
     except UnicodeEncodeError as error:
-        raise ValueError("Codex hook prompt must contain valid Unicode") from error
+        raise ValueError(
+            "Claude Code hook prompt must contain valid Unicode"
+        ) from error
     return prompt
 
 
 def _json_block(reason: str) -> bytes:
     if not reason or len(reason) > MAX_REASON_CHARS:
-        raise ValueError("Codex block reason must contain at most 4,000 characters")
+        raise ValueError(
+            "Claude Code block reason must contain at most 4,000 characters"
+        )
     output = json.dumps(
-        {"decision": "block", "reason": reason},
+        {
+            "decision": "block",
+            "reason": reason,
+            "suppressOriginalPrompt": True,
+        },
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode()
     if len(output) > MAX_OUTPUT_BYTES:
-        raise ValueError("Codex block output exceeds 4,096 bytes")
+        raise ValueError("Claude Code block output exceeds 4,096 bytes")
     return output
 
 
@@ -82,18 +90,18 @@ def _summary(counts: Iterable[tuple[str, int]]) -> str:
 
 
 def block_output(decision: GuardDecision, suggestion_path: str | None = None) -> bytes:
-    """Serialize a Guard decision using Codex's native block shape."""
+    """Serialize a Guard decision using Claude Code's native block shape."""
     if not decision.blocked:
         return b""
     if not isinstance(suggestion_path, str) or not suggestion_path:
-        raise ValueError("Codex suggestion path is invalid")
+        raise ValueError("Claude Code suggestion path is invalid")
     path = Path(suggestion_path)
     if (
         not path.is_absolute()
         or ".." in path.parts
         or not suggestion_path.isprintable()
     ):
-        raise ValueError("Codex suggestion path is invalid")
+        raise ValueError("Claude Code suggestion path is invalid")
     return _json_block(
         f"{_summary(decision.counts)}\nCopy and paste this as your next prompt:\n"
         f"Read this file and use its contents as my prompt: {suggestion_path}"
