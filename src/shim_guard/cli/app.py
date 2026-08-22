@@ -20,7 +20,7 @@ Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})
 app = typer.Typer(
     name="shim",
     add_completion=False,
-    help="Local, stdin-first prompt privacy for Codex.",
+    help="Local, stdin-first prompt privacy for coding-agent CLIs.",
     no_args_is_help=False,
 )
 
@@ -29,7 +29,9 @@ app = typer.Typer(
 def root(context: typer.Context) -> None:
     """Show the next action when no command is provided."""
     if context.invoked_subcommand is None:
-        typer.echo("SHIM Guard — local prompt privacy for Codex. Try: shim help")
+        typer.echo(
+            "SHIM Guard — local prompt privacy for coding-agent CLIs. Try: shim help"
+        )
 
 
 @app.command()
@@ -121,7 +123,7 @@ def install(
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Preview or install the Codex prompt hook."""
+    """Preview or install a client prompt hook."""
     from shim_guard.cli.integrations import install as run_install
 
     run_install(dry_run=dry_run, yes=yes)
@@ -131,7 +133,7 @@ def install(
 def status(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show the Codex hook installation state."""
+    """Show the prompt-hook installation state."""
     from shim_guard.cli.integrations import status as run_status
 
     run_status(as_json=json_output)
@@ -142,7 +144,7 @@ def doctor(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run Codex compatibility and hook health checks."""
+    """Run client compatibility and hook health checks."""
     from shim_guard.cli.integrations import doctor as run_doctor
 
     run_doctor(as_json=json_output)
@@ -153,7 +155,7 @@ def revert(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Remove only SHIM Guard's Codex prompt hook."""
+    """Remove only SHIM Guard's client prompt hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
     run_revert(yes=yes)

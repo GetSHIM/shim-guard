@@ -73,10 +73,10 @@ def test_help_command_lists_a_description_for_every_command() -> None:
         "Scan bounded UTF-8 text from standard input.",
         "Redact bounded UTF-8 text from standard input.",
         "Show or change locally enabled sensitive-data entities.",
-        "Preview or install the Codex prompt hook.",
-        "Show the Codex hook installation state.",
-        "Run Codex compatibility and hook health checks.",
-        "Remove only SHIM Guard's Codex prompt hook.",
+        "Preview or install a client prompt hook.",
+        "Show the prompt-hook installation state.",
+        "Run client compatibility and hook health checks.",
+        "Remove only SHIM Guard's client prompt hook.",
     )
 
     assert result.exit_code == 0

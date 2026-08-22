@@ -1,8 +1,9 @@
 # SHIM Guard
 
-SHIM Guard is a local, Codex-first pre-submit prompt guard for common sensitive
-values. It scans a submitted prompt in the hook process and either stays silent
-or asks Codex to stop and saves a typed redaction for easy resubmission.
+SHIM Guard is a local pre-submit prompt guard for hook-capable coding-agent
+CLIs. It scans a submitted prompt in the client hook process and either stays
+silent or asks the client to stop and saves a typed redaction for easy
+resubmission.
 
 It is an alpha. Treat the compatibility and release gates below as part of the
 product boundary.
@@ -44,17 +45,18 @@ arguments. `redact --json` reports only status and counts; use the default
 output when piping typed text. Redirected output preserves surrounding text,
 while an interactive terminal escapes non-printing control characters.
 
-## What the Codex hook does
+## What the prompt hook does
 
-The supported integration is Codex's `UserPromptSubmit` command-hook event.
+The first supported integration is Codex's `UserPromptSubmit` command-hook
+event.
 
 ```text
 submitted prompt
-  -> Codex invokes the local SHIM hook
+  -> supported client invokes its local SHIM hook
   -> bounded offline detector evaluates the prompt in memory
   -> safe: exit 0 with empty stdout and stderr
   -> finding: write a private temporary redaction and return its path
-  -> handled guard error: native Codex stop response
+  -> handled guard error: native client stop response
 ```
 
 The hook does not require a SHIM account, API key, network request, daemon,
@@ -62,7 +64,7 @@ telemetry, prompt log, finding log, or replacement map. For each supported
 finding, it creates one `0600` redacted text file in the operating system's
 temporary directory and puts a ready-to-copy `Read this file and use its
 contents as my prompt: <absolute path>` instruction in the block response.
-Paste that whole line as the next prompt so Codex can read the redaction.
+Paste that whole line as the next prompt so the agent can read the redaction.
 Detected raw values are not included in SHIM's hook messages or that file.
 Redactions are typed and ordinal, for example `<EMAIL_1>`.
 
@@ -98,17 +100,17 @@ guarantee.
 
 ## Privacy and limits
 
-SHIM only covers a prompt after Codex invokes a trusted, enabled hook that
-starts and completes. It is not whole-machine DLP and cannot promise detection
-of every sensitive value.
+SHIM only covers a prompt after a supported client invokes a trusted, enabled
+hook that starts and completes. It is not whole-machine DLP and cannot promise
+detection of every sensitive value.
 
-- Codex receives the raw prompt before the hook can decide. Other matching
-  hooks start concurrently and can receive it too.
-- Codex or another tool may keep transcripts, logs, telemetry, caches, or
-  history outside SHIM's control.
+- The host client receives the raw prompt before the hook can decide. Other
+  matching hooks start concurrently and can receive it too.
+- The host client or another tool may keep transcripts, logs, telemetry,
+  caches, or history outside SHIM's control.
 - A disabled, untrusted, missing, crashed, or timed-out hook is client
-  controlled and can fail open. Changed non-managed Codex hooks need review and
-  trust again.
+  controlled and can fail open. Some clients require changed hooks to be
+  reviewed and trusted again.
 - Users can intentionally disable individual entity detectors, including all
   of them. `shim config` shows the active policy.
 - A redacted suggestion can still contain content the detector missed. Review
@@ -119,10 +121,10 @@ of every sensitive value.
   files, tool output, transcript content, images, audio, clipboard history, or
   unsupported client events.
 
-For the exact trust boundary, see [Privacy](docs/privacy.md) and the current
-[Codex hook documentation](https://developers.openai.com/codex/hooks/).
+For the exact trust boundary and current client evidence, see
+[Privacy](docs/privacy.md) and [Compatibility](docs/compatibility.md).
 
-## Installation ownership
+## Current Codex installation ownership
 
 `shim install codex --dry-run` shows the target and exact owned fragment. It
 uses `$CODEX_HOME/hooks.json` when `CODEX_HOME` is set and otherwise
@@ -147,8 +149,9 @@ The implementation target is CPython 3.13 on macOS and Linux. Codex CLI
 `0.149.0` was locally inspected, reported its hook feature as stable and
 enabled, and native hook contract fixtures are tested.
 This is not a claim that a live interactive Codex session, every authentication
-mode, trust review, or timeout behavior has been verified. Claude Code,
-additional clients, and SHIM Protect are deferred.
+mode, trust review, or timeout behavior has been verified. Additional
+hook-capable clients require their own native adapters and compatibility
+evidence. SHIM Protect remains deferred.
 
 Before a public release, maintainers must record real-client compatibility,
 trusted-hook activation, the supported authentication routes, corpus results,

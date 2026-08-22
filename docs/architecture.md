@@ -1,29 +1,29 @@
 # Architecture
 
 SHIM Guard is one local Python distribution. The CLI is a management and
-local-inspection interface; the Codex hook is the prompt path. It has no daemon,
-history, or service state and creates one temporary redaction per supported
-block.
+local-inspection interface; client-native hooks are the prompt path. It has no
+daemon, history, or service state and creates one temporary redaction per
+supported block.
 
 ```text
 shim config -> guarded local entity policy
 shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
 
-Codex UserPromptSubmit -> hook adapter -> policy -> detector
+supported prompt event -> native hook adapter -> policy -> detector
                        -> allow | 0600 temporary redaction -> block with read instruction
-shim install/status/doctor/revert -> guarded merge/revert -> Codex hooks.json
+shim install/status/doctor/revert -> guarded merge/revert -> client hook settings
 ```
 
 The detector is functional and offline. It normalizes input once, validates
 bounded findings against a selected subset of the fixed entity allowlist,
 resolves spans deterministically, and produces typed ordinal placeholders. The
-hook owns stdin/stdout/stderr, the Codex protocol, and its per-block temporary
-redaction file. Installation owns only SHIM's matcher-group and entity-policy
-planning plus guarded filesystem I/O. Install creates an absent `hooks.json`,
-or preserves a valid document and appends SHIM's exact matcher group last after
-informing the user. Revert removes only that exact group and retains the
-document even when empty. Both operations are idempotent.
+hook owns stdin/stdout/stderr, the client protocol, and its per-block temporary
+redaction file. Installation owns only SHIM's hook fragment and entity-policy
+planning plus guarded filesystem I/O. Each adapter defines its exact target and
+owned fragment. Install preserves valid existing settings and adds only that
+fragment after informing the user; revert removes only the same fragment. Both
+operations are idempotent.
 
 The local TOML policy defaults to every public entity. The CLI and hook validate
 it through the same bounded, no-symlink file inspection path; the detector
@@ -31,10 +31,11 @@ itself remains pure and receives the enabled tuple explicitly. Malformed or
 unsafe policy files fail closed. Configuration stores entity names only—never
 prompt-derived data.
 
-Inline `config.toml` hooks remain untouched and may coexist with `hooks.json`
-with a Codex warning. Malformed or ambiguous hook documents and unsafe or
-concurrently changed hook files require manual setup. Dry-run output contains
-only SHIM's fragment, not the existing hook document.
+Each adapter owns its client's configuration and coexistence rules. The current
+Codex adapter leaves inline `config.toml` hooks untouched; they may coexist with
+`hooks.json` with a client warning. Malformed or ambiguous hook documents and
+unsafe or concurrently changed hook files require manual setup. Dry-run output
+contains only SHIM's fragment, not the existing hook document.
 
 ## Detector boundary and corpus
 
