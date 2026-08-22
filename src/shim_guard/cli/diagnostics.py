@@ -35,7 +35,11 @@ def _client_version(
         return Check(executable, "FAIL", f"{name} executable was not found on PATH.")
     try:
         result = subprocess.run(
-            [path, "--version"], capture_output=True, text=True, timeout=5, check=False
+            [path, "--version"],
+            capture_output=True,
+            encoding="utf-8",
+            timeout=5,
+            check=False,
         )
     except (OSError, UnicodeError, subprocess.SubprocessError):
         return Check(
@@ -91,7 +95,7 @@ def _codex_hooks_feature() -> Check:
         result = subprocess.run(
             [path, "features", "list"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             timeout=5,
             check=False,
         )
@@ -157,7 +161,7 @@ def _run_hook(
     return subprocess.run(
         command,
         input=payload,
-        text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=timeout + 5,
         check=False,

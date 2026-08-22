@@ -97,7 +97,7 @@ def installed_python_version(python: Path) -> str:
             (str(python), "-c", "import platform; print(platform.python_version())"),
             capture_output=True,
             check=False,
-            text=True,
+            encoding="utf-8",
             timeout=HOOK_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.SubprocessError) as error:
