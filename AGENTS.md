@@ -15,8 +15,12 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 - Entity settings default to all public types; malformed or unsafe settings fail
   closed, and the settings file must never contain prompt-derived data.
 - Never modify real user configuration in development or tests; use temporary paths.
-- Install may create `hooks.json` or append SHIM's exact matcher group last to a valid document while preserving existing hooks; revert removes only that group and retains the document even when empty.
-- Keep install and revert idempotent, leave inline `config.toml` hooks untouched, preview only SHIM's fragment, and require manual setup for malformed, ambiguous, unsafe, or concurrently changed files.
+- Install may create a missing client settings file or append SHIM's exact hook
+  group last while preserving unrelated settings and hooks; revert removes only
+  that group and retains the document even when empty.
+- Keep install and revert idempotent, leave Codex inline `config.toml` hooks
+  untouched, preview only SHIM's fragment, and require manual setup for malformed,
+  ambiguous, unsafe, or concurrently changed files.
 - Do not add clients, auth, telemetry, daemons, proxies, plugin frameworks, or compatibility shims without an approved requirement.
 
 ## Checks
