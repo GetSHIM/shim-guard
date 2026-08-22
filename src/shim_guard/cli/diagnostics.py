@@ -37,7 +37,7 @@ def _client_version(
         result = subprocess.run(
             [path, "--version"], capture_output=True, text=True, timeout=5, check=False
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, UnicodeError, subprocess.SubprocessError):
         return Check(
             executable, "FAIL", f"{name} at {path} could not report its version."
         )
@@ -95,7 +95,7 @@ def _codex_hooks_feature() -> Check:
             timeout=5,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, UnicodeError, subprocess.SubprocessError):
         return Check(
             "hooks_feature", "FAIL", "Codex hook support could not be checked."
         )
@@ -190,7 +190,7 @@ def _runner_check(client: str) -> Check:
             safe_result = _run_hook(command, safe, environment, timeout)
             block_result = _run_hook(command, blocked, environment, timeout)
         block = json.loads(block_result.stdout)
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+    except (OSError, UnicodeError, subprocess.SubprocessError, json.JSONDecodeError):
         return Check(
             "runner", "FAIL", "The local hook runner fixtures did not complete."
         )

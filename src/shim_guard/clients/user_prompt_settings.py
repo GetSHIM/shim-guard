@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-from typing import cast
 
 MAX_SETTINGS_BYTES = 1_000_000
 
@@ -96,8 +95,10 @@ def _same_group(left: object, right: object) -> bool:
 def add_group(content: bytes | None, group: dict[str, object]) -> bytes:
     """Append one exact prompt-hook group while preserving existing order."""
     document = {} if content is None else _load(content)
-    hooks = cast(dict[str, object], document.setdefault("hooks", {}))
-    groups = cast(list[object], hooks.setdefault("UserPromptSubmit", []))
+    hooks = document.setdefault("hooks", {})
+    assert isinstance(hooks, dict)
+    groups = hooks.setdefault("UserPromptSubmit", [])
+    assert isinstance(groups, list)
     matches = [item for item in groups if _same_group(item, group)]
     if len(matches) > 1:
         raise ValueError("duplicate SHIM hook groups are ambiguous")
@@ -113,8 +114,10 @@ def remove_group(content: bytes, group: dict[str, object]) -> bytes:
     document = _load(content)
     if "hooks" not in document:
         return content
-    hooks = cast(dict[str, object], document["hooks"])
-    groups = cast(list[object], hooks.get("UserPromptSubmit", []))
+    hooks = document["hooks"]
+    assert isinstance(hooks, dict)
+    groups = hooks.get("UserPromptSubmit", [])
+    assert isinstance(groups, list)
     matches = [index for index, item in enumerate(groups) if _same_group(item, group)]
     if len(matches) > 1:
         raise ValueError("duplicate SHIM hook groups are ambiguous")
