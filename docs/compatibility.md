@@ -7,9 +7,9 @@
 | Clients | Codex CLI 0.149.0, Claude Code 2.1.210, and GitHub Copilot CLI 1.0.80 locally inspected |
 | Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor`; Copilot `userPromptTransformed` documented and locally present |
 | Hook contract | Native fixture coverage for all three clients in the repository |
-| Live interactive client | PENDING_RELEASE_EVIDENCE |
-| Authentication routes | PENDING_RELEASE_EVIDENCE |
-| Trust review and client timeout behavior | PENDING_RELEASE_EVIDENCE |
+| Live interactive client | All three clients exercised on macOS 26.5.2 arm64 |
+| Authentication routes | Codex ChatGPT sign-in, Claude Code first-party sign-in, and GitHub Copilot OAuth |
+| Trust review and client timeout behavior | Hooks reviewed and activated; safe and finding prompts exercised; forced timeout/error behavior observed to fail open |
 | SHIM Protect | Deferred; separate process and threat model |
 
 The local inspection follows the current [Codex hook docs](https://developers.openai.com/codex/hooks/).
@@ -77,8 +77,8 @@ The release record must contain:
 
 | Evidence | Release value |
 | --- | --- |
-| Supported client versions and platforms | PENDING_RELEASE_EVIDENCE |
-| Authentication route(s) tested | PENDING_RELEASE_EVIDENCE |
-| Trusted-hook activation and fail-open observations | PENDING_RELEASE_EVIDENCE |
+| Supported client versions and platforms | Codex CLI 0.149.1, Claude Code 2.1.210, and GitHub Copilot CLI 1.0.80 on macOS 26.5.2 arm64 with CPython 3.13.9 |
+| Authentication route(s) tested | Codex ChatGPT sign-in, Claude Code first-party sign-in, and GitHub Copilot OAuth |
+| Trusted-hook activation and fail-open observations | Native hooks reviewed and activated; safe prompts continued, findings blocked or rewrote as designed, and forced timeout/error behavior failed open at the client boundary |
 | Synthetic corpus and quality metrics | `guard-v1` and `guard-v1-metrics.json` |
 | Fresh-process latency | `benchmark-hook.json`, generated for the tag |
