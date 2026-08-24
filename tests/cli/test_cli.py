@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from click import unstyle
 from typer.testing import CliRunner
 
 from shim_guard.cli import output
@@ -85,16 +86,28 @@ def test_help_does_not_load_detector() -> None:
 
 
 def test_help_remains_readable_at_narrow_terminal_width() -> None:
-    result = runner.invoke(app, ["--help"], env={"COLUMNS": "20"}, color=False)
+    result = runner.invoke(
+        app,
+        ["--help"],
+        env={
+            "COLUMNS": "20",
+            "CI": None,
+            "FORCE_COLOR": None,
+            "GITHUB_ACTIONS": None,
+        },
+        color=False,
+    )
+    rendered = unstyle(result.output)
 
     assert result.exit_code == 0
-    assert "Usage:" in result.output
-    assert "Commands" in result.output
-    assert max(map(len, result.output.splitlines())) <= 20
+    assert "Usage:" in rendered
+    assert "Commands" in rendered
+    assert max(map(len, rendered.splitlines())) <= 20
 
 
 def test_help_command_lists_a_description_for_every_command() -> None:
     result = runner.invoke(app, ["help"], color=False)
+    rendered = unstyle(result.output)
     descriptions = (
         "Show command usage and descriptions.",
         "Run the local synthetic detector proof.",
@@ -108,8 +121,8 @@ def test_help_command_lists_a_description_for_every_command() -> None:
     )
 
     assert result.exit_code == 0
-    assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in result.output
-    assert all(description in result.output for description in descriptions)
+    assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in rendered
+    assert all(description in rendered for description in descriptions)
 
 
 def test_client_arguments_list_and_enforce_available_value() -> None:
