@@ -10,12 +10,14 @@ import typer
 from shim_guard.cli.output import emit, emit_json
 from shim_guard.clients.claude import settings as claude_settings
 from shim_guard.clients.codex import settings as codex_settings
+from shim_guard.clients.copilot import settings as copilot_settings
 from shim_guard.installation import (
     Action,
     InstallationError,
     Plan,
     StateKind,
     apply,
+    ensure_parent,
     inspect_file,
     plan_change,
 )
@@ -26,6 +28,8 @@ def client_name(client: str) -> str:
         return "Claude Code"
     if client == "codex":
         return "Codex"
+    if client == "copilot":
+        return "GitHub Copilot CLI"
     raise ValueError("unsupported client")
 
 
@@ -40,6 +44,11 @@ def client_plan(client: str, operation: Literal["install", "revert"]) -> Plan:
         limit = codex_settings.MAX_CONFIG_BYTES
         add_hook = codex_settings.add_hook
         remove_hook = codex_settings.remove_hook
+    elif client == "copilot":
+        target = copilot_settings.target_path()
+        limit = copilot_settings.MAX_CONFIG_BYTES
+        add_hook = copilot_settings.add_hook
+        remove_hook = copilot_settings.remove_hook
     else:
         raise ValueError("unsupported client")
     state = inspect_file(target, limit)
@@ -65,6 +74,8 @@ def _hook_group(client: str) -> dict[str, object]:
         return claude_settings.hook_group()
     if client == "codex":
         return codex_settings.hook_group()
+    if client == "copilot":
+        return copilot_settings.hook_document()
     raise ValueError("unsupported client")
 
 
@@ -88,7 +99,10 @@ def _inline_hooks_notice(client: str) -> None:
 def plan_status(plan: Plan) -> tuple[str, str]:
     if plan.action is Action.NOOP:
         return "PASS", "installed"
-    if plan.action in {Action.CREATE, Action.UPDATE}:
+    if plan.state.kind is StateKind.ABSENT or plan.action in {
+        Action.CREATE,
+        Action.UPDATE,
+    }:
         return "WARN", "not_installed"
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
@@ -114,7 +128,17 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     except (OSError, ValueError):
         _plan_error(client, "install")
 
-    if plan.action in {Action.CONFLICT, Action.REFUSE}:
+    missing_parent = (
+        client == "copilot"
+        and plan.action is Action.REFUSE
+        and plan.state.kind is StateKind.ABSENT
+    )
+    action = (
+        Action.CREATE
+        if missing_parent or (client == "copilot" and plan.action is Action.UPDATE)
+        else plan.action
+    )
+    if action in {Action.CONFLICT, Action.REFUSE}:
         emit("FAIL", f"{name} hook configuration cannot be changed safely.", error=True)
         emit(
             "WARN",
@@ -122,28 +146,43 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
             error=True,
         )
         raise typer.Exit(2)
-    if plan.action is Action.NOOP:
+    if action is Action.NOOP:
         emit("PASS", f"SHIM Guard is already installed for {name}.")
         return
-    if plan.action is Action.UPDATE:
+    if action is Action.UPDATE:
         emit(
             "WARN",
             f"Existing {name} hooks will be preserved; SHIM Guard will be appended last.",
         )
     _inline_hooks_notice(client)
     if dry_run:
-        verb = "create" if plan.action is Action.CREATE else "append to"
+        verb = "create" if action is Action.CREATE else "append to"
         emit("WARN", f"Would {verb} {name} hooks at {plan.target} with this fragment:")
         print(json.dumps(_hook_group(client), ensure_ascii=False, indent=2))
         return
     prompt = (
         f"Create SHIM Guard's {name} hook?"
-        if plan.action is Action.CREATE
+        if action is Action.CREATE
         else f"Append SHIM Guard after existing {name} hooks?"
     )
     if not yes and not typer.confirm(prompt, default=False):
         emit("WARN", "Installation cancelled.")
         raise typer.Exit(1)
+    if missing_parent:
+        try:
+            ensure_parent(plan.target)
+            plan = client_plan(client, "install")
+        except (InstallationError, OSError, ValueError):
+            emit("FAIL", f"{name} hook configuration was not changed.", error=True)
+            raise typer.Exit(2) from None
+        if plan.action is Action.NOOP:
+            emit("PASS", f"SHIM Guard is already installed for {name}.")
+            return
+        if plan.action is not Action.CREATE:
+            emit(
+                "FAIL", f"{name} hook configuration changed before install.", error=True
+            )
+            raise typer.Exit(2)
     try:
         apply(plan)
     except (InstallationError, OSError):
@@ -152,7 +191,7 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     emit(
         "PASS",
         f"Appended SHIM Guard after existing {name} hooks."
-        if plan.action is Action.UPDATE
+        if action is Action.UPDATE
         else f"Installed SHIM Guard for {name}.",
     )
 

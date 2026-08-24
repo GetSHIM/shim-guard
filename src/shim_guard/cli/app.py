@@ -13,6 +13,7 @@ from shim_guard.config import ENTITY_TYPES
 class Client(StrEnum):
     CLAUDE = "claude"
     CODEX = "codex"
+    COPILOT = "copilot"
 
 
 Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})

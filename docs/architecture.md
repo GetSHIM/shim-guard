@@ -2,8 +2,8 @@
 
 SHIM Guard is one local Python distribution. The CLI is a management and
 local-inspection interface; client-native hooks are the prompt path. It has no
-daemon, history, or service state and creates one temporary redaction per
-supported block.
+daemon, history, or service state. Copilot receives direct rewrites; blocking
+clients get one temporary redaction per blocked prompt.
 
 ```text
 shim config -> guarded local entity policy
@@ -11,14 +11,15 @@ shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
 
 supported prompt event -> native hook adapter -> policy -> detector
-                       -> allow | 0600 temporary redaction -> block with read instruction
+                       -> allow | Copilot direct rewrite
+                                | 0600 temporary redaction -> native block
 shim install/status/doctor/revert -> guarded merge/revert -> client hook settings
 ```
 
 The detector is functional and offline. It normalizes input once, validates
 bounded findings against a selected subset of the fixed entity allowlist,
 resolves spans deterministically, and produces typed ordinal placeholders. The
-hook owns stdin/stdout/stderr, the client protocol, and its per-block temporary
+hook owns stdin/stdout/stderr, the client protocol, and any per-block temporary
 redaction file. Installation owns only SHIM's hook fragment and entity-policy
 planning plus guarded filesystem I/O. Each adapter defines its exact target and
 owned fragment. Install preserves valid existing settings and adds only that
@@ -38,6 +39,13 @@ adapter leaves inline `config.toml` hooks untouched; they may coexist with
 unrelated setting. Malformed or ambiguous documents and unsafe or concurrently
 changed files require manual setup. Dry-run output contains only SHIM's
 fragment, not the existing document.
+
+The GitHub Copilot CLI adapter owns
+`$COPILOT_HOME/hooks/shim-guard.json` (defaulting to
+`~/.copilot/hooks/shim-guard.json`). Its `userPromptTransformed` hook evaluates
+the model-facing content and returns `modifiedTransformedPrompt` with the typed
+redaction. Copilot stores and sends the replacement while leaving the original
+timeline display unchanged. Revert retains an empty versioned hook document.
 
 ## Detector boundary and corpus
 
@@ -64,5 +72,7 @@ widen the hook's trust boundary.
 The [Codex hooks reference](https://developers.openai.com/codex/hooks/) and
 Claude Code [hooks](https://code.claude.com/docs/en/hooks) and
 [settings](https://code.claude.com/docs/en/settings) references are the
-authoritative protocol sources. Both adapters use `UserPromptSubmit` and their
+authoritative protocol sources for those clients. GitHub's
+[Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
+defines the Copilot adapter's direct rewrite contract. Every adapter uses its
 native settings and output, not a generic cross-client hook format.

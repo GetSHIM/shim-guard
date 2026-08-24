@@ -18,6 +18,7 @@ from shim_guard.cli.integrations import client_name, client_plan, plan_status
 from shim_guard.cli.output import emit, emit_json
 from shim_guard.clients.claude import settings as claude_settings
 from shim_guard.clients.codex import settings as codex_settings
+from shim_guard.clients.copilot import settings as copilot_settings
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +84,13 @@ def _version_check(client: str) -> Check:
             "Codex",
             codex_settings.MINIMUM_CODEX_VERSION,
             codex_settings.TESTED_CODEX_VERSION,
+        )
+    if client == "copilot":
+        return _client_version(
+            "copilot",
+            "GitHub Copilot CLI",
+            copilot_settings.MINIMUM_COPILOT_VERSION,
+            copilot_settings.TESTED_COPILOT_VERSION,
         )
     raise ValueError("unsupported client")
 
@@ -176,14 +184,31 @@ def _runner_check(client: str) -> Check:
         timeout = claude_settings.HOOK_TIMEOUT_SECONDS
     elif client == "codex":
         timeout = codex_settings.HOOK_TIMEOUT_SECONDS
+    elif client == "copilot":
+        command.append("copilot")
+        timeout = copilot_settings.HOOK_TIMEOUT_SECONDS
     else:
         raise ValueError("unsupported client")
-    safe = json.dumps(
-        {"hook_event_name": "UserPromptSubmit", "prompt": "Synthetic safe prompt"}
-    )
-    blocked = json.dumps(
-        {"hook_event_name": "UserPromptSubmit", "prompt": "email demo@example.com"}
-    )
+    if client == "copilot":
+        safe = json.dumps(
+            {
+                "prompt": "Synthetic safe prompt",
+                "transformedPrompt": "Synthetic safe prompt",
+            }
+        )
+        blocked = json.dumps(
+            {
+                "prompt": "email demo@example.com",
+                "transformedPrompt": "email demo@example.com",
+            }
+        )
+    else:
+        safe = json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "prompt": "Synthetic safe prompt"}
+        )
+        blocked = json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "prompt": "email demo@example.com"}
+        )
     try:
         with tempfile.TemporaryDirectory(prefix="shim-guard-doctor-") as directory:
             environment = os.environ.copy()
@@ -204,21 +229,23 @@ def _runner_check(client: str) -> Check:
             "FAIL",
             "The local hook runner did not allow the safe fixture silently.",
         )
+    expected = "email <EMAIL_1>" if client == "copilot" else "block"
+    field = "modifiedTransformedPrompt" if client == "copilot" else "decision"
     if (
         block_result.returncode
         or block_result.stderr
         or not isinstance(block, dict)
-        or block.get("decision") != "block"
+        or block.get(field) != expected
     ):
         return Check(
             "runner",
             "FAIL",
-            "The local hook runner did not block the sensitive fixture.",
+            "The local hook runner did not protect the sensitive fixture.",
         )
     return Check(
         "runner",
         "PASS",
-        "Local hook runner allowed and blocked direct fixtures correctly.",
+        "Local hook runner allowed and protected direct fixtures correctly.",
     )
 
 

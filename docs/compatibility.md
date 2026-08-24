@@ -4,9 +4,9 @@
 | --- | --- |
 | Python | CPython 3.13 target |
 | Operating systems | macOS and Linux target |
-| Clients | Codex CLI 0.149.0 and Claude Code 2.1.210 locally inspected |
-| Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor` |
-| Hook contract | Native fixture coverage for both clients in the repository |
+| Clients | Codex CLI 0.149.0, Claude Code 2.1.210, and GitHub Copilot CLI 1.0.80 locally inspected |
+| Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor`; Copilot `userPromptTransformed` documented and locally present |
+| Hook contract | Native fixture coverage for all three clients in the repository |
 | Live interactive client | PENDING_RELEASE_EVIDENCE |
 | Authentication routes | PENDING_RELEASE_EVIDENCE |
 | Trust review and client timeout behavior | PENDING_RELEASE_EVIDENCE |
@@ -19,6 +19,12 @@ The Claude Code adapter follows its current
 user-scoped `settings.json`, shell-free command arguments, empty safe output,
 and the native structured block response with original-prompt display
 suppressed.
+
+The GitHub Copilot CLI adapter follows GitHub's current
+[hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference).
+Command hooks cannot change `userPromptSubmitted`, so SHIM uses
+`userPromptTransformed` to replace the model-facing content with its typed
+redaction. The original prompt can remain visible in Copilot's timeline.
 
 ## Development evidence
 
@@ -40,16 +46,17 @@ Darwin 25.5.0 arm64, macOS 26.5.2, CPython 3.13.9:
 
 This is development evidence, not tag-generated release evidence. Detector
 analysis has a 20-second deadline; the 25-second outer hook deadline covers
-stdin, bootstrap, and evaluation; both client configurations use a 30-second
+stdin, bootstrap, and evaluation; all client configurations use a 30-second
 timeout. Loaded hosts and cold filesystem caches can be slower; a client
 timeout remains fail-open behavior outside SHIM's control.
 
 ## Release evidence gate
 
 The tag workflow refuses publication while a release-evidence marker remains.
-Before removing those markers, record real interactive Codex and Claude Code
-runs for the release tag, their authentication routes, hook activation, and
-observed timeout/fail-open behavior. CI fixtures do not establish those facts.
+Before removing those markers, record real interactive Codex, Claude Code, and
+GitHub Copilot CLI runs for the release tag, their authentication routes, hook
+activation, and observed timeout/fail-open behavior. CI fixtures do not
+establish those facts.
 Repository setup must also protect `v*` tags and require reviewers for the
 `release` and `pypi` environments; a workflow file cannot enforce those
 GitHub-side controls.

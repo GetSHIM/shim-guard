@@ -37,8 +37,8 @@ def _float(value: str) -> float:
     return number
 
 
-def parse_input(raw: bytes) -> str:
-    """Return the submitted prompt from one strict hook payload."""
+def parse_object(raw: bytes) -> dict[str, object]:
+    """Return one strict JSON hook payload object."""
     try:
         payload = json.loads(
             raw.decode("utf-8", errors="strict"),
@@ -50,6 +50,12 @@ def parse_input(raw: bytes) -> str:
         raise ValueError("invalid prompt-hook payload") from error
     if not isinstance(payload, dict):
         raise ValueError("prompt-hook payload must be an object")
+    return payload
+
+
+def parse_input(raw: bytes) -> str:
+    """Return the submitted prompt from one strict hook payload."""
+    payload = parse_object(raw)
     if payload.get("hook_event_name") != EVENT_NAME:
         raise ValueError("unexpected prompt-hook event")
     prompt = payload.get("prompt")

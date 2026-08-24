@@ -2,8 +2,8 @@
 
 SHIM Guard is a local pre-submit prompt guard for hook-capable coding-agent
 CLIs. It scans a submitted prompt in the client hook process and either stays
-silent or asks the client to stop and saves a typed redaction for easy
-resubmission.
+silent, replaces the model-facing prompt with a typed redaction, or stops the
+client and saves a typed redaction for easy resubmission.
 
 It is an alpha. Treat the compatibility and release gates below as part of the
 product boundary.
@@ -25,16 +25,21 @@ shim
 shim help
 shim demo codex
 shim demo claude
+shim demo copilot
 shim config
 shim install codex --dry-run
 shim install codex
 shim doctor codex
 shim install claude
 shim doctor claude
+shim install copilot
+shim doctor copilot
 shim status codex
 shim status claude
+shim status copilot
 shim revert codex
 shim revert claude
+shim revert copilot
 ```
 
 For direct local inspection, pipe text instead of placing it in shell history
@@ -53,25 +58,29 @@ while an interactive terminal escapes non-printing control characters.
 ## What the prompt hook does
 
 Codex and Claude Code integrations use each client's native
-`UserPromptSubmit` command-hook event.
+`UserPromptSubmit` command-hook event. GitHub Copilot CLI uses
+`userPromptTransformed`, which can replace the model-facing prompt directly.
 
 ```text
 submitted prompt
   -> supported client invokes its local SHIM hook
   -> bounded offline detector evaluates the prompt in memory
   -> safe: exit 0 with empty stdout and stderr
-  -> finding: write a private temporary redaction and return its path
-  -> handled guard error: native client stop response
+  -> finding: Copilot receives the typed redaction directly
+            | Codex/Claude write a private temporary redaction and return its path
+  -> handled guard error: native client fail-closed response
 ```
 
 The hook does not require a SHIM account, API key, network request, daemon,
-telemetry, prompt log, finding log, or replacement map. For each supported
-finding, it creates one `0600` redacted text file in the operating system's
-temporary directory and puts a ready-to-copy `Read this file and use its
-contents as my prompt: <absolute path>` instruction in the block response.
-Paste that whole line as the next prompt so the agent can read the redaction.
-Detected raw values are not included in SHIM's hook messages or that file.
-Redactions are typed and ordinal, for example `<EMAIL_1>`.
+telemetry, prompt log, finding log, or replacement map. For Copilot, SHIM
+replaces the model-facing prompt with its typed redaction and creates no
+temporary redaction file. For Codex and Claude Code, it creates one `0600`
+redacted text file in the operating system's temporary directory and puts a
+ready-to-copy `Read this file and use its contents as my prompt: <absolute
+path>` instruction in the block response. Paste that whole line as the next
+prompt so the agent can read the redaction. Detected raw values are not
+included in SHIM's hook messages or redaction output. Redactions are typed and
+ordinal, for example `<EMAIL_1>`.
 
 The initial public entity allowlist is:
 
@@ -111,6 +120,8 @@ detection of every sensitive value.
 
 - The host client receives the raw prompt before the hook can decide. Other
   matching hooks start concurrently and can receive it too.
+- Copilot's timeline can display the original prompt even though SHIM replaces
+  the model-facing content and the value stored in session history.
 - The host client or another tool may keep transcripts, logs, telemetry,
   caches, or history outside SHIM's control.
 - A disabled, untrusted, missing, crashed, or timed-out hook is client
@@ -157,13 +168,21 @@ Its block response asks Claude Code not to repeat the original prompt in the
 block message. `shim revert claude` removes only that exact group and retains
 the settings file.
 
+`shim install copilot --dry-run` targets SHIM's dedicated user hook file at
+`$COPILOT_HOME/hooks/shim-guard.json`, or
+`~/.copilot/hooks/shim-guard.json` when `COPILOT_HOME` is unset. SHIM creates
+missing private parent directories and refuses to overwrite unexpected content
+at that path. The hook uses `userPromptTransformed` and returns
+`modifiedTransformedPrompt`. `shim revert copilot` removes the exact hook while
+retaining an empty versioned hook document.
+
 ## Compatibility and release gates
 
 The implementation target is CPython 3.13 on macOS and Linux. Codex CLI
-`0.149.0` and Claude Code `2.1.210` were locally inspected. Codex reported its
-hook feature as stable and enabled; Claude Code accepted SHIM's generated user
-settings through its native `doctor` command. Both native hook contracts have
-repository fixtures.
+`0.149.0`, Claude Code `2.1.210`, and GitHub Copilot CLI `1.0.80` were locally
+inspected. Codex reported its hook feature as stable and enabled; Claude Code
+accepted SHIM's generated user settings through its native `doctor` command.
+All three native hook contracts have repository fixtures.
 This is not a claim that a live interactive session, every authentication mode,
 trust review, or timeout behavior has been verified. Each additional client
 still requires a native adapter and compatibility evidence. SHIM Protect

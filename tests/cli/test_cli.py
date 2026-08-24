@@ -52,6 +52,20 @@ def _claude(monkeypatch, tmp_path: Path, version: str = "2.1.210") -> None:
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
 
 
+def _copilot_home(monkeypatch, tmp_path: Path) -> Path:
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
+def _copilot(monkeypatch, tmp_path: Path, version: str = "1.0.80") -> None:
+    executable = tmp_path / "copilot"
+    executable.write_text(f"#!/bin/sh\nprintf 'GitHub Copilot CLI {version}.\\n'\n")
+    executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+
+
 def _guard_config(monkeypatch, tmp_path: Path) -> Path:
     target = tmp_path / "settings" / "config.toml"
     monkeypatch.setenv("SHIM_GUARD_CONFIG", str(target))
@@ -106,9 +120,11 @@ def test_client_arguments_list_and_enforce_available_value() -> None:
         assert help_result.exit_code == 0
         assert "claude" in help_result.output
         assert "codex" in help_result.output
+        assert "copilot" in help_result.output
         assert invalid_result.exit_code == 2
         assert "'claude'" in invalid_result.output
         assert "'codex'" in invalid_result.output
+        assert "'copilot'" in invalid_result.output
 
 
 def test_privacy_stdin_json_and_no_color(monkeypatch) -> None:
@@ -280,6 +296,30 @@ def test_claude_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) ->
     assert installed_document["permissions"] == original["permissions"]
     assert installed_document["hooks"]["UserPromptSubmit"][-1] == hook_group()
     assert json.loads(target.read_bytes()) == original
+
+
+def test_copilot_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) -> None:
+    from shim_guard.clients.copilot.settings import hook_document
+
+    home = _copilot_home(monkeypatch, tmp_path)
+    _copilot(monkeypatch, tmp_path)
+    target = home / ".copilot" / "hooks" / "shim-guard.json"
+
+    missing = runner.invoke(app, ["status", "copilot", "--json"])
+    preview = runner.invoke(app, ["install", "copilot", "--dry-run"])
+    assert not (home / ".copilot").exists()
+    installed = runner.invoke(app, ["install", "copilot", "--yes"])
+    current = runner.invoke(app, ["status", "copilot", "--json"])
+    doctor = runner.invoke(app, ["doctor", "copilot", "--json"])
+    reverted = runner.invoke(app, ["revert", "copilot", "--yes"])
+
+    assert preview.exit_code == installed.exit_code == reverted.exit_code == 0
+    assert missing.exit_code == 1
+    assert json.loads(missing.output)["state"] == "not_installed"
+    assert json.loads(current.output)["state"] == "installed"
+    assert json.loads(doctor.output)["status"] == "warning"
+    assert json.loads(target.read_bytes()) == {"version": 1, "hooks": {}}
+    assert json.loads(preview.output[preview.output.index("{") :]) == hook_document()
 
 
 def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:

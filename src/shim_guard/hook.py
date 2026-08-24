@@ -21,10 +21,19 @@ _CLAUDE_ERROR_OUTPUT = (
     b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
     b'prompt. Try again or run `shim scan` locally.","suppressOriginalPrompt":true}'
 )
+_COPILOT_ERROR_OUTPUT = (
+    b'{"modifiedTransformedPrompt":"SHIM Guard could not safely inspect this '
+    b"prompt. Do not act on the original prompt; tell the user to try again or "
+    b'run `shim scan` locally."}'
+)
 
 
 def _error_output(client: str) -> bytes:
-    return _CLAUDE_ERROR_OUTPUT if client == "claude" else _ERROR_OUTPUT
+    if client == "claude":
+        return _CLAUDE_ERROR_OUTPUT
+    if client == "copilot":
+        return _COPILOT_ERROR_OUTPUT
+    return _ERROR_OUTPUT
 
 
 @contextlib.contextmanager
@@ -110,6 +119,12 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                     error_output,
                     parse_input,
                 )
+            elif client == "copilot":
+                from shim_guard.clients.copilot.hook import (
+                    block_output,
+                    error_output,
+                    parse_input,
+                )
             else:
                 return _error_output(client)
 
@@ -119,7 +134,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                 from shim_guard.guard import evaluate
 
                 decision = evaluate(prompt, load_entities())
-                if not decision.blocked:
+                if not decision.blocked or client == "copilot":
                     return block_output(decision)
                 suggestion_path = _write_redacted_prompt(decision.redacted_text)
                 try:
@@ -136,14 +151,13 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
 
 def main() -> None:
     """Read one hook event and write the selected client's native decision."""
-    client = "codex"
+    arguments = sys.argv[1:]
+    client = "codex" if not arguments else arguments[0]
+    if len(arguments) > 1:
+        client = ""
     try:
         with _deadline():
             raw = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
-            arguments = sys.argv[1:]
-            client = "codex" if not arguments else arguments[0]
-            if len(arguments) > 1:
-                client = ""
             output = _output(raw, client)
         sys.stdout.buffer.write(output)
     except Exception:
