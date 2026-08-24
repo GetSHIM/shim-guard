@@ -1,0 +1,12 @@
+#!/bin/sh
+
+client=${1:-codex}
+if command -v shim-guard-hook >/dev/null 2>&1; then
+    exec shim-guard-hook "$client"
+fi
+
+if [ "$client" = "claude" ]; then
+    printf '%s' '{"decision":"block","reason":"SHIM Guard is not installed or is not on PATH. Run `uv tool install shim-guard`, restart the client, and try again.","suppressOriginalPrompt":true}'
+else
+    printf '%s' '{"decision":"block","reason":"SHIM Guard is not installed or is not on PATH. Run `uv tool install shim-guard`, restart the client, and try again."}'
+fi

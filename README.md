@@ -42,6 +42,36 @@ shim revert claude
 shim revert copilot
 ```
 
+### Marketplace plugins
+
+Install the CLI before installing the SHIM Guard plugin from a Claude Code or
+Codex marketplace:
+
+```console
+uv tool install shim-guard
+shim help
+```
+
+The plugin registers the prompt hook and calls the installed
+`shim-guard-hook` executable. Keep the uv tool bin directory on `PATH`, then
+restart the client after installation. The marketplace plugin and
+`shim install codex` or `shim install claude` are alternative hook installation
+methods; do not use both for the same client.
+
+For local marketplace testing from this repository:
+
+```console
+codex plugin marketplace add .
+codex plugin add shim-guard@shim-guard
+```
+
+In Claude Code, run:
+
+```text
+/plugin marketplace add .
+/plugin install shim-guard@shim-guard
+```
+
 For direct local inspection, pipe text instead of placing it in shell history
 or a process list:
 

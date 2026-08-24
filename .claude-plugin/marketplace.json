@@ -1,0 +1,24 @@
+{
+  "name": "shim-guard",
+  "owner": {
+    "name": "SHIM Engineering"
+  },
+  "description": "Local prompt privacy plugins from SHIM Engineering.",
+  "plugins": [
+    {
+      "name": "shim-guard",
+      "source": "./plugins/shim-guard",
+      "description": "Block sensitive prompt data before it reaches coding-agent models.",
+      "author": {
+        "name": "SHIM Engineering"
+      },
+      "license": "Apache-2.0",
+      "category": "security",
+      "tags": [
+        "privacy",
+        "security",
+        "hooks"
+      ]
+    }
+  ]
+}

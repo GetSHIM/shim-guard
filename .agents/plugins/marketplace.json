@@ -1,0 +1,20 @@
+{
+  "name": "shim-guard",
+  "interface": {
+    "displayName": "Shim Guard"
+  },
+  "plugins": [
+    {
+      "name": "shim-guard",
+      "source": {
+        "source": "local",
+        "path": "./plugins/shim-guard"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    }
+  ]
+}

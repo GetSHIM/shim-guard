@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 shim = "shim_guard.cli.app:main"
+shim-guard-hook = "shim_guard.hook:main"
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,27 @@
+{
+  "name": "shim-guard",
+  "version": "0.1.0",
+  "description": "Block sensitive prompt data before it reaches coding-agent models.",
+  "author": {
+    "name": "SHIM Engineering"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "privacy",
+    "security",
+    "prompt-hook"
+  ],
+  "interface": {
+    "displayName": "SHIM Guard",
+    "shortDescription": "Local pre-submit prompt privacy",
+    "longDescription": "Scans prompts locally and blocks sensitive data before model submission.",
+    "developerName": "SHIM Engineering",
+    "category": "Security",
+    "capabilities": [
+      "Hooks"
+    ],
+    "defaultPrompt": [
+      "Check whether SHIM Guard is installed and active."
+    ]
+  }
+}

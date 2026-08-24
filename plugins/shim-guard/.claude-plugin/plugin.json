@@ -1,0 +1,16 @@
+{
+  "name": "shim-guard",
+  "displayName": "SHIM Guard",
+  "version": "0.1.0",
+  "description": "Block sensitive prompt data before it reaches coding-agent models.",
+  "author": {
+    "name": "SHIM Engineering"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "privacy",
+    "security",
+    "prompt-hook"
+  ],
+  "hooks": "./hooks/claude.json"
+}
