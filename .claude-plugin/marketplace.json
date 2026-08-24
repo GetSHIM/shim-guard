@@ -1,7 +1,8 @@
 {
   "name": "shim-guard",
   "owner": {
-    "name": "SHIM Engineering"
+    "name": "SHIM Engineering",
+    "url": "https://github.com/GetSHIM"
   },
   "description": "Local prompt privacy plugins from SHIM Engineering.",
   "plugins": [

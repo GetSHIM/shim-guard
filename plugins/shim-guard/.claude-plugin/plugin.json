@@ -6,6 +6,8 @@
   "author": {
     "name": "SHIM Engineering"
   },
+  "homepage": "https://github.com/GetSHIM/shim-guard",
+  "repository": "https://github.com/GetSHIM/shim-guard",
   "license": "Apache-2.0",
   "keywords": [
     "privacy",

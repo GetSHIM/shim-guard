@@ -58,7 +58,21 @@ restart the client after installation. The marketplace plugin and
 `shim install codex` or `shim install claude` are alternative hook installation
 methods; do not use both for the same client.
 
-For local marketplace testing from this repository:
+Install the public Codex marketplace and plugin with:
+
+```console
+codex plugin marketplace add GetSHIM/shim-guard
+codex plugin add shim-guard@shim-guard
+```
+
+In Claude Code, run:
+
+```text
+/plugin marketplace add GetSHIM/shim-guard
+/plugin install shim-guard@shim-guard
+```
+
+For local marketplace testing from a repository checkout:
 
 ```console
 codex plugin marketplace add .

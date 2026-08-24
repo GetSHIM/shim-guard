@@ -23,6 +23,12 @@ dependencies = [
   "typer==0.27.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/GetSHIM/shim-guard"
+Repository = "https://github.com/GetSHIM/shim-guard"
+Issues = "https://github.com/GetSHIM/shim-guard/issues"
+Documentation = "https://github.com/GetSHIM/shim-guard#readme"
+
 [project.scripts]
 shim = "shim_guard.cli.app:main"
 shim-guard-hook = "shim_guard.hook:main"
