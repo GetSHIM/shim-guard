@@ -201,7 +201,7 @@ jobs:
         run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/guard-v1.json dist/guard-v1-metrics.json dist/benchmark-hook.json dist/requirements.lock dist/SHA256SUMS dist/shim-guard.sbom.cdx.json --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/guard-v1.json dist/guard-v1-metrics.json dist/benchmark-hook.json dist/requirements.lock dist/SHA256SUMS dist/shim-guard.sbom.cdx.json --generate-notes --repo "$GITHUB_REPOSITORY"
 
   publish:
     needs: [build, attest, release]
