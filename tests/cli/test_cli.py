@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from click import unstyle
 from typer.testing import CliRunner
@@ -111,6 +112,7 @@ def test_help_command_lists_a_description_for_every_command() -> None:
     rendered = unstyle(result.output)
     descriptions = (
         "Show command usage and descriptions.",
+        "Update SHIM Guard with its installation tool.",
         "Run the local synthetic detector proof.",
         "Scan bounded UTF-8 text from standard input.",
         "Redact bounded UTF-8 text from standard input.",
@@ -132,6 +134,30 @@ def test_version_option_reports_package_version() -> None:
 
     assert result.exit_code == 0
     assert result.output == f"shim-guard {__version__}\n"
+
+
+def test_update_uses_the_original_package_manager(monkeypatch) -> None:
+    calls = []
+
+    def run(command, *, check):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr("shim_guard.cli.app.subprocess.run", run)
+    for installer in ("uv", "pip"):
+        distribution = SimpleNamespace(
+            read_text=lambda _, installer=installer: installer
+        )
+        monkeypatch.setattr(
+            "shim_guard.cli.app.metadata.distribution",
+            lambda _, distribution=distribution: distribution,
+        )
+        assert runner.invoke(app, ["update"]).exit_code == 0
+
+    assert calls == [
+        ("uv", "tool", "upgrade", "shim-guard"),
+        ("pipx", "upgrade", "shim-guard"),
+    ]
 
 
 def test_client_arguments_list_and_enforce_available_value() -> None:

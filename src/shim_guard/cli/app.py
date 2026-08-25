@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
 from enum import StrEnum
+from importlib import metadata
 from typing import Annotated
 
 import typer
@@ -49,6 +51,29 @@ def root(
 def help(context: typer.Context) -> None:
     """Show command usage and descriptions."""
     typer.echo(context.find_root().get_help())
+
+
+@app.command()
+def update() -> None:
+    """Update SHIM Guard with its installation tool."""
+    installer = (
+        metadata.distribution("shim-guard").read_text("INSTALLER") or ""
+    ).strip()
+    command = {
+        "uv": ("uv", "tool", "upgrade", "shim-guard"),
+        "pip": ("pipx", "upgrade", "shim-guard"),
+    }.get(installer)
+    if command is not None:
+        try:
+            raise typer.Exit(subprocess.run(command, check=False).returncode)
+        except OSError:
+            pass
+    typer.echo(
+        "Unable to update automatically. Run `uv tool upgrade shim-guard` or "
+        "`pipx upgrade shim-guard`.",
+        err=True,
+    )
+    raise typer.Exit(2)
 
 
 @app.command()
