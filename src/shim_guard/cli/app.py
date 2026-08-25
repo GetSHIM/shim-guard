@@ -7,6 +7,7 @@ from typing import Annotated
 
 import typer
 
+from shim_guard import __version__
 from shim_guard.config import ENTITY_TYPES
 
 
@@ -28,8 +29,16 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True)
-def root(context: typer.Context) -> None:
+def root(
+    context: typer.Context,
+    version: bool = typer.Option(
+        False, "--version", help="Show the version and exit.", is_eager=True
+    ),
+) -> None:
     """Show the next action when no command is provided."""
+    if version:
+        typer.echo(f"shim-guard {__version__}")
+        raise typer.Exit
     if context.invoked_subcommand is None:
         typer.echo(
             "SHIM Guard — local prompt privacy for coding-agent CLIs. Try: shim help"
