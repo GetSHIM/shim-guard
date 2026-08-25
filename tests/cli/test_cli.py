@@ -505,6 +505,23 @@ def test_install_refuses_malformed_hook_document(monkeypatch, tmp_path: Path) ->
     assert target.read_bytes() == b'{"hooks":'
 
 
+def test_install_refuses_when_detector_warmup_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
+    home = _codex_home(monkeypatch, tmp_path)
+    target = home / ".codex" / "hooks.json"
+
+    def fail(_: str) -> None:
+        raise RuntimeError
+
+    monkeypatch.setattr("shim_guard.guard.evaluate", fail)
+    result = runner.invoke(app, ["install", "codex", "--yes"])
+
+    assert result.exit_code == 2
+    assert "detector could not start" in result.output
+    assert not target.exists()
+
+
 def test_doctor_version_states(monkeypatch, tmp_path: Path) -> None:
     _codex_home(monkeypatch, tmp_path)
 

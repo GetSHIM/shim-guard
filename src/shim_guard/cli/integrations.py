@@ -184,6 +184,13 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
             )
             raise typer.Exit(2)
     try:
+        from shim_guard.guard import evaluate
+
+        evaluate("Synthetic safe prompt")
+    except Exception:
+        emit("FAIL", "SHIM Guard detector could not start.", error=True)
+        raise typer.Exit(2) from None
+    try:
         apply(plan)
     except (InstallationError, OSError):
         emit("FAIL", f"{name} hook configuration was not changed.", error=True)

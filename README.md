@@ -47,7 +47,7 @@ shim Guard supports CPython 3.13 on macOS and Linux. Choose one package
 manager:
 
 ```console
-uv tool install shim-guard
+uv tool install --compile-bytecode shim-guard
 # or
 pipx install shim-guard
 ```
