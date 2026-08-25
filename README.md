@@ -22,7 +22,9 @@ The command is `shim`:
 
 ```console
 shim
+shim --version
 shim help
+shim update
 shim demo codex
 shim demo claude
 shim demo copilot
@@ -41,6 +43,9 @@ shim revert codex
 shim revert claude
 shim revert copilot
 ```
+
+`shim update` delegates to the package manager used during installation:
+`uv tool upgrade shim-guard` or `pipx upgrade shim-guard`.
 
 ### Marketplace plugins
 

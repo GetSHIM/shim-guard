@@ -9,6 +9,7 @@ clients get one temporary redaction per blocked prompt.
 shim config -> guarded local entity policy
 shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
+shim update -> recorded installer -> uv tool upgrade | pipx upgrade
 
 supported prompt event -> native hook adapter -> policy -> detector
                        -> allow | Copilot direct rewrite
