@@ -1,6 +1,6 @@
 {
   "name": "shim-guard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Block sensitive prompt data before it reaches coding-agent models.",
   "author": {
     "name": "SHIM Engineering"
