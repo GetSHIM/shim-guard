@@ -11,6 +11,7 @@ from pathlib import Path
 from click import unstyle
 from typer.testing import CliRunner
 
+from shim_guard import __version__
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
@@ -122,7 +123,15 @@ def test_help_command_lists_a_description_for_every_command() -> None:
 
     assert result.exit_code == 0
     assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in rendered
+    assert "--version" in rendered
     assert all(description in rendered for description in descriptions)
+
+
+def test_version_option_reports_package_version() -> None:
+    result = runner.invoke(app, ["--version"], color=False)
+
+    assert result.exit_code == 0
+    assert result.output == f"shim-guard {__version__}\n"
 
 
 def test_client_arguments_list_and_enforce_available_value() -> None:
