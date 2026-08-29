@@ -17,9 +17,14 @@ supported prompt event -> native hook adapter -> policy -> detector
 shim install/status/doctor/revert -> guarded merge/revert -> client hook settings
 ```
 
-The detector is functional and offline. It normalizes input once, validates
-bounded findings against a selected subset of the fixed entity allowlist,
-resolves spans deterministically, and produces typed ordinal placeholders. The
+The detector is functional, offline, and first party. It normalizes input once,
+validates bounded findings against a selected subset of the fixed entity
+allowlist, resolves spans deterministically, and produces typed ordinal
+placeholders. Every recognizer, checksum and deny rule lives in
+`guard/recognizers.py`; the public suffix table used to validate email hosts is
+compiled into `guard/suffixes.py`, so nothing is read from the network or the
+filesystem. `phonenumbers` is the only third-party module reachable from the
+hook, which `tests/contracts/test_import_hygiene.py` enforces. The
 hook owns stdin/stdout/stderr, the client protocol, and any per-block temporary
 redaction file. Installation owns only SHIM's hook fragment and entity-policy
 planning plus guarded filesystem I/O. Each adapter defines its exact target and
@@ -53,11 +58,16 @@ timeline display unchanged. Revert retains an empty versioned hook document.
 `shim-guard` is intentionally an independently packaged, narrow detector fork.
 It does not import the parent SHIM gateway: the gateway's reversible maps,
 provider flow, persistence, and broader runtime are outside a local synchronous
-hook. The public `guard-v1` synthetic corpus is Guard's executable detector
+hook. The public `guard-v2` synthetic corpus is Guard's executable detector
 contract and a migration reference for the parent gateway; it does not claim
 current result parity between the independently released implementations.
 Guard category coverage and behavior change only with an explicit corpus
-update.
+update. `guard-tools-v1.json` extends the same contract to tool-event
+payloads captured from a real client. `tests/corpus/parity-v1.json` is a third,
+larger contract: 475
+generated cases recording the exact findings and redacted output produced
+before the detector was reimplemented, so a refactor that changes a span, a
+score or a placeholder ordinal fails immediately rather than silently.
 
 The secret recognizer is deliberately stricter than broad gateway-style prose
 matching. Assignment-style secrets require `key = value` or `key: value` (with

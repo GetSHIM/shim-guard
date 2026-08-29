@@ -18,7 +18,7 @@ BLOCK_INPUT = (
 )
 HOOK_COMMAND = ("-I", "-B", "-m", "shim_guard.hook")
 HOOK_TIMEOUT_SECONDS = 35
-DEFAULT_P95_CEILING_MS = 5_000.0
+DEFAULT_P95_CEILING_MS = 150.0
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 

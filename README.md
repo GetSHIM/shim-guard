@@ -19,9 +19,18 @@
   <a href="https://github.com/GetSHIM/shim-guard/stargazers"><img src="https://img.shields.io/github/stars/GetSHIM/shim-guard.svg?style=flat&amp;logo=github" alt="GitHub stars"></a>
 </p>
 
-shim Guard scans prompts through native client hooks before they reach the
-model. Safe prompts continue silently; detected values are replaced with typed
-placeholders such as `<EMAIL_1>`.
+shim Guard scans prompts and tool traffic through native client hooks. Safe
+input continues silently; detected values are reported or replaced with typed
+placeholders such as `<EMAIL_1>`, depending on where the data is going.
+
+> [!IMPORTANT]
+> **With the default configuration, shim Guard does not prevent a secret you
+> type into a prompt from reaching the model. It tells you afterwards.**
+> No client offers a field for rewriting a submitted prompt, so the only way to
+> stop one is to refuse the sentence you just typed — which is disruptive and
+> rare enough that it is not the default. Set `user-prompt = "enforce"` in
+> `[mode]` to block instead. Tool results *are* masked before the model sees
+> them, and that is where most leakage happens.
 
 > [!WARNING]
 > shim Guard is alpha software and a best-effort guard, not a data-loss
@@ -30,11 +39,15 @@ placeholders such as `<EMAIL_1>`.
 
 ## Supported clients
 
-| Client | Behavior when a value is detected |
-| --- | --- |
-| [Codex CLI](https://github.com/openai/codex) | Blocks submission and creates a private redacted file to resubmit |
-| [Claude Code](https://github.com/anthropics/claude-code) | Blocks submission and creates a private redacted file to resubmit |
-| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | Replaces the model-facing prompt with the redacted text |
+| Client | Your typed prompt | Tool input and results |
+| --- | --- | --- |
+| [Claude Code](https://github.com/anthropics/claude-code) | Reports what it found and lets it through; blocks under `enforce` | **Masked before the model sees them** |
+| [Codex CLI](https://github.com/openai/codex) | Reports what it found and lets it through; blocks under `enforce` | Reported only — Codex has no surgical result rewrite |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | Replaces the model-facing prompt with the redacted text | Reported only, pending verification |
+
+Tool coverage is verified against a running client, not derived from
+documentation. `shim doctor <client>` prints exactly which events are installed
+and what SHIM can and cannot change at each one.
 
 shim Guard detects email addresses, phone numbers, credit cards, IBANs, IP and
 MAC addresses, US SSNs, Turkish national and tax IDs, secrets, and database
@@ -43,8 +56,8 @@ daemon, telemetry, or prompt history.
 
 ## Install
 
-shim Guard supports CPython 3.13 on macOS and Linux. Choose one package
-manager:
+shim Guard supports CPython 3.9 through 3.13 on macOS and Linux, including
+the system `python3` on macOS. Choose one package manager:
 
 ```console
 uv tool install --compile-bytecode shim-guard

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Literal, Never
+from typing import Literal, NoReturn
 
 import typer
 
@@ -107,7 +107,7 @@ def plan_status(plan: Plan) -> tuple[str, str]:
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
 
-def _plan_error(client: str, command: str, as_json: bool = False) -> Never:
+def _plan_error(client: str, command: str, as_json: bool = False) -> NoReturn:
     name = client_name(client)
     if as_json:
         emit_json(

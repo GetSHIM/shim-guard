@@ -107,6 +107,24 @@ def block_output(
     return _json_block(reason, suppress_original_prompt)
 
 
+def warn_output(decision: GuardDecision) -> bytes:
+    """Report what was found and let the prompt through.
+
+    This is the shipped default. A client cannot rewrite a submitted prompt, so
+    the alternative to reporting is refusing the sentence someone just typed,
+    which is the most disruptive thing this product can do. The message carries
+    entity names and counts only, never a detected value.
+    """
+    if not decision.blocked:
+        return b""
+    counts = ", ".join(f"{category} ({count})" for category, count in decision.counts)
+    document = {"systemMessage": f"shim: found {counts} in your prompt. Not modified."}
+    output = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
+    if len(output) > MAX_OUTPUT_BYTES:
+        raise ValueError("warn output exceeds 4,096 bytes")
+    return output
+
+
 def error_output(*, suppress_original_prompt: bool = False) -> bytes:
     """Return the generic fail-closed response without input-derived data."""
     return _json_block(_ERROR_REASON, suppress_original_prompt)

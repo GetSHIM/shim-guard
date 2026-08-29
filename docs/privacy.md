@@ -1,5 +1,30 @@
 # Privacy and trust boundary
 
+## What this does and does not prevent
+
+**With the default configuration, shim Guard does not prevent a secret typed
+into a prompt from reaching the model.** It detects the value, reports what it
+found, and lets the prompt through. This is a consequence of the hook APIs:
+no supported client offers a field for rewriting a submitted prompt, so the
+only available alternative is refusing the sentence the user just typed. That
+is the most disruptive thing this product can do, and it is opt-in
+(`user-prompt = "enforce"`).
+
+What the default configuration *does* prevent is local data entering the
+model's context through tool results — a file read, a grep, command output, an
+MCP response. Those are masked in place before the model sees them, which is
+where most leakage actually happens.
+
+Three things follow, and all three are limits rather than features:
+
+- Masking an outbound tool argument is **egress control**, not model
+  protection. The model produced that argument, so it has already seen the
+  value; masking stops it leaving the machine.
+- `Bash` commands and `Write`/`Edit` content are **never rewritten**. Editing a
+  command changes what runs, and editing a write payload puts a placeholder
+  into a real file. Both are detected and can be warned about or denied.
+- Files referenced with `@` bypass hooks entirely, so nothing here sees them.
+
 ## Data flow
 
 ```text

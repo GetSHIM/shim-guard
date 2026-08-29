@@ -10,8 +10,10 @@ from shim_guard.config import ENTITY_TYPES
 _ENTITY_TYPES = frozenset(ENTITY_TYPES)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Finding:
+    __slots__ = ("entity_type", "start", "end", "score")
+
     entity_type: str
     start: int
     end: int
@@ -39,8 +41,10 @@ class Finding:
         object.__setattr__(self, "score", float(self.score))
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class GuardDecision:
+    __slots__ = ("findings", "redacted_text")
+
     findings: tuple[Finding, ...]
     redacted_text: str
 

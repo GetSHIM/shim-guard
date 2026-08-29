@@ -1,11 +1,15 @@
-"""The flat ``shim`` command registration layer."""
+"""The flat ``shim`` command registration layer.
 
-from __future__ import annotations
+This module deliberately does not use ``from __future__ import annotations``.
+Typer reads its ``Annotated[...]`` metadata out of ``inspect.signature``, and
+below Python 3.10 that returns unevaluated strings, so deferred annotations
+silently drop every ``case_sensitive``, ``metavar`` and help string here.
+"""
 
 import subprocess
-from enum import StrEnum
+from enum import Enum
 from importlib import metadata
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -13,13 +17,28 @@ from shim_guard import __version__
 from shim_guard.config import ENTITY_TYPES
 
 
-class Client(StrEnum):
+class _StringEnum(str, Enum):
+    """``StrEnum`` semantics on every supported version.
+
+    ``enum.StrEnum`` only exists from 3.11, and a plain ``(str, Enum)`` mixin
+    formats differently before and after 3.11 — 3.9 renders the value, 3.13
+    renders ``Class.MEMBER``. Pinning both dunders keeps rendering identical
+    on the floor and on the newest supported version.
+    """
+
+    def __str__(self) -> str:
+        return str.__str__(self)
+
+    __format__ = str.__format__  # type: ignore[assignment]
+
+
+class Client(_StringEnum):
     CLAUDE = "claude"
     CODEX = "codex"
     COPILOT = "copilot"
 
 
-Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})
+Entity = _StringEnum("Entity", {name: name for name in ENTITY_TYPES})
 
 
 app = typer.Typer(
@@ -84,7 +103,7 @@ def demo(
     """Run the local synthetic detector proof."""
     from shim_guard.cli.privacy import demo as run_demo
 
-    run_demo(client=str(client), as_json=json_output)
+    run_demo(client=client.value, as_json=json_output)
 
 
 @app.command()
@@ -110,7 +129,7 @@ def redact(
 @app.command("config")
 def config_command(
     only: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--only",
             case_sensitive=False,
@@ -119,7 +138,7 @@ def config_command(
         ),
     ] = None,
     enable: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--enable",
             case_sensitive=False,
@@ -128,7 +147,7 @@ def config_command(
         ),
     ] = None,
     disable: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--disable",
             case_sensitive=False,
@@ -144,9 +163,9 @@ def config_command(
     from shim_guard.cli.configuration import configure
 
     configure(
-        only=tuple(map(str, only or ())),
-        enable=tuple(map(str, enable or ())),
-        disable=tuple(map(str, disable or ())),
+        only=tuple(entity.value for entity in only or ()),
+        enable=tuple(entity.value for entity in enable or ()),
+        disable=tuple(entity.value for entity in disable or ()),
         reset=reset,
         yes=yes,
         as_json=json_output,
@@ -162,7 +181,7 @@ def install(
     """Preview or install a client prompt hook."""
     from shim_guard.cli.integrations import install as run_install
 
-    run_install(client=str(client), dry_run=dry_run, yes=yes)
+    run_install(client=client.value, dry_run=dry_run, yes=yes)
 
 
 @app.command()
@@ -173,7 +192,7 @@ def status(
     """Show the prompt-hook installation state."""
     from shim_guard.cli.integrations import status as run_status
 
-    run_status(client=str(client), as_json=json_output)
+    run_status(client=client.value, as_json=json_output)
 
 
 @app.command()
@@ -184,7 +203,7 @@ def doctor(
     """Run client compatibility and hook health checks."""
     from shim_guard.cli.diagnostics import doctor as run_doctor
 
-    run_doctor(client=str(client), as_json=json_output)
+    run_doctor(client=client.value, as_json=json_output)
 
 
 @app.command()
@@ -195,7 +214,7 @@ def revert(
     """Remove only SHIM Guard's client prompt hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
-    run_revert(client=str(client), yes=yes)
+    run_revert(client=client.value, yes=yes)
 
 
 def main() -> None:

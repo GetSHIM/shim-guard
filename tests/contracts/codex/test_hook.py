@@ -18,6 +18,29 @@ GENERIC_BLOCK = (
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
+ENFORCE_PROMPT = (
+    'enabled_entities = ["EMAIL", "PHONE", "CREDIT_CARD", "IBAN", "IP_ADDRESS", '
+    '"MAC_ADDRESS", "US_SSN", "TR_NATIONAL_ID", "TR_VKN", "SECRET", "DB_URI"]\n'
+    "\n[mode]\n"
+    'user-prompt = "enforce"\n'
+)
+
+
+def _enforcing(tmp_path: Path, **extra: str) -> dict:
+    """Return an environment that blocks prompts.
+
+    Blocking a submitted prompt is opt-in since PRD-05: the shipped default
+    reports and lets it through. These contract tests still have to cover the
+    blocking path, so they ask for it explicitly.
+    """
+    target = tmp_path / "enforce.toml"
+    target.write_text(ENFORCE_PROMPT, encoding="utf-8")
+    environment = os.environ.copy()
+    environment["SHIM_GUARD_CONFIG"] = str(target)
+    environment["TMPDIR"] = str(tmp_path)
+    environment.update(extra)
+    return environment
+
 
 def _payload(prompt: str, **changes: object) -> bytes:
     event: dict[str, object] = {
@@ -78,8 +101,7 @@ def test_safe_prompt_is_byte_for_byte_silent() -> None:
 
 
 def test_finding_writes_a_secure_redacted_prompt(tmp_path: Path) -> None:
-    environment = os.environ.copy()
-    environment["TMPDIR"] = str(tmp_path)
+    environment = _enforcing(tmp_path)
     result = _run(_payload("Contact alice@example.com"), env=environment)
     path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
 
@@ -96,10 +118,11 @@ def test_hook_honors_entity_settings_and_rejects_invalid_settings(
 
     target = tmp_path / "settings" / "config.toml"
     target.parent.mkdir()
-    target.write_bytes(render_entities(("PHONE",)))
-    environment = os.environ.copy()
+    target.write_bytes(
+        render_entities(("PHONE",)) + b'\n[mode]\nuser-prompt = "enforce"\n'
+    )
+    environment = _enforcing(tmp_path)
     environment["SHIM_GUARD_CONFIG"] = str(target)
-    environment["TMPDIR"] = str(tmp_path)
 
     _assert_output(_run(_payload("Contact alice@example.com"), env=environment), b"")
     phone = _run(_payload("Call +90 532 123 45 67"), env=environment)
@@ -114,8 +137,7 @@ def test_block_reason_excludes_terminal_controls_from_the_prompt(
     tmp_path: Path,
 ) -> None:
     controls = "\x1b]0;owned\x07\u009b31m"
-    environment = os.environ.copy()
-    environment["TMPDIR"] = str(tmp_path)
+    environment = _enforcing(tmp_path)
     result = _run(_payload(f"Contact alice@example.com{controls}"), env=environment)
     reason = json.loads(result.stdout)["reason"]
 
@@ -158,8 +180,7 @@ def test_oversized_input_fails_closed(raw: bytes) -> None:
 
 def test_block_output_is_bounded_and_contains_no_raw_values(tmp_path: Path) -> None:
     raw_values = [f"person{index}@example.com" for index in range(50)]
-    environment = os.environ.copy()
-    environment["TMPDIR"] = str(tmp_path)
+    environment = _enforcing(tmp_path)
     result = _run(_payload(" ".join(raw_values)), env=environment)
     path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (50).")
 
@@ -206,6 +227,7 @@ def block_output(decision, suggestion_path=None):
 
 adapter.parse_input = parse_input
 adapter.block_output = block_output
+adapter.warn_output = lambda decision: b""
 adapter.error_output = lambda: b"unreachable"
 guard.evaluate = evaluate
 sys.modules.update({
@@ -250,6 +272,7 @@ adapter = types.ModuleType("shim_guard.clients.codex.hook")
 guard = types.ModuleType("shim_guard.guard")
 
 adapter.parse_input = lambda raw: "safe"
+adapter.warn_output = lambda decision: b""
 adapter.error_output = lambda: runner._ERROR_OUTPUT
 
 def evaluate(prompt, enabled_entities):
@@ -275,7 +298,9 @@ runner.main()
     env = os.environ.copy()
     env["SHIM_TEST_STAGE"] = stage
     env["SHIM_TEST_SECRET"] = "raw-value-must-not-leak"
-    env["SHIM_GUARD_CONFIG"] = str(tmp_path / "config.toml")
+    settings = tmp_path.parent / f"{tmp_path.name}-enforce.toml"
+    settings.write_text(ENFORCE_PROMPT, encoding="utf-8")
+    env["SHIM_GUARD_CONFIG"] = str(settings)
     env["TMPDIR"] = str(tmp_path)
     result = subprocess.run(
         (sys.executable, "-I", "-B", "-c", code),
@@ -415,14 +440,18 @@ def test_hook_persists_only_the_redacted_prompt_in_os_temp(tmp_path: Path) -> No
             "TMPDIR": str(temporary),
         }
     )
+    config = tmp_path / "enforce.toml"
+    config.write_text(ENFORCE_PROMPT, encoding="utf-8")
+    env["SHIM_GUARD_CONFIG"] = str(config)
     prompt = "Contact persistence-canary@example.com"
+    before = {item for item in tmp_path.rglob("*") if item.is_file()}
 
     result = _run(_payload(prompt), cwd=work, env=env)
     path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
-    files = [item for item in tmp_path.rglob("*") if item.is_file()]
+    written = {item for item in tmp_path.rglob("*") if item.is_file()} - before
 
     assert prompt.encode() not in result.stdout
-    assert files == [path]
+    assert written == {path}
     assert path.read_text() == "Contact <EMAIL_1>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
@@ -441,8 +470,7 @@ socket.getaddrinfo = no_network
 from shim_guard import hook
 hook.main()
 """
-    environment = os.environ.copy()
-    environment["TMPDIR"] = str(tmp_path)
+    environment = _enforcing(tmp_path)
     result = subprocess.run(
         (sys.executable, "-I", "-B", "-c", code),
         input=_payload("Contact alice@example.com"),

@@ -5,8 +5,12 @@ from __future__ import annotations
 import os
 import shlex
 import sys
-import tomllib
 from pathlib import Path
+
+try:  # pragma: no cover - exercised by whichever interpreter runs the tests
+    import tomllib  # ty: ignore[unresolved-import]
+except ModuleNotFoundError:  # Python < 3.11; CLI-only, never on the hook path
+    import tomli as tomllib
 
 from shim_guard.clients.user_prompt_settings import (
     MAX_SETTINGS_BYTES,

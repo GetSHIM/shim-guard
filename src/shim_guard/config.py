@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
-import tomllib
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
+
+try:  # pragma: no cover - exercised by whichever interpreter runs the tests
+    import tomllib  # ty: ignore[unresolved-import]
+except ModuleNotFoundError:  # Python < 3.11
+    import tomli as tomllib
 
 ENTITY_TYPES = (
     "EMAIL",
@@ -73,6 +78,115 @@ def render_entities(entities: Iterable[str]) -> bytes:
     return tomli_w.dumps(document).encode()
 
 
+DEFAULT_MODES = {
+    "user-prompt": "warn",
+    "outbound": "enforce",
+    "inbound": "enforce",
+    "local-write": "warn",
+    "executable-text": "warn",
+}
+MODES = ("observe", "warn", "enforce")
+_TOP_LEVEL = {"enabled_entities", "mode", "entities"}
+
+
+@dataclass(frozen=True)
+class Policy:
+    """Enabled entities plus the mode to apply, by direction, event or tool."""
+
+    entities: tuple
+    modes: dict
+    tool_entities: dict
+
+    def mode_for(self, direction: str, tool: str = "", event: str = "") -> str:
+        """Return the mode for one payload, most specific override winning.
+
+        Order: per-tool, then per-event, then per-direction, then the file's
+        own default, then the shipped default for that direction.
+        """
+        for key in (tool, event, direction):
+            if key and key in self.modes:
+                return self.modes[key]
+        if "default" in self.modes:
+            return self.modes["default"]
+        return DEFAULT_MODES.get(direction, "warn")
+
+    def entities_for(self, tool: str = "", event: str = "") -> tuple:
+        for key in (tool, event):
+            if key and key in self.tool_entities:
+                return self.tool_entities[key]
+        return self.entities
+
+
+def _modes(document: dict) -> dict:
+    section = document.get("mode", {})
+    if not isinstance(section, dict):
+        raise ValueError("SHIM Guard settings are invalid")
+    modes = {}
+    for key, value in section.items():
+        if not isinstance(value, str) or value not in MODES:
+            raise ValueError("SHIM Guard settings are invalid")
+        modes[key] = value
+    return modes
+
+
+def _tool_entities(document: dict) -> dict:
+    section = document.get("entities", {})
+    if not isinstance(section, dict):
+        raise ValueError("SHIM Guard settings are invalid")
+    scoped = {}
+    for key, value in section.items():
+        if not isinstance(value, list):
+            raise ValueError("SHIM Guard settings are invalid")
+        scoped[key] = normalize_entities(value)
+    return scoped
+
+
+def parse_settings(text: str) -> dict:
+    """Parse and validate the settings document.
+
+    A v1 file holding only ``enabled_entities`` is a valid v2 file; the extra
+    sections are optional and inherit the shipped defaults when absent.
+    """
+    try:
+        document = tomllib.loads(text)
+    except (tomllib.TOMLDecodeError, RecursionError) as error:
+        raise ValueError("SHIM Guard settings are invalid") from error
+    if not set(document) <= _TOP_LEVEL or "enabled_entities" not in document:
+        raise ValueError("SHIM Guard settings are invalid")
+    enabled = document["enabled_entities"]
+    if not isinstance(enabled, list):
+        raise ValueError("SHIM Guard settings are invalid")
+    return {
+        "enabled_entities": list(enabled),
+        "mode": _modes(document),
+        "entities": _tool_entities(document),
+    }
+
+
+def load_policy(path: Path | None = None) -> Policy:
+    """Load the full policy, falling back to the shipped defaults."""
+    target = config_path() if path is None else _validated_path(path)
+    from shim_guard.installation import StateKind, inspect_file
+
+    state = inspect_file(target, MAX_CONFIG_BYTES)
+    if state.kind is StateKind.ABSENT:
+        return Policy(DEFAULT_ENTITIES, {}, {})
+    if state.kind is not StateKind.FILE or state.content is None:
+        raise ValueError("SHIM Guard settings cannot be read safely")
+    try:
+        document = parse_settings(state.content.decode("utf-8"))
+    except (UnicodeDecodeError, RecursionError) as error:
+        raise ValueError("SHIM Guard settings are invalid") from error
+    try:
+        return Policy(
+            normalize_entities(document["enabled_entities"]),
+            document["mode"],
+            document["entities"],
+        )
+    except ValueError as error:
+        raise ValueError("SHIM Guard settings are invalid") from error
+
+
 def load_entities(path: Path | None = None) -> tuple[str, ...]:
     """Load enabled entities, using the default preset when no file exists."""
     target = config_path() if path is None else _validated_path(path)
@@ -84,15 +198,7 @@ def load_entities(path: Path | None = None) -> tuple[str, ...]:
     if state.kind is not StateKind.FILE or state.content is None:
         raise ValueError("SHIM Guard settings cannot be read safely")
     try:
-        document = tomllib.loads(state.content.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError, RecursionError) as error:
-        raise ValueError("SHIM Guard settings are invalid") from error
-    if set(document) != {"enabled_entities"}:
-        raise ValueError("SHIM Guard settings are invalid")
-    enabled = document["enabled_entities"]
-    if not isinstance(enabled, list):
-        raise ValueError("SHIM Guard settings are invalid")
-    try:
-        return normalize_entities(enabled)
-    except ValueError as error:
+        document = parse_settings(state.content.decode("utf-8"))
+        return normalize_entities(document["enabled_entities"])
+    except (UnicodeDecodeError, RecursionError, ValueError) as error:
         raise ValueError("SHIM Guard settings are invalid") from error

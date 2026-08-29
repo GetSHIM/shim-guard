@@ -13,16 +13,22 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import typer
+from rich import box
+from rich.table import Table
 
 from shim_guard.cli.integrations import client_name, client_plan, plan_status
-from shim_guard.cli.output import emit, emit_json
+from shim_guard.cli.output import console, emit, emit_json
+from shim_guard.cli.resolution import installed_plugin, resolve
 from shim_guard.clients.claude import settings as claude_settings
 from shim_guard.clients.codex import settings as codex_settings
 from shim_guard.clients.copilot import settings as copilot_settings
+from shim_guard.events.registry import coverage
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Check:
+    __slots__ = ("name", "status", "detail")
+
     name: str
     status: str
     detail: str
@@ -229,8 +235,15 @@ def _runner_check(client: str) -> Check:
             "FAIL",
             "The local hook runner did not allow the safe fixture silently.",
         )
-    expected = "email <EMAIL_1>" if client == "copilot" else "block"
-    field = "modifiedTransformedPrompt" if client == "copilot" else "decision"
+    # Since PRD-05 the shipped default reports a finding in a submitted prompt
+    # and lets it through; only Copilot, which can rewrite one invisibly, masks.
+    if client == "copilot":
+        expected, field = "email <EMAIL_1>", "modifiedTransformedPrompt"
+    else:
+        expected, field = (
+            "shim: found EMAIL (1) in your prompt. Not modified.",
+            "systemMessage",
+        )
     if (
         block_result.returncode
         or block_result.stderr
@@ -249,12 +262,108 @@ def _runner_check(client: str) -> Check:
     )
 
 
+def _resolution_check() -> Check:
+    """Report which of the launcher's three resolution paths is live."""
+    resolution = resolve()
+    if resolution.source == "none":
+        return Check("hook_resolution", "FAIL", resolution.detail)
+    if resolution.skewed:
+        return Check(
+            "hook_resolution",
+            "WARN",
+            f"{resolution.detail} The bundled archive is "
+            f"{resolution.archive_version} while the package is "
+            f"{resolution.path_version}; the package wins. Update the plugin.",
+        )
+    return Check("hook_resolution", "PASS", resolution.detail)
+
+
+def _duplicate_check(client: str) -> Check:
+    """Warn when a client would run both the plugin hook and the settings hook."""
+    if client != "claude":
+        return Check(
+            "duplicate_hooks",
+            "WARN",
+            "Plugin installs are not discoverable for this client; if you "
+            "installed both the plugin and `shim install`, remove one.",
+        )
+    plugin = installed_plugin()
+    try:
+        _label, state = plan_status(client_plan(client, "install"))
+    except (OSError, ValueError):
+        return Check(
+            "duplicate_hooks", "WARN", "The client hook settings could not be read."
+        )
+    if plugin is not None and state == "installed":
+        return Check(
+            "duplicate_hooks",
+            "FAIL",
+            f"Both the {plugin['key']} plugin and a settings hook are installed; "
+            "every prompt is inspected twice. Run `shim revert claude` or "
+            "uninstall the plugin.",
+        )
+    return Check("duplicate_hooks", "PASS", "Exactly one SHIM hook path is installed.")
+
+
+def _coverage_rows(client: str) -> list:
+    """Return what SHIM can see and change at each event for this client."""
+    rows = [
+        {
+            "event": "UserPromptSubmit",
+            "sees": "prompt",
+            "can_mask": client == "copilot",
+            "can_report": client != "copilot",
+            "verified": True,
+            "installed": True,
+        }
+    ]
+    rows.extend(dict(row) for row in coverage(client))
+    return rows
+
+
+def _coverage_check(client: str) -> Check:
+    rows = _coverage_rows(client)
+    live = [row for row in rows if row["installed"]]
+    pending = [row["event"] for row in rows if not row["installed"]]
+    detail = f"Coverage: {len(live)} of {len(rows)} events installed."
+    if pending:
+        detail += (
+            " Not installed because the mutation shape is unconfirmed for this"
+            f" client: {', '.join(pending)}."
+        )
+        return Check("coverage", "WARN", detail)
+    return Check("coverage", "PASS", detail)
+
+
 def _activation_check(client: str) -> Check:
     return Check(
         "hook_activation",
         "WARN",
         f"{client_name(client)} hook activation is client UI state; verify SHIM with /hooks.",
     )
+
+
+def _print_coverage(client: str) -> None:
+    """Print the per-event coverage table.
+
+    This is a diagnostic and the most honest description of the product there
+    is: it says what SHIM cannot see as plainly as what it can.
+    """
+    table = Table(
+        box=box.SIMPLE, pad_edge=False, title=f"{client_name(client)} coverage"
+    )
+    table.add_column("Event", overflow="fold")
+    table.add_column("Sees", overflow="fold")
+    table.add_column("Can mask", no_wrap=True)
+    table.add_column("Installed", no_wrap=True)
+    for row in _coverage_rows(client):
+        table.add_row(
+            str(row["event"]),
+            str(row["sees"]),
+            "yes" if row["can_mask"] else "no",
+            "yes" if row["installed"] else "no",
+        )
+    console().print(table)
 
 
 def doctor(*, client: str, as_json: bool) -> None:
@@ -267,6 +376,9 @@ def doctor(*, client: str, as_json: bool) -> None:
             _hook_state(client),
             _entity_settings(),
             _runner_check(client),
+            _resolution_check(),
+            _duplicate_check(client),
+            _coverage_check(client),
             _activation_check(client),
         )
     )
@@ -283,10 +395,12 @@ def doctor(*, client: str, as_json: bool) -> None:
             status,
             client=client,
             checks=[{"name": check.name, "status": check.status} for check in checks],
+            coverage=_coverage_rows(client),
         )
     else:
         for check in checks:
             emit(check.status, check.detail, error=check.status == "FAIL")
+        _print_coverage(client)
     if status == "error":
         raise typer.Exit(2)
     if status == "warning":

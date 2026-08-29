@@ -1,0 +1,25 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000017",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000017.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000018",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "low"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "ToolSearch",
+  "tool_input": {
+    "query": "select:mcp__probe__probe_echo",
+    "max_results": 1
+  },
+  "tool_response": {
+    "matches": [
+      "mcp__probe__probe_echo"
+    ],
+    "query": "select:mcp__probe__probe_echo",
+    "total_deferred_tools": 16
+  },
+  "tool_use_id": "toolu_000000000000000000000019",
+  "duration_ms": 0
+}

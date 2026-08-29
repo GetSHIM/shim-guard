@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Never
+from typing import NoReturn
 
 import typer
 
@@ -41,7 +41,7 @@ def _read_and_evaluate(command: str, as_json: bool):
         _privacy_error(command, as_json)
 
 
-def _privacy_error(command: str, as_json: bool) -> Never:
+def _privacy_error(command: str, as_json: bool) -> NoReturn:
     if as_json:
         emit_json(command, "error", error="unable to process stdin")
     else:

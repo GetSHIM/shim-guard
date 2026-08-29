@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000010",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000010.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000011",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "low"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/probe/workspace/docker-compose.yml"
+  },
+  "tool_response": {
+    "type": "text",
+    "file": {
+      "filePath": "/probe/workspace/docker-compose.yml",
+      "content": "services:\n  api:\n    image: example/api:1\n    environment:\n      DATABASE_URL: postgresql://alice:s3cr3tpw@db.example.com/app\n      REDIS_URL: redis://cache.example.com:6379/0\n",
+      "numLines": 7,
+      "startLine": 1,
+      "totalLines": 7
+    }
+  },
+  "tool_use_id": "toolu_000000000000000000000013",
+  "duration_ms": 0
+}

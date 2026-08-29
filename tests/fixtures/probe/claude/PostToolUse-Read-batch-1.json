@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000010",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000010.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000011",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "low"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/probe/workspace/notes.md"
+  },
+  "tool_response": {
+    "type": "text",
+    "file": {
+      "filePath": "/probe/workspace/notes.md",
+      "content": "# Notes\n\nA password should never be shared in prose.\nRotate the token and password regularly.\n",
+      "numLines": 5,
+      "startLine": 1,
+      "totalLines": 5
+    }
+  },
+  "tool_use_id": "toolu_000000000000000000000012",
+  "duration_ms": 1
+}

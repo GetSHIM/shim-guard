@@ -7,13 +7,11 @@ import signal
 import time
 from collections.abc import Iterable, Iterator
 
-from presidio_analyzer import RecognizerResult
-
 from shim_guard.config import ENTITY_TYPES, normalize_entities
 
 from .models import Finding
 from .normalize import normalize
-from .recognizers import ENTITY_MAP, LANGUAGE, analyzer
+from .recognizers import ENTITY_MAP, Match, analyze_text
 
 MAX_FINDINGS = 100
 ANALYSIS_DEADLINE_SECONDS = 20
@@ -60,7 +58,7 @@ def _deadline() -> Iterator[None]:
                 signal.setitimer(signal.ITIMER_REAL, remaining, previous_interval)
 
 
-def _validated(items: Iterable[RecognizerResult], text_length: int) -> list[Finding]:
+def _validated(items: Iterable[Match], text_length: int) -> list[Finding]:
     unique: dict[tuple[str, int, int], Finding] = {}
     for count, item in enumerate(items, start=1):
         if count > _MAX_ANALYZER_RESULTS:
@@ -136,10 +134,7 @@ def _resolve_overlaps(items: Iterable[Finding]) -> list[Finding]:
             for selected in resolved
         ):
             raise ValueError("Guard analyzer returned an unsafe overlap.")
-    if any(
-        left.end > right.start
-        for left, right in zip(resolved, resolved[1:], strict=False)
-    ):
+    if any(left.end > right.start for left, right in zip(resolved, resolved[1:])):
         raise ValueError("Guard analyzer returned an unsafe overlap.")
     return resolved
 
@@ -183,13 +178,7 @@ def analyze(
     )
     try:
         with _deadline():
-            raw = analyzer().analyze(
-                text=normalized.text,
-                language=LANGUAGE,
-                entities=source_entities,
-                score_threshold=0.4,
-                return_decision_process=False,
-            )
+            raw = analyze_text(normalized.text, tuple(source_entities))
         normalized_findings = _resolve_overlaps(_validated(raw, len(normalized.text)))
     except TimeoutError as error:
         raise ValueError("Guard analysis exceeded its runtime limit.") from error

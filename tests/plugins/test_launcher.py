@@ -1,0 +1,271 @@
+"""The plugin launcher must resolve a hook, and must never block without one.
+
+Before PRD-04, `run-shim-guard` returned a block decision when it could not
+find `shim-guard-hook` on PATH, so installing the plugin without separately
+installing the package produced an agent that refused every prompt. These tests
+pin the inversion: a guard that cannot run is a guard that is off.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+PLUGIN = ROOT / "plugins" / "shim-guard"
+LAUNCHER = PLUGIN / "hooks" / "run-shim-guard"
+BUILDER = ROOT / "scripts" / "build_zipapp.py"
+COMMITTED = PLUGIN / "bin" / "shim.pyz"
+MAX_ARCHIVE_BYTES = 500_000
+CLIENTS = ("claude", "codex", "copilot")
+SECRET_PROMPT = "Contact alice@example.com"
+
+
+def _payload(client: str, prompt: str = SECRET_PROMPT) -> bytes:
+    if client == "copilot":
+        return json.dumps({"prompt": prompt, "transformedPrompt": prompt}).encode()
+    return json.dumps(
+        {"hook_event_name": "UserPromptSubmit", "prompt": prompt}
+    ).encode()
+
+
+@pytest.fixture(scope="session")
+def archive(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Build the archive fresh, so the test never depends on a stale commit."""
+    target = tmp_path_factory.mktemp("zipapp") / "shim.pyz"
+    subprocess.run(
+        (sys.executable, str(BUILDER), "--output", str(target)),
+        capture_output=True,
+        check=True,
+        timeout=300,
+    )
+    return target
+
+
+def _run(client: str, environment: dict[str, str], prompt: str = SECRET_PROMPT):
+    return subprocess.run(
+        (str(LAUNCHER), client),
+        input=_payload(client, prompt),
+        capture_output=True,
+        check=False,
+        env=environment,
+        timeout=120,
+    )
+
+
+# --- R3: the inversion ----------------------------------------------------
+
+
+@pytest.mark.parametrize("client", CLIENTS)
+def test_launcher_allows_the_prompt_when_nothing_is_runnable(client: str) -> None:
+    result = _run(client, {"PATH": "/nonexistent"})
+
+    assert result.returncode == 0
+    assert result.stdout == b"", "an unrunnable guard must not block the prompt"
+    assert result.stderr, "the user must be told once why nothing was inspected"
+    assert result.stderr.count(b"\n") == 1, "exactly one line of explanation"
+    assert b"shim" in result.stderr.lower()
+    assert SECRET_PROMPT.encode() not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("client", CLIENTS)
+def test_launcher_allows_the_prompt_when_no_interpreter_exists(
+    client: str, archive: Path, tmp_path: Path
+) -> None:
+    root = tmp_path / "plugin"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "shim.pyz").write_bytes(archive.read_bytes())
+
+    result = _run(client, {"PATH": "/nonexistent", "CLAUDE_PLUGIN_ROOT": str(root)})
+
+    assert result.returncode == 0
+    assert result.stdout == b""
+    assert b"python3" in result.stderr
+    assert SECRET_PROMPT.encode() not in result.stdout + result.stderr
+
+
+# --- R2: resolution order -------------------------------------------------
+
+
+@pytest.mark.parametrize("client", CLIENTS)
+def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
+    client: str, archive: Path, tmp_path: Path
+) -> None:
+    root = tmp_path / "plugin"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "shim.pyz").write_bytes(archive.read_bytes())
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        "CLAUDE_PLUGIN_ROOT": str(root),
+        "HOME": str(tmp_path),
+        "TMPDIR": str(tmp_path),
+        "SHIM_GUARD_CONFIG": str(tmp_path / "config.toml"),
+    }
+
+    result = _run(client, environment)
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    document = json.loads(result.stdout)
+    if client == "copilot":
+        # Copilot is the one client that can rewrite a submitted prompt, and
+        # doing so is invisible rather than disruptive, so it still masks.
+        assert document["modifiedTransformedPrompt"] == "Contact <EMAIL_1>"
+    else:
+        # Since PRD-05 the shipped default reports and lets the prompt through.
+        assert "decision" not in document
+        assert document["systemMessage"] == (
+            "shim: found EMAIL (1) in your prompt. Not modified."
+        )
+    assert "alice@example.com" not in result.stdout.decode()
+
+
+@pytest.mark.parametrize("client", CLIENTS)
+def test_launcher_prefers_the_package_on_path(client: str, tmp_path: Path) -> None:
+    """R4: the PATH install wins over the bundled archive."""
+    marker = tmp_path / "shim-guard-hook"
+    marker.write_text("#!/bin/sh\nprintf '%s' \"PATH-HOOK:$1\"\n", encoding="utf-8")
+    marker.chmod(0o755)
+    root = tmp_path / "plugin"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "shim.pyz").write_text("not a real archive", encoding="utf-8")
+
+    result = _run(
+        client,
+        {"PATH": f"{tmp_path}:/usr/bin:/bin", "CLAUDE_PLUGIN_ROOT": str(root)},
+    )
+
+    assert result.stdout == f"PATH-HOOK:{client}".encode()
+
+
+@pytest.mark.parametrize("client", CLIENTS)
+def test_launcher_stays_silent_on_a_safe_prompt(
+    client: str, archive: Path, tmp_path: Path
+) -> None:
+    root = tmp_path / "plugin"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "shim.pyz").write_bytes(archive.read_bytes())
+
+    result = _run(
+        client,
+        {
+            "PATH": "/usr/bin:/bin",
+            "CLAUDE_PLUGIN_ROOT": str(root),
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+            "SHIM_GUARD_CONFIG": str(tmp_path / "config.toml"),
+        },
+        prompt="Explain merge sort.",
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, b"", b"")
+
+
+def test_launcher_is_executable_and_shell_free() -> None:
+    assert os.access(LAUNCHER, os.X_OK)
+    source = LAUNCHER.read_text(encoding="utf-8")
+    assert source.startswith("#!/bin/sh\n")
+    assert "eval" not in source
+
+
+# --- R1: the archive ------------------------------------------------------
+
+
+def test_archive_is_self_contained_and_within_budget(archive: Path) -> None:
+    assert archive.stat().st_size < MAX_ARCHIVE_BYTES
+    assert archive.read_bytes().startswith(b"#!/usr/bin/env python3\n")
+
+    names = zipfile.ZipFile(archive).namelist()
+    packaged = {name.split("/")[0] for name in names}
+
+    assert packaged == {"__main__.py", "shim_guard", "phonenumbers", "tomli"}
+    assert not any(name.startswith("shim_guard/cli/") for name in names)
+    assert not any(name.endswith(".pyi") for name in names)
+    for excluded in ("geodata", "carrierdata", "tzdata"):
+        assert not any(f"phonenumbers/{excluded}/" in name for name in names)
+    assert "shim_guard/guard/suffixes.py" in names
+
+
+def test_archive_refuses_an_unsupported_interpreter_without_blocking(
+    archive: Path,
+) -> None:
+    """The floor check lives inside the archive, not in the launcher."""
+    source = zipfile.ZipFile(archive).read("__main__.py").decode()
+
+    assert "MINIMUM = (3, 9)" in source
+    assert "sys.exit(0)" in source
+    assert 'f"' not in source, "must parse on interpreters without f-strings"
+
+
+def test_committed_archive_matches_a_fresh_build(archive: Path) -> None:
+    if not COMMITTED.exists():
+        pytest.skip("the archive is built in CI rather than committed")
+    assert os.access(COMMITTED, os.X_OK)
+    assert COMMITTED.stat().st_size < MAX_ARCHIVE_BYTES
+    fresh = set(zipfile.ZipFile(archive).namelist())
+    committed = set(zipfile.ZipFile(COMMITTED).namelist())
+    assert committed == fresh, "rebuild plugins/shim-guard/bin/shim.pyz"
+
+
+def test_archive_carries_no_compiled_extension_modules(archive: Path) -> None:
+    """A compiled module cannot be imported from a zip and pins one platform.
+
+    `tomli` ships accelerated `.so` builds for some interpreters, so vendoring
+    naively produced an archive that differed depending on which Python built
+    it. The pure-Python sources beside them are what actually run.
+    """
+    names = zipfile.ZipFile(archive).namelist()
+
+    assert not [name for name in names if name.endswith((".so", ".pyd", ".dylib"))]
+    assert "tomli/_parser.py" in names
+
+
+def test_archive_contains_every_module_the_hook_path_imports(archive: Path) -> None:
+    """A module missing from the archive fails closed, which looks like a bug.
+
+    The include list in `scripts/build_zipapp.py` is explicit so the CLI stays
+    out. That means adding a module to the hook path without adding it here
+    produces an archive that blocks every event, so the two are compared here
+    rather than trusted to stay in step.
+    """
+    probe = (
+        "import json, sys\n"
+        "from shim_guard import hook\n"
+        "for client in ('claude', 'codex', 'copilot'):\n"
+        "    payload = json.dumps({'hook_event_name': 'UserPromptSubmit',"
+        " 'prompt': 'Contact alice@example.com'}).encode()\n"
+        "    hook._output(payload, client)\n"
+        "for name in ('PreToolUse', 'PostToolUse'):\n"
+        "    payload = json.dumps({'hook_event_name': name, 'tool_name': 'Read',"
+        " 'tool_input': {'file_path': 'x'},"
+        " 'tool_response': {'text': 'Contact alice@example.com'}}).encode()\n"
+        "    hook._output(payload, 'claude')\n"
+        "print(json.dumps(sorted(m for m in sys.modules if m.startswith('shim_guard'))))"
+    )
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", probe),
+        capture_output=True,
+        check=False,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+    imported = json.loads(result.stdout)
+
+    packaged = {
+        name[: -len(".py")].replace("/", ".")
+        for name in zipfile.ZipFile(archive).namelist()
+        if name.startswith("shim_guard/") and name.endswith(".py")
+    }
+    packaged |= {
+        name.rsplit(".", 1)[0] for name in list(packaged) if name.endswith(".__init__")
+    }
+    packaged = {name.replace(".__init__", "") for name in packaged}
+
+    missing = set(imported) - packaged
+    assert not missing, f"add these to build_zipapp.INCLUDED: {sorted(missing)}"

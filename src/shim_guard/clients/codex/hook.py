@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 MAX_OUTPUT_BYTES = user_prompt_hook.MAX_OUTPUT_BYTES
 MAX_REASON_CHARS = user_prompt_hook.MAX_REASON_CHARS
 parse_input = user_prompt_hook.parse_input
+warn_output = user_prompt_hook.warn_output
 
 
 def block_output(decision: GuardDecision, suggestion_path: str | None = None) -> bytes:

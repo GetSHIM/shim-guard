@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Never
+from typing import NoReturn
 
 import typer
 from rich import box
@@ -58,7 +58,9 @@ def _show(enabled: tuple[str, ...], title: str) -> None:
         emit("WARN", "All sensitive-data detection is disabled.")
 
 
-def _fail(as_json: bool, message: str = "Unable to update entity settings.") -> Never:
+def _fail(
+    as_json: bool, message: str = "Unable to update entity settings."
+) -> NoReturn:
     if as_json:
         emit_json("config", "error", error="unable to process entity settings")
     else:

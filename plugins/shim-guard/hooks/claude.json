@@ -13,6 +13,36 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-shim-guard",
+            "args": [
+              "claude"
+            ],
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-shim-guard",
+            "args": [
+              "claude"
+            ],
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

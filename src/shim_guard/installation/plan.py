@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
 
 
-class StateKind(StrEnum):
+class StateKind(str, Enum):
     ABSENT = "absent"
     FILE = "file"
     UNSAFE = "unsafe"
 
 
-class Action(StrEnum):
+class Action(str, Enum):
     CREATE = "create"
     UPDATE = "update"
     NOOP = "noop"
@@ -21,7 +21,9 @@ class Action(StrEnum):
     REFUSE = "refuse"
 
 
-@dataclass(frozen=True, slots=True)
+# No __slots__: both dataclasses below carry field defaults, and a manual
+# __slots__ entry conflicts with the class attribute a default creates.
+@dataclass(frozen=True)
 class FileState:
     kind: StateKind
     path: Path
@@ -34,7 +36,7 @@ class FileState:
     reason: str = ""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Plan:
     target: Path
     state: FileState

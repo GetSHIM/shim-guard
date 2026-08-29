@@ -44,6 +44,17 @@ def _rewrite(text: str) -> bytes:
     return output
 
 
+def warn_output(decision: GuardDecision) -> bytes:
+    """Copilot has no message channel, so its warn is its mask.
+
+    Copilot is the one client that can rewrite a submitted prompt, and doing so
+    is invisible to the user rather than disruptive. Degrading it to silence on
+    the assumption that it cannot show a message would remove the only
+    protection it has, on an assumption no probe has confirmed.
+    """
+    return block_output(decision)
+
+
 def block_output(decision: GuardDecision, _suggestion_path: str | None = None) -> bytes:
     """Replace sensitive model-facing content with its typed redaction."""
     return _rewrite(decision.redacted_text) if decision.blocked else b""

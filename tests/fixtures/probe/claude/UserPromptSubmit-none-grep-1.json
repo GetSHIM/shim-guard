@@ -1,0 +1,9 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000014",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000014.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000015",
+  "permission_mode": "bypassPermissions",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "Use the Grep tool to search for the pattern password in the current directory. Then reply with only the word DONE."
+}

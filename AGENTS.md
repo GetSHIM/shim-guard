@@ -25,7 +25,8 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 
 ## Checks
 
-Use CPython 3.13 and uv `0.12.5`:
+Use CPython 3.13 and uv `0.12.5`. The supported floor is CPython 3.9; run the
+suite there too with `uv run --locked --python 3.9 pytest`:
 
 ```bash
 uv sync --locked

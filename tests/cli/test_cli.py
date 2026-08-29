@@ -124,7 +124,10 @@ def test_help_command_lists_a_description_for_every_command() -> None:
     )
 
     assert result.exit_code == 0
-    assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in rendered
+    # Typer renders the subcommand slot as COMMAND or [COMMAND] depending on
+    # version; the descriptions below are what this test is actually about.
+    assert "Usage: shim [OPTIONS]" in rendered
+    assert "[ARGS]..." in rendered
     assert "--version" in rendered
     assert all(description in rendered for description in descriptions)
 
@@ -339,6 +342,9 @@ def test_claude_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) ->
         "hook_configuration",
         "entity_settings",
         "runner",
+        "hook_resolution",
+        "duplicate_hooks",
+        "coverage",
         "hook_activation",
     }
     assert installed_document["permissions"] == original["permissions"]
@@ -387,6 +393,9 @@ def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
         "hook_configuration",
         "entity_settings",
         "runner",
+        "hook_resolution",
+        "duplicate_hooks",
+        "coverage",
         "hook_activation",
     }
     assert payload["status"] == "warning"

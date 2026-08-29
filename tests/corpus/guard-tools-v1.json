@@ -1,0 +1,605 @@
+{
+  "version": 1,
+  "evaluation_unit": "exact redacted output at each scanned path",
+  "claim_scope": "Synthetic fixture-bound evidence only; not a real-world statistical claim.",
+  "capture_provenance": "Real payloads recorded from Claude Code 2.1.250 by scripts/probe/probe.py on 29 Aug 2026; see docs/probe-2026-08.md.",
+  "directions": {
+    "user-prompt": "The sentence a person typed. Report it; never rewrite it.",
+    "outbound": "Structured arguments leaving the machine. Mask in place.",
+    "inbound": "A result flowing into the model's context. Mask in place.",
+    "local-write": "A payload that lands on the user's disk. Never rewrite.",
+    "executable-text": "A free-form command string. Never rewrite; warn, or deny under enforce."
+  },
+  "output_rule": "expected_output holds the exact post-policy value. Above 2000 input characters it is replaced by expected_output_sha256 of the same value, so one 54 KB capture does not dominate the file. Cases whose direction forbids rewriting carry unchanged=true and an expected_output equal to the input.",
+  "cases": [
+    {
+      "id": "claude-pretooluse-bash-connection-string",
+      "client": "claude",
+      "event": "PreToolUse",
+      "direction": "executable-text",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/PreToolUse-Bash-bash-connection-string-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_input",
+            "command"
+          ],
+          "categories": [
+            "DB_URI"
+          ],
+          "input_chars": 65,
+          "expected_output": "psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'",
+          "unchanged": true
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-pretooluse-mcp-argument-email",
+      "client": "claude",
+      "event": "PreToolUse",
+      "direction": "outbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PreToolUse-mcp__probe__probe_echo-mcp-echo-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_input",
+            "customer_email"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 17,
+          "expected_output": "<EMAIL_1>"
+        }
+      ],
+      "tool": "mcp__probe__probe_echo"
+    },
+    {
+      "id": "claude-pretooluse-write-secret",
+      "client": "claude",
+      "event": "PreToolUse",
+      "direction": "local-write",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/PreToolUse-Write-write-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_input",
+            "content"
+          ],
+          "categories": [
+            "SECRET"
+          ],
+          "input_chars": 26,
+          "expected_output": "password = SuperSecret123!",
+          "unchanged": true
+        }
+      ],
+      "tool": "Write"
+    },
+    {
+      "id": "claude-posttooluse-read-dotenv",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Read-read-small-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "file",
+            "content"
+          ],
+          "categories": [
+            "DB_URI",
+            "SECRET",
+            "SECRET",
+            "SECRET",
+            "EMAIL"
+          ],
+          "input_chars": 208,
+          "expected_output": "DATABASE_URL=<DB_URI_1>\nAWS_ACCESS_KEY_ID=<SECRET_1>\nGITHUB_TOKEN=<SECRET_2>\npassword = <SECRET_3>\n<EMAIL_1>\n"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttooluse-read-large-truncated",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Read-read-large-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "file",
+            "content"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 54837,
+          "expected_output_sha256": "3a7d7c2bd64a1cf1dd6ab600fce969b3b1bc9b189fc560f29b97491009f99340"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttooluse-read-compose-db-uri",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Read-batch-2.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "file",
+            "content"
+          ],
+          "categories": [
+            "DB_URI",
+            "DB_URI"
+          ],
+          "input_chars": 176,
+          "expected_output": "services:\n  api:\n    image: example/api:1\n    environment:\n      DATABASE_URL: <DB_URI_1>\n      REDIS_URL: <DB_URI_2>\n"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttooluse-bash-stdout",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Bash-bash-multiline-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "stdout"
+          ],
+          "categories": [
+            "DB_URI",
+            "SECRET",
+            "SECRET",
+            "SECRET",
+            "EMAIL"
+          ],
+          "input_chars": 211,
+          "expected_output": "DATABASE_URL=<DB_URI_1>\nAWS_ACCESS_KEY_ID=<SECRET_1>\nGITHUB_TOKEN=<SECRET_2>\npassword = <SECRET_3>\n<EMAIL_1>\nend"
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-posttooluse-webfetch-summary",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-WebFetch-webfetch-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "result"
+          ],
+          "categories": [],
+          "input_chars": 170,
+          "expected_output": "# Example\n\nThe page describes a domain designated for documentation purposes, stating that it is available \"for use in documentation examples without needing permission.\""
+        }
+      ],
+      "tool": "WebFetch"
+    },
+    {
+      "id": "claude-posttooluse-mcp-result",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-mcp__probe__probe_echo-mcp-echo-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            0,
+            "text"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 55,
+          "expected_output": "{\"customer_email\": \"<EMAIL_1>\", \"note\": \"ping\"}"
+        }
+      ],
+      "tool": "mcp__probe__probe_echo"
+    },
+    {
+      "id": "claude-posttooluse-write-echo",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Write-write-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "content"
+          ],
+          "categories": [
+            "SECRET"
+          ],
+          "input_chars": 26,
+          "expected_output": "password = <SECRET_1>"
+        }
+      ],
+      "tool": "Write"
+    },
+    {
+      "id": "claude-posttooluse-grep-result",
+      "client": "claude",
+      "event": "PostToolUse",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUse-Grep-grep-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_response",
+            "mode"
+          ],
+          "categories": [],
+          "input_chars": 18,
+          "expected_output": "files_with_matches"
+        }
+      ],
+      "tool": "Grep"
+    },
+    {
+      "id": "claude-posttoolusefailure-bash-error",
+      "client": "claude",
+      "event": "PostToolUseFailure",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolUseFailure-Bash-bash-connection-string-1.json",
+      "scanned": [
+        {
+          "path": [
+            "error"
+          ],
+          "categories": [],
+          "input_chars": 128,
+          "expected_output": "Exit code 2\npsql: error: could not translate host name \"db.example.com\" to address: nodename nor servname provided, or not known"
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-posttoolusefailure-bash-command",
+      "client": "claude",
+      "event": "PostToolUseFailure",
+      "direction": "executable-text",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/PostToolUseFailure-Bash-bash-connection-string-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_input",
+            "command"
+          ],
+          "categories": [
+            "DB_URI"
+          ],
+          "input_chars": 65,
+          "expected_output": "psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'",
+          "unchanged": true
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-posttoolbatch-read-line-numbered",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolBatch-none-read-small-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_response"
+          ],
+          "categories": [
+            "DB_URI",
+            "SECRET",
+            "SECRET",
+            "SECRET",
+            "EMAIL"
+          ],
+          "input_chars": 220,
+          "expected_output": "1\tDATABASE_URL=<DB_URI_1>\n2\tAWS_ACCESS_KEY_ID=<SECRET_1>\n3\tGITHUB_TOKEN=<SECRET_2>\n4\tpassword = <SECRET_3>\n5\t<EMAIL_1>\n6\t"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttoolbatch-read-compose-db-uri",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolBatch-none-batch-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            1,
+            "tool_response"
+          ],
+          "categories": [
+            "DB_URI",
+            "DB_URI"
+          ],
+          "input_chars": 190,
+          "expected_output": "1\tservices:\n2\t  api:\n3\t    image: example/api:1\n4\t    environment:\n5\t      DATABASE_URL: <DB_URI_1>\n6\t      REDIS_URL: <DB_URI_2>\n7\t"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttoolbatch-read-large",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolBatch-none-read-large-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_response"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 57473,
+          "expected_output_sha256": "359e57aa363c556b757f53ff81e8adf1cc36eb3f2953beaccf6c82548597b687"
+        }
+      ],
+      "tool": "Read"
+    },
+    {
+      "id": "claude-posttoolbatch-bash-connection-string",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "executable-text",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/PostToolBatch-none-bash-connection-string-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_input",
+            "command"
+          ],
+          "categories": [
+            "DB_URI"
+          ],
+          "input_chars": 65,
+          "expected_output": "psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'",
+          "unchanged": true
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-posttoolbatch-bash-stdout",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "inbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolBatch-none-bash-multiline-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_response"
+          ],
+          "categories": [
+            "DB_URI",
+            "SECRET",
+            "SECRET",
+            "SECRET",
+            "EMAIL"
+          ],
+          "input_chars": 211,
+          "expected_output": "DATABASE_URL=<DB_URI_1>\nAWS_ACCESS_KEY_ID=<SECRET_1>\nGITHUB_TOKEN=<SECRET_2>\npassword = <SECRET_3>\n<EMAIL_1>\nend"
+        }
+      ],
+      "tool": "Bash"
+    },
+    {
+      "id": "claude-posttoolbatch-mcp-argument-and-result",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "outbound",
+      "expected_action": "mask",
+      "rewritable": true,
+      "fixture": "claude/PostToolBatch-none-mcp-echo-2.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_input",
+            "customer_email"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 17,
+          "expected_output": "<EMAIL_1>"
+        },
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_response",
+            0,
+            "text"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 55,
+          "expected_output": "{\"customer_email\": \"<EMAIL_1>\", \"note\": \"ping\"}"
+        }
+      ],
+      "tool": "mcp__probe__probe_echo"
+    },
+    {
+      "id": "claude-posttoolbatch-write-content",
+      "client": "claude",
+      "event": "PostToolBatch",
+      "direction": "local-write",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/PostToolBatch-none-write-1.json",
+      "scanned": [
+        {
+          "path": [
+            "tool_calls",
+            0,
+            "tool_input",
+            "content"
+          ],
+          "categories": [
+            "SECRET"
+          ],
+          "input_chars": 26,
+          "expected_output": "password = SuperSecret123!",
+          "unchanged": true
+        }
+      ],
+      "tool": "Write"
+    },
+    {
+      "id": "claude-userpromptsubmit-connection-string",
+      "client": "claude",
+      "event": "UserPromptSubmit",
+      "direction": "user-prompt",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/UserPromptSubmit-none-bash-connection-string-1.json",
+      "scanned": [
+        {
+          "path": [
+            "prompt"
+          ],
+          "categories": [
+            "DB_URI"
+          ],
+          "input_chars": 168,
+          "expected_output": "Use the Bash tool to run exactly: psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'. It will fail; that is expected. Then reply with only the word DONE.",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "id": "claude-userpromptsubmit-email",
+      "client": "claude",
+      "event": "UserPromptSubmit",
+      "direction": "user-prompt",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/UserPromptSubmit-none-mcp-echo-1.json",
+      "scanned": [
+        {
+          "path": [
+            "prompt"
+          ],
+          "categories": [
+            "EMAIL"
+          ],
+          "input_chars": 131,
+          "expected_output": "Call the probe_echo MCP tool with customer_email set to alice@example.com and note set to ping. Then reply with only the word DONE.",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "id": "claude-userpromptsubmit-secret",
+      "client": "claude",
+      "event": "UserPromptSubmit",
+      "direction": "user-prompt",
+      "expected_action": "warn",
+      "rewritable": false,
+      "fixture": "claude/UserPromptSubmit-none-write-1.json",
+      "scanned": [
+        {
+          "path": [
+            "prompt"
+          ],
+          "categories": [
+            "SECRET"
+          ],
+          "input_chars": 145,
+          "expected_output": "Use the Write tool to create secrets.txt whose entire content is the single line: password = SuperSecret123!. Then reply with only the word DONE.",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "id": "claude-stop-last-assistant-message",
+      "client": "claude",
+      "event": "Stop",
+      "direction": "inbound",
+      "expected_action": "observe",
+      "rewritable": true,
+      "fixture": "claude/Stop-none-write-1.json",
+      "scanned": [
+        {
+          "path": [
+            "last_assistant_message"
+          ],
+          "categories": [],
+          "input_chars": 4,
+          "expected_output": "DONE"
+        }
+      ]
+    }
+  ]
+}

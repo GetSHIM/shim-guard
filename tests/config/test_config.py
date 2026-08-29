@@ -6,6 +6,8 @@ from shim_guard.config import (
     DEFAULT_ENTITIES,
     config_path,
     load_entities,
+    load_policy,
+    parse_settings,
     render_entities,
 )
 
@@ -61,3 +63,66 @@ def test_unsafe_or_relative_settings_paths_are_rejected(
     monkeypatch.setenv("SHIM_GUARD_CONFIG", "~shim_guard_missing_user/config.toml")
     with pytest.raises(ValueError, match="path"):
         config_path()
+
+
+def test_a_version_one_file_is_a_valid_version_two_file() -> None:
+    """An old settings file must keep working untouched."""
+    document = parse_settings('enabled_entities = ["EMAIL", "SECRET"]\n')
+
+    assert document == {
+        "enabled_entities": ["EMAIL", "SECRET"],
+        "mode": {},
+        "entities": {},
+    }
+
+
+def test_policy_resolves_the_most_specific_override(tmp_path: Path) -> None:
+    target = tmp_path / "config.toml"
+    target.write_text(
+        'enabled_entities = ["EMAIL", "SECRET", "DB_URI"]\n'
+        "\n[mode]\n"
+        'default = "observe"\n'
+        'inbound = "enforce"\n'
+        'PreToolUse = "warn"\n'
+        'Bash = "observe"\n'
+        "\n[entities]\n"
+        'Bash = ["SECRET"]\n',
+        encoding="utf-8",
+    )
+    policy = load_policy(target)
+
+    assert policy.entities == ("EMAIL", "SECRET", "DB_URI")
+    # per-tool beats per-event beats per-direction beats default
+    assert policy.mode_for("executable-text", "Bash", "PreToolUse") == "observe"
+    assert policy.mode_for("outbound", "WebFetch", "PreToolUse") == "warn"
+    assert policy.mode_for("inbound", "Read", "PostToolUse") == "enforce"
+    assert policy.mode_for("local-write", "Write", "SomethingElse") == "observe"
+    assert policy.entities_for("Bash") == ("SECRET",)
+    assert policy.entities_for("Read") == ("EMAIL", "SECRET", "DB_URI")
+
+
+def test_policy_falls_back_to_the_shipped_defaults(tmp_path: Path) -> None:
+    policy = load_policy(tmp_path / "absent.toml")
+
+    assert policy.entities == DEFAULT_ENTITIES
+    assert policy.mode_for("user-prompt") == "warn"
+    assert policy.mode_for("outbound") == "enforce"
+    assert policy.mode_for("inbound") == "enforce"
+    assert policy.mode_for("local-write") == "warn"
+    assert policy.mode_for("executable-text") == "warn"
+
+
+@pytest.mark.parametrize(
+    "document",
+    (
+        'enabled_entities = ["EMAIL"]\n[mode]\ndefault = "paranoid"\n',
+        'enabled_entities = ["EMAIL"]\n[mode]\ndefault = 1\n',
+        'enabled_entities = ["EMAIL"]\n[entities]\nBash = "SECRET"\n',
+        'enabled_entities = ["EMAIL"]\n[entities]\nBash = ["NOPE"]\n',
+        'enabled_entities = ["EMAIL"]\nother = 1\n',
+        '[mode]\ndefault = "warn"\n',
+    ),
+)
+def test_invalid_policy_documents_fail_closed(document: str) -> None:
+    with pytest.raises(ValueError):
+        parse_settings(document)

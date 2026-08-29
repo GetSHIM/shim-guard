@@ -5,5 +5,7 @@
 __pycache__/
 *.py[cod]
 dist/
+# Built by scripts/build_zipapp.py in CI, committed only on release tags.
+plugins/shim-guard/bin/
 build/
 *.egg-info/
