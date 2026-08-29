@@ -40,9 +40,14 @@ prompt-derived data.
 
 Each adapter owns its client's configuration and coexistence rules. The Codex
 adapter leaves inline `config.toml` hooks untouched; they may coexist with
-`hooks.json` with a client warning. The Claude Code adapter changes only the
-`hooks.UserPromptSubmit` array in user `settings.json` and preserves every
-unrelated setting. Malformed or ambiguous documents and unsafe or concurrently
+`hooks.json` with a client warning. The Claude Code adapter changes only its own
+groups inside `hooks` in user `settings.json` — `UserPromptSubmit`, plus one
+group per tool event whose mutation shape has been confirmed against a running
+client — and preserves every unrelated setting. Which tool events those are
+comes from the adapter registry, so the two install paths and `shim doctor`
+cannot disagree. Each group is matched by exact value, so an install made
+before tool events existed gains only the missing groups, and revert gives up
+only SHIM's own. Malformed or ambiguous documents and unsafe or concurrently
 changed files require manual setup. Dry-run output contains only SHIM's
 fragment, not the existing document.
 

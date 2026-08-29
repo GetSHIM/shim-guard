@@ -8,7 +8,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from shim_guard.clients.user_prompt_settings import MAX_SETTINGS_BYTES
+from shim_guard.clients.hook_settings import MAX_SETTINGS_BYTES
 
 TESTED_COPILOT_VERSION = "1.0.80"
 MINIMUM_COPILOT_VERSION = "1.0.80"

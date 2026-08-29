@@ -7,6 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from shim_guard.clients.claude import settings as claude_settings
+from shim_guard.clients.codex import settings as codex_settings
+
 try:
     import tomllib
 except ModuleNotFoundError:  # Python < 3.11
@@ -29,6 +32,30 @@ def test_plugin_versions_match_package() -> None:
             )
         )
         assert manifest["version"] == expected
+
+
+@pytest.mark.parametrize(
+    ("client", "manifest", "settings"),
+    [
+        ("claude", "claude.json", claude_settings),
+        ("codex", "hooks.json", codex_settings),
+    ],
+)
+def test_the_plugin_and_the_installer_register_the_same_events(
+    client: str, manifest: str, settings: object
+) -> None:
+    """The two install paths must agree about coverage.
+
+    They are alternatives, so a user on either one is entitled to the same
+    events. If only one of them gained a newly verified adapter, `shim doctor`
+    would report coverage that half the installed base never receives.
+    """
+    document = json.loads(
+        (PLUGIN_ROOT / "hooks" / manifest).read_text(encoding="utf-8")
+    )
+    expected = {event for event, _group in settings.hook_groups()}
+
+    assert set(document["hooks"]) == expected
 
 
 @pytest.mark.parametrize("client", ["codex", "claude", "copilot"])

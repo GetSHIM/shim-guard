@@ -12,17 +12,20 @@ try:  # pragma: no cover - exercised by whichever interpreter runs the tests
 except ModuleNotFoundError:  # Python < 3.11; CLI-only, never on the hook path
     import tomli as tomllib
 
-from shim_guard.clients.user_prompt_settings import (
+from shim_guard.clients.hook_settings import (
     MAX_SETTINGS_BYTES,
-    add_group,
-    remove_group,
+    Registration,
+    add_groups,
+    remove_groups,
 )
+from shim_guard.events.registry import INSTALLED
 from shim_guard.installation import StateKind, inspect_file
 
 TESTED_CODEX_VERSION = "0.149.0"
 MINIMUM_CODEX_VERSION = "0.149.0"
 HOOK_TIMEOUT_SECONDS = 30
 MAX_CONFIG_BYTES = MAX_SETTINGS_BYTES
+PROMPT_EVENT = "UserPromptSubmit"
 
 
 def _codex_home(home: Path | None = None) -> Path:
@@ -83,11 +86,27 @@ def hook_group(interpreter: str | Path = sys.executable) -> dict[str, object]:
     }
 
 
+def hook_groups(interpreter: str | Path = sys.executable) -> tuple[Registration, ...]:
+    """Return every event SHIM registers, prompt first then tool events.
+
+    Codex's tool adapters are report-only until a probe confirms their mutation
+    shape, so today this is the prompt event alone. Promoting them in the
+    registry installs them here with no further edit.
+    """
+    groups: list[Registration] = [(PROMPT_EVENT, hook_group(interpreter))]
+    groups.extend(
+        (event, hook_group(interpreter))
+        for client, event in INSTALLED
+        if client == "codex"
+    )
+    return tuple(groups)
+
+
 def add_hook(content: bytes | None, interpreter: str | Path = sys.executable) -> bytes:
-    """Append SHIM's group while preserving existing hook ordering."""
-    return add_group(content, hook_group(interpreter))
+    """Append SHIM's groups while preserving existing hook ordering."""
+    return add_groups(content, hook_groups(interpreter))
 
 
 def remove_hook(content: bytes, interpreter: str | Path = sys.executable) -> bytes:
-    """Remove exactly one SHIM group and preserve every unrelated entry."""
-    return remove_group(content, hook_group(interpreter))
+    """Remove exactly SHIM's groups and preserve every unrelated entry."""
+    return remove_groups(content, hook_groups(interpreter))

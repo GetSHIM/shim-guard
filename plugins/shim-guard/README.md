@@ -1,6 +1,7 @@
 # SHIM Guard plugin
 
-This plugin registers SHIM Guard's local `UserPromptSubmit` hook. It carries a
+This plugin registers SHIM Guard's local hooks — the user's prompt, and the tool
+events whose mutation shape has been confirmed against a running client. It carries a
 self-contained copy of the hook in `bin/shim.pyz`, so installing the plugin is
 enough — there is no separate package-manager step, and no prerequisite beyond
 a `python3` of 3.9 or newer.
@@ -17,12 +18,14 @@ a `python3` of 3.9 or newer.
    stderr explaining why it was not inspected.
 
 Case 3 never blocks. A guard that cannot run is a guard that is off, not a
-reason to refuse someone's prompt.
+reason to refuse someone's prompt. The same holds for a tool event: an empty
+stdout leaves the tool call and its result exactly as the client produced them.
 
-`shim doctor <client>` reports which of the three is live, warns when the
+`shim doctor <client>` prints a coverage table of what SHIM sees and can change
+at each event, reports which of the three launchers is live, warns when the
 bundled archive and the installed package disagree about their version, and
 fails when both this plugin and a `shim install` hook are active for the same
-client — that combination inspects every prompt twice.
+client — that combination inspects every prompt and every tool event twice.
 
 ## Choosing an installation method
 

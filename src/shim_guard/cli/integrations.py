@@ -1,4 +1,4 @@
-"""Client prompt-hook installation, inspection, and revert workflows."""
+"""Client hook installation, inspection, and revert workflows."""
 
 from __future__ import annotations
 
@@ -69,14 +69,20 @@ def client_plan(client: str, operation: Literal["install", "revert"]) -> Plan:
     return plan_change(target, state, expected)
 
 
-def _hook_group(client: str) -> dict[str, object]:
-    if client == "claude":
-        return claude_settings.hook_group()
-    if client == "codex":
-        return codex_settings.hook_group()
+def _hook_fragment(client: str) -> dict[str, object]:
+    """Return exactly what `--dry-run` would merge into the client's file."""
     if client == "copilot":
         return copilot_settings.hook_document()
-    raise ValueError("unsupported client")
+    if client == "claude":
+        registrations = claude_settings.hook_groups()
+    elif client == "codex":
+        registrations = codex_settings.hook_groups()
+    else:
+        raise ValueError("unsupported client")
+    hooks: dict[str, list] = {}
+    for event, group in registrations:
+        hooks.setdefault(event, []).append(group)
+    return {"hooks": hooks}
 
 
 def _inline_hooks_notice(client: str) -> None:
@@ -158,7 +164,7 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     if dry_run:
         verb = "create" if action is Action.CREATE else "append to"
         emit("WARN", f"Would {verb} {name} hooks at {plan.target} with this fragment:")
-        print(json.dumps(_hook_group(client), ensure_ascii=False, indent=2))
+        print(json.dumps(_hook_fragment(client), ensure_ascii=False, indent=2))
         return
     prompt = (
         f"Create SHIM Guard's {name} hook?"
