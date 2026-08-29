@@ -15,9 +15,9 @@ from shim_guard.config import (
     ENTITY_TYPES,
     MAX_CONFIG_BYTES,
     config_path,
-    load_entities,
+    load_policy,
     normalize_entities,
-    render_entities,
+    render_settings,
 )
 from shim_guard.installation import (
     InstallationError,
@@ -85,6 +85,7 @@ def configure(
     enable: tuple[str, ...],
     disable: tuple[str, ...],
     reset: bool,
+    ledger: bool | None,
     yes: bool,
     as_json: bool,
 ) -> None:
@@ -93,7 +94,7 @@ def configure(
         target = config_path()
     except ValueError:
         _fail(as_json, "Entity settings path is invalid.")
-    changing = bool(only or enable or disable or reset)
+    changing = bool(only or enable or disable or reset or ledger is not None)
     if reset and (only or enable or disable):
         _fail(as_json, "--reset cannot be combined with entity options.")
     if only and (enable or disable):
@@ -101,16 +102,39 @@ def configure(
     if set(enable).intersection(disable):
         _fail(as_json, "The same entity cannot be enabled and disabled.")
 
+    # The whole policy is read, not only the entity list, so that saving an
+    # entity change cannot drop a mode override the user set deliberately.
+    # A file too broken to read is not fatal for the two operations that
+    # replace it outright; everything else has to merge and so must refuse.
+    try:
+        policy = load_policy(target)
+    except (OSError, ValueError):
+        policy = None
+    if policy is None and not (reset or only):
+        _fail(
+            as_json,
+            "Entity settings are invalid or unsafe. Reset malformed contents; review unsafe paths manually.",
+        )
+
     try:
         if reset:
-            enabled = DEFAULT_ENTITIES
-        elif only:
-            enabled = normalize_entities(set(only))
+            # "Restore all defaults" means the whole document, not one key.
+            enabled, modes, tool_entities, keep_ledger = DEFAULT_ENTITIES, {}, {}, False
         else:
-            selected = set(load_entities(target))
-            selected.update(enable)
-            selected.difference_update(disable)
-            enabled = normalize_entities(selected)
+            assert policy is not None or only
+            modes = policy.modes if policy else {}
+            tool_entities = policy.tool_entities if policy else {}
+            keep_ledger = policy.ledger if policy else False
+            if ledger is not None:
+                keep_ledger = ledger
+            if only:
+                enabled = normalize_entities(set(only))
+            else:
+                assert policy is not None
+                selected = set(policy.entities)
+                selected.update(enable)
+                selected.difference_update(disable)
+                enabled = normalize_entities(selected)
     except (OSError, ValueError):
         _fail(
             as_json,
@@ -137,7 +161,13 @@ def configure(
     try:
         ensure_parent(target)
         state = inspect_file(target, MAX_CONFIG_BYTES)
-        changed = apply(plan_change(target, state, render_entities(enabled)))
+        changed = apply(
+            plan_change(
+                target,
+                state,
+                render_settings(enabled, modes, tool_entities, keep_ledger),
+            )
+        )
     except (InstallationError, OSError, ValueError):
         _fail(as_json, "Entity settings were unsafe or changed; nothing was saved.")
 

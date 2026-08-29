@@ -36,7 +36,9 @@ client prompt -> trusted SHIM hook -> in-memory offline detector
 ```
 
 The hook reads the submitted-prompt fields needed for the native contract. It
-does not send prompt data to SHIM, keep history, or create a replacement map.
+does not send prompt data to SHIM and does not create a replacement map. It
+does keep a record of its own decisions, described under **What is recorded**
+below; that record holds entity names and counts and never the values.
 Safe input produces exactly empty stdout and stderr. For a supported Copilot
 finding, the hook returns the typed redaction as the model-facing replacement
 and writes no file. For Codex and Claude Code, it writes one typed redaction to
@@ -56,6 +58,57 @@ preset enables all supported types. The local settings file contains entity
 names only. An invalid or unsafe settings file causes the hook to return its
 generic fail-closed response rather than silently ignoring the policy.
 
+## What is recorded
+
+shim keeps a record of what it did, so that a tool which is silent when it
+succeeds can still show its work. The rule for its contents is absolute: **no
+entry ever holds payload text.** Entity names and counts, yes; the value that
+produced them, never. A file path or URL is kept because it is what makes the
+summary useful, and it is run through the detector first, so a secret inside a
+path is masked there too. A shell command is never kept at all — a command is
+payload, and the probe corpus contains one carrying a live credential.
+
+One entry per decision:
+
+```json
+{"ts": "2026-08-29T14:51:06Z", "session_id": "…", "client": "claude",
+ "event": "PostToolUse", "tool_name": "Read", "target": "/work/service/.env",
+ "direction": "inbound", "mode": "enforce", "action": "mask",
+ "entities": {"SECRET": 2}, "latency_ms": 7, "in_bytes": 812, "out_bytes": 806}
+```
+
+### While a session is open
+
+Hooks are separate processes, so the record cannot live in memory across
+events. It is a file per session under the operating system's temporary
+directory, in a directory owned by you and readable by nobody else (`0700`,
+with `0600` files). shim refuses to use that directory if it finds it readable
+by other users, and `shim doctor` reports when that has happened — recording
+never breaks the guard, so without that check the failure would be silent.
+
+**The session file is deleted at `SessionEnd`**, when the client closes. It is
+capped at 1 MB; past that the summary undercounts and says so.
+
+`shim report` prints the most recent session's summary. The same summary is
+shown inside the client at the end of any turn where something changed.
+
+### Past the end of a session — off by default
+
+`shim config --ledger` opts in to keeping the same records after the session
+ends. It is off unless you turn it on, and `shim config --no-ledger` turns it
+back off. Files live under `$XDG_STATE_HOME/shim-guard` (or
+`~/.local/state/shim-guard`), one per month, `0600`, capped at 5 MB each.
+
+Retention is 30 days, enforced by deleting whole months. The exact promise is
+therefore: **a month's records are deleted 30 days after the end of that
+month** — so an entry written on the first of a month outlives one written on
+the last by up to the length of the month. Age is taken from the file's name,
+not its modification time, so restoring a backup or touching a file does not
+extend it. `shim ledger purge` deletes everything immediately.
+
+Nothing here is ever transmitted. There is no telemetry, no account, and no
+network call anywhere in shim.
+
 ## Outside SHIM's boundary
 
 The host client receives the raw prompt. Matching hooks can start concurrently,
@@ -70,8 +123,10 @@ Copilot's timeline.
 Some clients require review and trust for non-managed hooks. A hook can be
 disabled, untrusted after a change, missing, unable to start, crash, or time
 out; those outcomes are client-controlled and may fail open. SHIM does not
-promise detection of every value, inspect automatic context or tool output, or
-securely erase Python process memory.
+promise detection of every value, inspect automatic context, or securely erase
+Python process memory. Tool inputs and tool results *are* inspected, at the
+events listed by `shim doctor <client>`; anything reaching the model by another
+route is outside that list.
 
 Installer checks detect unsafe paths and observed drift, but they are not an
 isolation boundary against a malicious process already running as the same OS

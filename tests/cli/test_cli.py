@@ -16,6 +16,7 @@ from shim_guard import __version__
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
+from shim_guard.config import DEFAULT_ENTITIES, load_policy
 
 runner = CliRunner()
 
@@ -341,6 +342,7 @@ def test_claude_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) ->
         "claude",
         "hook_configuration",
         "entity_settings",
+        "session_record",
         "runner",
         "hook_resolution",
         "duplicate_hooks",
@@ -392,6 +394,7 @@ def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
         "hooks_feature",
         "hook_configuration",
         "entity_settings",
+        "session_record",
         "runner",
         "hook_resolution",
         "duplicate_hooks",
@@ -550,3 +553,118 @@ def test_doctor_version_states(monkeypatch, tmp_path: Path) -> None:
     assert codex_status(older) == "FAIL"
     assert codex_status(future) == "WARN"
     assert codex_status(current) == "PASS"
+
+
+def test_config_preserves_the_sections_it_does_not_change(monkeypatch, tmp_path: Path):
+    """Regression: an entity edit used to silently delete `[mode]`.
+
+    Config v2 added sections the writer did not know about, so saving an
+    entity change reverted a deliberate `enforce` back to the shipped default
+    without saying anything.
+    """
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\n\n'
+        "[entities]\n"
+        'Read = ["SECRET"]\n\n'
+        "[mode]\n"
+        'user-prompt = "enforce"\n',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["config", "--enable", "SECRET", "--yes"])
+
+    assert result.exit_code == 0
+    saved = target.read_text()
+    assert 'user-prompt = "enforce"' in saved
+    assert "Read = [" in saved
+    assert '"SECRET"' in saved
+
+    policy = load_policy(target)
+    assert policy.mode_for("user-prompt") == "enforce"
+    assert policy.entities_for("Read") == ("SECRET",)
+
+
+def test_ledger_is_off_until_it_is_turned_on(monkeypatch, tmp_path: Path) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is False
+
+    assert runner.invoke(app, ["config", "--ledger", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is True
+    assert "ledger = true" in target.read_text()
+
+    assert runner.invoke(app, ["config", "--no-ledger", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is False
+    assert "ledger" not in target.read_text()
+
+
+def test_reset_restores_every_section_not_only_the_entity_list(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\nledger = true\n\n[mode]\nuser-prompt = "enforce"\n',
+        encoding="utf-8",
+    )
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+
+    policy = load_policy(target)
+    assert policy.modes == {}
+    assert policy.ledger is False
+    assert policy.entities == DEFAULT_ENTITIES
+
+
+def test_report_says_so_when_there_is_no_session(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+
+    result = runner.invoke(app, ["report"])
+
+    assert result.exit_code == 1
+    assert "No session on record" in result.output
+
+
+def test_report_renders_the_most_recent_session(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard.session import spool
+
+    spool.append(
+        "a-session",
+        {
+            "action": "mask",
+            "tool_name": "Read",
+            "target": "/work/.env",
+            "entities": {"SECRET": 2},
+            "latency_ms": 8,
+        },
+    )
+
+    result = runner.invoke(app, ["report"])
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert result.exit_code == 0
+    assert "2 SECRET" in result.output
+    assert document["actions"]["mask"]["entities"] == {"SECRET": 2}
+
+
+def test_ledger_purge_deletes_only_what_is_retained(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("SHIM_GUARD_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard.session import ledger, spool
+
+    ledger.append({"action": "mask", "entities": {"SECRET": 1}})
+    spool.append("live", {"action": "mask", "entities": {"SECRET": 1}})
+
+    empty = runner.invoke(app, ["ledger", "purge", "--yes"])
+
+    assert empty.exit_code == 0
+    assert ledger.files() == []
+    assert spool.entries("live"), "purging the ledger must not touch the session"
+
+    again = runner.invoke(app, ["ledger", "purge", "--yes"])
+    assert again.exit_code == 0
+    assert "nothing retained" in again.output

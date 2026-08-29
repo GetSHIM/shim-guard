@@ -22,6 +22,10 @@ class Record:
     mode: str
     action: str
     entities: tuple = ()
+    #: Which file or URL the tool acted on, already scrubbed. Never a command:
+    #: a shell string is the payload of an executable-text event, and the probe
+    #: corpus has one holding a live credential.
+    target: str = ""
     in_bytes: int = 0
     out_bytes: int = 0
     degraded_from: str = ""
@@ -33,6 +37,7 @@ class Record:
             "client": self.client,
             "event": self.event,
             "tool_name": self.tool_name,
+            "target": self.target,
             "direction": self.direction,
             "mode": self.mode,
             "action": self.action,

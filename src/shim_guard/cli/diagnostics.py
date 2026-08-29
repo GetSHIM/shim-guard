@@ -305,6 +305,39 @@ def _duplicate_check(client: str) -> Check:
     return Check("duplicate_hooks", "PASS", "Exactly one SHIM hook path is installed.")
 
 
+def _session_record_check() -> Check:
+    """Report whether the session record can be written at all.
+
+    Recording deliberately never breaks the guard, which means a spool
+    directory that cannot be used fails silently: masking keeps working and no
+    summary ever appears. This is the one place that says so out loud.
+    """
+    from shim_guard.session import spool
+
+    try:
+        spool.append("shim-doctor-probe", {"probe": True})
+        spool.clear("shim-doctor-probe")
+    except spool.SpoolError as error:
+        return Check(
+            "session_record",
+            "WARN",
+            f"Session records cannot be written ({error}); masking still works "
+            "but no session summary will appear.",
+        )
+    except OSError:
+        return Check(
+            "session_record",
+            "WARN",
+            "Session records cannot be written; masking still works but no "
+            "session summary will appear.",
+        )
+    return Check(
+        "session_record",
+        "PASS",
+        f"Session records are writable at {spool.root_path()}.",
+    )
+
+
 def _coverage_rows(client: str) -> list:
     """Return what SHIM can see and change at each event for this client."""
     rows = [
@@ -318,6 +351,29 @@ def _coverage_rows(client: str) -> list:
         }
     ]
     rows.extend(dict(row) for row in coverage(client))
+    if client == "claude":
+        # These carry no payload. They exist so the session summary can be
+        # shown and then deleted, which is why "sees" is not a payload key.
+        rows.append(
+            {
+                "event": "Stop",
+                "sees": "session record",
+                "can_mask": False,
+                "can_report": True,
+                "verified": True,
+                "installed": True,
+            }
+        )
+        rows.append(
+            {
+                "event": "SessionEnd",
+                "sees": "session record",
+                "can_mask": False,
+                "can_report": False,
+                "verified": True,
+                "installed": True,
+            }
+        )
     return rows
 
 
@@ -375,6 +431,7 @@ def doctor(*, client: str, as_json: bool) -> None:
         (
             _hook_state(client),
             _entity_settings(),
+            _session_record_check(),
             _runner_check(client),
             _resolution_check(),
             _duplicate_check(client),

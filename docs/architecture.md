@@ -58,6 +58,25 @@ the model-facing content and returns `modifiedTransformedPrompt` with the typed
 redaction. Copilot stores and sends the replacement while leaving the original
 timeline display unchanged. Revert retains an empty versioned hook document.
 
+## Session record
+
+Hooks are separate processes, so anything that spans events must be written
+down. `shim_guard.session` owns that: `spool` is a per-session JSONL file under
+the OS temporary directory (`0700` directory, `0600` files, session identifier
+hashed rather than used as a name), `summary` renders it, and `ledger` is the
+opt-in copy that outlives the session.
+
+Recording is deliberately best-effort — every write is wrapped so that a spool
+that cannot be used leaves masking working and the summary absent, never the
+other way round. Because that failure is silent by design, `shim doctor` probes
+the spool and reports it.
+
+`Stop` renders hook output and `SessionEnd` does not, so the summary is emitted
+at `Stop` — once per change, carrying session totals, guarded by
+`stop_hook_active` — and `SessionEnd` exists only to delete the spool. No
+record field ever carries payload text: entity names, counts, and a
+detector-scrubbed file path or URL, never a value and never a shell command.
+
 ## Detector boundary and corpus
 
 `shim-guard` is intentionally an independently packaged, narrow detector fork.

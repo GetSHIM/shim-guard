@@ -57,6 +57,20 @@ def _payload(prompt: str, **changes: object) -> bytes:
     return json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode()
 
 
+def _redaction_files(root):
+    """Return only the redacted-prompt files, not the session spool.
+
+    The spool is a separate promise with its own tests: it holds entity names
+    and counts and is checked for payload content in
+    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
+    """
+    return [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix not in (".jsonl", ".mark")
+    ]
+
+
 def _run(
     raw: bytes,
     *,
@@ -153,7 +167,7 @@ def test_block_reason_excludes_terminal_controls_from_the_prompt(
         b"{",
         b"\xff",
         b"[]",
-        b'{"hook_event_name":"Stop","prompt":"hello"}',
+        b'{"hook_event_name":"UserPromptSubmit","prompt":["hello"]}',
         b'{"prompt":"hello"}',
         b'{"hook_event_name":"UserPromptSubmit"}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":7}',
@@ -162,6 +176,11 @@ def test_block_reason_excludes_terminal_controls_from_the_prompt(
     ],
 )
 def test_hostile_input_fails_closed(raw: bytes) -> None:
+    """Prompt payloads only.
+
+    An unrecognised *event* must not block — that denies the tool call —
+    and is covered by `tests/session/test_failure_modes.py`.
+    """
     _assert_output(_run(raw), GENERIC_BLOCK)
 
 
@@ -314,7 +333,7 @@ runner.main()
 
     _assert_output(result, GENERIC_BLOCK)
     assert b"raw-value-must-not-leak" not in result.stdout + result.stderr
-    assert not list(tmp_path.iterdir())
+    assert not _redaction_files(tmp_path)
 
 
 def test_adapter_import_error_uses_the_same_generic_block() -> None:
@@ -449,11 +468,29 @@ def test_hook_persists_only_the_redacted_prompt_in_os_temp(tmp_path: Path) -> No
     result = _run(_payload(prompt), cwd=work, env=env)
     path = _suggestion_path(result, "SHIM Guard blocked this prompt: EMAIL (1).")
     written = {item for item in tmp_path.rglob("*") if item.is_file()} - before
+    spools = {item for item in written if item.suffix in (".jsonl", ".mark")}
 
     assert prompt.encode() not in result.stdout
-    assert written == {path}
+    assert written == {path} | spools
     assert path.read_text() == "Contact <EMAIL_1>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    # PRD-06: the session record carries entity names and counts, never the
+    # value that produced them. This is the acceptance criterion, asserted
+    # against a real hook run rather than a constructed record.
+    assert spools, "the decision was not recorded"
+    for spool in spools:
+        assert stat.S_IMODE(spool.stat().st_mode) == 0o600
+        content = spool.read_text()
+        assert "persistence-canary" not in content
+        assert prompt not in content
+    entries = [
+        json.loads(line)
+        for spool in spools
+        if spool.suffix == ".jsonl"
+        for line in spool.read_text().splitlines()
+    ]
+    assert [entry["entities"] for entry in entries] == [{"EMAIL": 1}]
+    assert [entry["action"] for entry in entries] == ["deny"]
 
 
 def test_hook_does_not_attempt_network_access(tmp_path: Path) -> None:

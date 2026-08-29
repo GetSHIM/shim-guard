@@ -17,6 +17,20 @@ GENERIC_BLOCK = (
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
+def _redaction_files(root):
+    """Return only the redacted-prompt files, not the session spool.
+
+    The spool is a separate promise with its own tests: it holds entity names
+    and counts and is checked for payload content in
+    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
+    """
+    return [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix not in (".jsonl", ".mark")
+    ]
+
+
 def _run(
     raw: bytes, tmp_path: Path, env_extra: dict | None = None
 ) -> subprocess.CompletedProcess[bytes]:
@@ -75,7 +89,7 @@ def test_claude_code_runner_reports_a_finding_and_lets_the_prompt_through(
         "shim: found EMAIL (1) in your prompt. Not modified."
     )
     assert b"alice@example.com" not in result.stdout
-    assert not list(tmp_path.iterdir()), "warning must not write a redaction file"
+    assert not _redaction_files(tmp_path), "warning must not write a redaction file"
 
 
 def test_claude_code_runner_blocks_with_a_private_redaction(tmp_path: Path) -> None:

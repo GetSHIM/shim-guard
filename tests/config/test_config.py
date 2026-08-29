@@ -73,6 +73,7 @@ def test_a_version_one_file_is_a_valid_version_two_file() -> None:
         "enabled_entities": ["EMAIL", "SECRET"],
         "mode": {},
         "entities": {},
+        "ledger": False,
     }
 
 

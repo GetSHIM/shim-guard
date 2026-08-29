@@ -155,6 +155,13 @@ def config_command(
             help="Disable this entity; repeatable.",
         ),
     ] = None,
+    ledger: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--ledger/--no-ledger",
+            help="Keep session records past the end of the session. Off by default.",
+        ),
+    ] = None,
     reset: bool = typer.Option(False, "--reset", help="Restore all defaults."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
@@ -167,9 +174,35 @@ def config_command(
         enable=tuple(entity.value for entity in enable or ()),
         disable=tuple(entity.value for entity in disable or ()),
         reset=reset,
+        ledger=ledger,
         yes=yes,
         as_json=json_output,
     )
+
+
+ledger_app = typer.Typer(help="Manage the opt-in record kept past a session.")
+app.add_typer(ledger_app, name="ledger")
+
+
+@ledger_app.command("purge")
+def ledger_purge(
+    yes: bool = typer.Option(False, "--yes", help="Delete without confirmation."),
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Delete every retained session record."""
+    from shim_guard.cli.report import purge as run_purge
+
+    run_purge(yes=yes, as_json=json_output)
+
+
+@app.command()
+def report(
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Show what SHIM Guard did in the most recent client session."""
+    from shim_guard.cli.report import report as run_report
+
+    run_report(as_json=json_output)
 
 
 @app.command()

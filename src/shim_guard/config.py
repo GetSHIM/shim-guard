@@ -70,12 +70,37 @@ def normalize_entities(entities: Iterable[object]) -> tuple[str, ...]:
     return tuple(entity for entity in ENTITY_TYPES if entity in selected)
 
 
-def render_entities(entities: Iterable[str]) -> bytes:
-    """Render the small editable TOML settings document."""
+def render_settings(
+    entities: Iterable[str],
+    modes: dict | None = None,
+    tool_entities: dict | None = None,
+    ledger: bool = False,
+) -> bytes:
+    """Render the whole editable TOML settings document.
+
+    Everything the file can hold is written, not just the part being changed.
+    A writer that knows only about ``enabled_entities`` deletes the sections it
+    has never heard of, which silently reverts a deliberate `enforce` back to
+    the shipped default.
+    """
     import tomli_w
 
-    document = {"enabled_entities": list(normalize_entities(entities))}
+    document: dict = {"enabled_entities": list(normalize_entities(entities))}
+    if ledger:
+        document["ledger"] = True
+    # Tables must follow scalars in the mapping order tomli_w is given.
+    if tool_entities:
+        document["entities"] = {
+            key: list(value) for key, value in sorted(tool_entities.items())
+        }
+    if modes:
+        document["mode"] = dict(sorted(modes.items()))
     return tomli_w.dumps(document).encode()
+
+
+def render_entities(entities: Iterable[str]) -> bytes:
+    """Render a settings document holding only the entity list."""
+    return render_settings(entities)
 
 
 DEFAULT_MODES = {
@@ -86,7 +111,7 @@ DEFAULT_MODES = {
     "executable-text": "warn",
 }
 MODES = ("observe", "warn", "enforce")
-_TOP_LEVEL = {"enabled_entities", "mode", "entities"}
+_TOP_LEVEL = {"enabled_entities", "mode", "entities", "ledger"}
 
 
 @dataclass(frozen=True)
@@ -96,6 +121,8 @@ class Policy:
     entities: tuple
     modes: dict
     tool_entities: dict
+    #: Whether decisions outlive the session. Off unless the user turns it on.
+    ledger: bool = False
 
     def mode_for(self, direction: str, tool: str = "", event: str = "") -> str:
         """Return the mode for one payload, most specific override winning.
@@ -156,10 +183,14 @@ def parse_settings(text: str) -> dict:
     enabled = document["enabled_entities"]
     if not isinstance(enabled, list):
         raise ValueError("SHIM Guard settings are invalid")
+    ledger = document.get("ledger", False)
+    if not isinstance(ledger, bool):
+        raise ValueError("SHIM Guard settings are invalid")
     return {
         "enabled_entities": list(enabled),
         "mode": _modes(document),
         "entities": _tool_entities(document),
+        "ledger": ledger,
     }
 
 
@@ -182,6 +213,7 @@ def load_policy(path: Path | None = None) -> Policy:
             normalize_entities(document["enabled_entities"]),
             document["mode"],
             document["entities"],
+            document["ledger"],
         )
     except ValueError as error:
         raise ValueError("SHIM Guard settings are invalid") from error

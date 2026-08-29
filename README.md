@@ -107,6 +107,30 @@ printf '%s' 'Contact me at alice@example.com' | shim redact
 Both commands read standard input. Do not pass real prompts as command-line
 arguments, where they may be recorded in shell history or process listings.
 
+## See what it did
+
+shim says nothing when it works, so it keeps a short record of its own
+decisions and shows you the total at the end of any turn where something
+changed:
+
+```text
+shim — this session
+  masked    3 SECRET  (Read .env, Bash)
+            2 DB_URI  (Read docker-compose.yml)
+  warned    1 EMAIL  (your prompt)
+  overhead  6 ms median, 14 ms p95
+```
+
+`shim report` prints the same summary on demand, and `--json` makes it
+scriptable.
+
+The record holds entity names, counts and the file or URL involved — never the
+value that was found, and never a shell command. It lives in a private file for
+as long as the client session does and is deleted when the session ends.
+`shim config --ledger` opts in to keeping it for 30 days instead;
+`shim ledger purge` deletes it. Nothing is ever transmitted. See
+[Privacy](docs/privacy.md#what-is-recorded).
+
 ## Configure detection
 
 All supported entity types are enabled by default. View or change the local
@@ -117,6 +141,7 @@ shim config
 shim config --only EMAIL --only SECRET
 shim config --disable IP_ADDRESS --disable MAC_ADDRESS
 shim config --reset
+shim config --ledger        # keep the session record for 30 days
 ```
 
 Changes are previewed before they are saved. The CLI, installed hook, `scan`,

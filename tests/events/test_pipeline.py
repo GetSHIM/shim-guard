@@ -281,3 +281,96 @@ def test_the_tool_corpus_agrees_with_the_pipeline(case: dict) -> None:
         for scanned in case["scanned"]:
             if scanned.get("unchanged") and outcome.output:
                 assert scanned["expected_output"] not in outcome.output.decode()
+
+
+def test_the_record_names_the_file_a_tool_acted_on() -> None:
+    """PRD-06 needs a place name in the summary; PRD-05 owns where it comes from."""
+    outcome = process(
+        "claude",
+        json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "/work/service/.env"},
+                "tool_response": {"type": "text", "file": {"content": "nothing"}},
+            }
+        ).encode(),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+    )
+
+    assert outcome.record.target == "/work/service/.env"
+
+
+def test_a_secret_inside_a_file_path_is_scrubbed_before_it_is_recorded() -> None:
+    outcome = process(
+        "claude",
+        json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "/work/AKIAIOSFODNN7EXAMPLE/notes.txt"},
+                "tool_response": {"type": "text", "file": {"content": "nothing"}},
+            }
+        ).encode(),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+    )
+
+    assert outcome.record.target == "/work/<SECRET_1>/notes.txt"
+    assert "AKIAIOSFODNN7EXAMPLE" not in json.dumps(outcome.record.as_dict())
+
+
+def test_a_shell_command_is_never_recorded_as_a_target() -> None:
+    """A command is the payload of an executable-text event, not a place.
+
+    The probe corpus has one carrying a live credential, which is exactly what
+    PRD-06's "no payload content, ever" rule exists to keep out of the record.
+    """
+    command = "psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'"
+    outcome = process(
+        "claude",
+        json.dumps(
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+            }
+        ).encode(),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+    )
+
+    assert outcome.record.target == ""
+    assert "s3cr3tpw" not in json.dumps(outcome.record.as_dict())
+    assert outcome.record.action == DENY
+
+
+def test_a_long_path_keeps_the_file_name_not_the_directory_above_it() -> None:
+    """Found live: every file in a deep project reported as its parent folder.
+
+    Truncating from the left keeps the working directory, which is identical
+    for every file in a project, and discards the only part that distinguishes
+    them.
+    """
+    deep = "/" + "/".join(f"segment{index:02d}" for index in range(20))
+    outcome = process(
+        "claude",
+        json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": f"{deep}/config.yaml"},
+                "tool_response": {
+                    "type": "text",
+                    "file": {"content": "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE"},
+                },
+            }
+        ).encode(),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+    )
+
+    assert len(f"{deep}/config.yaml") > 120, "the fixture must exceed the cap"
+    assert outcome.record.target.endswith("/config.yaml")
+    assert len(outcome.record.target) <= 121

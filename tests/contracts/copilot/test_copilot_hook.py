@@ -15,6 +15,20 @@ GENERIC_REWRITE = (
 )
 
 
+def _redaction_files(root):
+    """Return only the redacted-prompt files, not the session spool.
+
+    The spool is a separate promise with its own tests: it holds entity names
+    and counts and is checked for payload content in
+    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
+    """
+    return [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix not in (".jsonl", ".mark")
+    ]
+
+
 def _run(raw: bytes, tmp_path: Path) -> subprocess.CompletedProcess[bytes]:
     environment = os.environ.copy()
     environment["SHIM_GUARD_CONFIG"] = str(tmp_path / "config.toml")
@@ -59,7 +73,7 @@ def test_copilot_runner_rewrites_sensitive_prompts_without_a_file(
         "modifiedTransformedPrompt": "Contact <EMAIL_1>"
     }
     assert b"alice@example.com" not in result.stdout
-    assert not list(tmp_path.iterdir())
+    assert not _redaction_files(tmp_path)
 
 
 def test_copilot_runner_replaces_invalid_input(tmp_path: Path) -> None:

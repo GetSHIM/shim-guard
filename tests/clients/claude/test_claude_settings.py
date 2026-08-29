@@ -17,6 +17,7 @@ from shim_guard.clients.claude.settings import (
     tool_hook_group,
 )
 from shim_guard.events.registry import INSTALLED
+from shim_guard.session import SESSION_EVENTS
 
 
 def test_claude_code_settings_use_shell_free_exec_form(tmp_path: Path) -> None:
@@ -35,7 +36,7 @@ def test_claude_code_settings_use_shell_free_exec_form(tmp_path: Path) -> None:
     assert TESTED_CLAUDE_VERSION == "2.1.251"
 
 
-def test_claude_code_registers_the_prompt_event_and_every_verified_tool_event(
+def test_claude_code_registers_the_prompt_tool_and_session_events(
     tmp_path: Path,
 ) -> None:
     """`shim install` must cover exactly what the adapter registry installs.
@@ -47,7 +48,7 @@ def test_claude_code_registers_the_prompt_event_and_every_verified_tool_event(
     expected_tool_events = [event for client, event in INSTALLED if client == "claude"]
 
     events = [event for event, _group in hook_groups(interpreter)]
-    assert events == ["UserPromptSubmit", *expected_tool_events]
+    assert events == ["UserPromptSubmit", *expected_tool_events, *SESSION_EVENTS]
     assert len(set(events)) == len(events)
 
     document = json.loads(add_hook(None, interpreter))
@@ -55,6 +56,8 @@ def test_claude_code_registers_the_prompt_event_and_every_verified_tool_event(
         "hooks": {
             "UserPromptSubmit": [hook_group(interpreter)],
             **{event: [tool_hook_group(interpreter)] for event in expected_tool_events},
+            # Session events are not per-tool, so they carry no matcher.
+            **{event: [hook_group(interpreter)] for event in SESSION_EVENTS},
         }
     }
 
