@@ -109,23 +109,85 @@ def _replace(value: Any, path: Path, replacements: dict) -> Any:
     return value
 
 
-def mask(value: Any, evaluate: Callable[[str], Any]) -> tuple:
-    """Scan every string leaf and return ``(rewritten, findings, changed)``.
+@dataclass(frozen=True)
+class Inspection:
+    """Everything one pass over a payload learned, and what it produced."""
+
+    __slots__ = ("value", "findings", "changed", "transforms", "markers")
+
+    value: Any
+    findings: list
+    #: True when ``value`` differs from the input, by masking or by diet.
+    changed: bool
+    transforms: tuple
+    markers: tuple
+
+
+def inspect(
+    value: Any,
+    evaluate: Callable[[str], Any],
+    transforms: tuple = (),
+    scan_markers: bool = False,
+) -> Inspection:
+    """Walk once, and offer every string leaf to each concern in turn.
 
     ``evaluate`` is the pure detector. Ordinal placeholders restart per leaf,
     because each leaf is an independent piece of text the model reads on its
     own; a single counter across a whole payload would produce `<EMAIL_7>` in a
     field whose text contains one address.
+
+    The three concerns stay separate on purpose (PRD-07 Q7.1): masking
+    rewrites, diet rewrites, and injection markers only report. Sharing the
+    walk costs nothing and keeps a marker from ever reaching a replacement.
     """
     found = walk(value)
     replacements = {}
     findings = []
+    applied: set = set()
+    markers: set = set()
     for path, text in found.leaves:
         decision = evaluate(text)
-        if not decision.findings:
-            continue
-        findings.append((path, decision))
-        replacements[path] = decision.redacted_text
+        current = text
+        if decision.findings:
+            findings.append((path, decision))
+            current = decision.redacted_text
+        if scan_markers:
+            from . import injection
+
+            markers.update(injection.scan(current))
+        if transforms:
+            from . import diet
+
+            current, names = diet.shrink(current, transforms)
+            applied.update(names)
+        if current != text:
+            replacements[path] = current
+    ordered_transforms = _ordered(applied)
+    ordered_markers = _markers(markers)
     if not replacements:
-        return value, findings, False
-    return replace(value, replacements), findings, True
+        return Inspection(value, findings, False, ordered_transforms, ordered_markers)
+    return Inspection(
+        replace(value, replacements),
+        findings,
+        True,
+        ordered_transforms,
+        ordered_markers,
+    )
+
+
+def _ordered(applied: set) -> tuple:
+    from . import diet
+
+    return tuple(name for name in diet.TRANSFORMS if name in applied)
+
+
+def _markers(markers: set) -> tuple:
+    from . import injection
+
+    return tuple(name for name in injection.MARKERS if name in markers)
+
+
+def mask(value: Any, evaluate: Callable[[str], Any]) -> tuple:
+    """Mask only, as ``(rewritten, findings, changed)``."""
+    result = inspect(value, evaluate)
+    return result.value, result.findings, result.changed

@@ -124,6 +124,31 @@ shim — this session
 `shim report` prints the same summary on demand, and `--json` makes it
 scriptable.
 
+## Shrink tool results
+
+shim compacts tool results before the model reads them, so the context window
+fills more slowly. Only losslessly: JSON keeps every number literal, duplicate
+key and string byte-for-byte, and only the whitespace between tokens goes.
+Nothing is truncated or summarised, and a result that cannot be shrunk safely
+is passed through untouched.
+
+Measured on one 15 KB file read: **9,617 bytes saved, and the model answered
+the question about the file correctly.**
+
+It applies to tool *results* only — never to a tool's arguments, never to
+anything written to your disk, and never under `mode = "observe"`. Turn it off
+with `shim config --no-diet`, or name individual transforms in the config file:
+
+```toml
+diet = ["json"]   # or false to disable entirely
+```
+
+While reading results shim also flags text that is trying to give the model
+orders — "ignore all previous instructions", impersonated system messages,
+invisible characters. These are **reported and never acted on**: rewriting a
+tool result because it reads as imperative would corrupt legitimate content.
+They appear in the session summary as `flagged`.
+
 The record holds entity names, counts and the file or URL involved — never the
 value that was found, and never a shell command. It lives in a private file for
 as long as the client session does and is deleted when the session ends.
@@ -142,6 +167,7 @@ shim config --only EMAIL --only SECRET
 shim config --disable IP_ADDRESS --disable MAC_ADDRESS
 shim config --reset
 shim config --ledger        # keep the session record for 30 days
+shim config --no-diet       # stop shrinking tool results
 ```
 
 Changes are previewed before they are saved. The CLI, installed hook, `scan`,

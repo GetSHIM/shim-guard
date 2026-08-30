@@ -58,6 +58,19 @@ the model-facing content and returns `modifiedTransformedPrompt` with the typed
 redaction. Copilot stores and sends the replacement while leaving the original
 timeline display unchanged. Revert retains an empty versioned hook document.
 
+## Context diet and injection markers
+
+`events/diet.py` shrinks inbound tool results and `events/injection.py` flags
+text addressed to the model. Both ride the single payload walk in
+`events/payload.inspect`, which offers each string leaf to the detector, the
+scanner and the transforms in turn, then rebuilds the payload once.
+
+The three stay separate deliberately. Masking and diet rewrite; a marker only
+reports and can never reach a replacement, so no configuration can turn "this
+text looks like an instruction" into an edit of a tool result. Diet is gated on
+direction (`inbound` only), on the adapter being able to rewrite, and on the
+mode not being `observe`.
+
 ## Session record
 
 Hooks are separate processes, so anything that spans events must be written

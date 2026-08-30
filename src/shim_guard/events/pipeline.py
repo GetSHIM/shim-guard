@@ -11,8 +11,8 @@ import json
 from dataclasses import dataclass
 
 from .adapters import summary
-from .payload import PayloadTooLarge, mask
-from .policy import ALLOW, DENY, MASK, decide, direction_for
+from .payload import PayloadTooLarge, inspect
+from .policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
 from .record import Record
 from .registry import TOOL_KEY, adapter
 
@@ -83,6 +83,11 @@ def _printable(text: str) -> str:
     return "".join(character for character in text if character.isprintable())
 
 
+def _size(value) -> int:
+    """Return the byte size of a payload as the client would serialise it."""
+    return len(json.dumps(value, ensure_ascii=False).encode())
+
+
 def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
     what = summary(counts)
     where = f" in {tool}" if tool else ""
@@ -93,11 +98,11 @@ def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
     return f"shim: found {what}{where}. Not modified."
 
 
-def process(client: str, raw: bytes, mode_for, evaluate) -> Outcome:
+def process(client: str, raw: bytes, mode_for, evaluate, diet: tuple = ()) -> Outcome:
     """Handle one tool event and return its native response.
 
-    ``mode_for(direction, tool)`` supplies the configured mode, so policy stays
-    injectable and this function stays pure.
+    ``mode_for(direction, tool)`` supplies the configured mode and ``diet`` the
+    enabled transforms, so policy stays injectable and this function stays pure.
     """
     document = json.loads(raw.decode("utf-8"))
     if not isinstance(document, dict):
@@ -113,11 +118,20 @@ def process(client: str, raw: bytes, mode_for, evaluate) -> Outcome:
     direction = direction_for(event, tool)
     mode = mode_for(direction, tool)
     body = document.get(entry.root)
-    in_bytes = len(json.dumps(body, ensure_ascii=False).encode()) if body else 0
+    in_bytes = _size(body) if body else 0
 
     target = _target(document, evaluate)
 
-    def record(action, decision, counts=(), out_bytes=0, fields=0, note="") -> Record:
+    def record(
+        action,
+        decision,
+        counts=(),
+        out_bytes=0,
+        fields=0,
+        note="",
+        transforms=(),
+        markers=(),
+    ) -> Record:
         return Record(
             client=client,
             event=event,
@@ -132,20 +146,43 @@ def process(client: str, raw: bytes, mode_for, evaluate) -> Outcome:
             degraded_from=decision.degraded_from if decision else "",
             fields=fields,
             note=note,
+            transforms=transforms,
+            markers=markers,
         )
 
     if body is None:
         return Outcome(b"", record(ALLOW, None, note="no payload at this key"))
 
+    # Diet and injection markers are inbound-only. Rewriting an outbound tool
+    # argument to make it smaller changes what the model asked a tool to do,
+    # and `observe` means look without touching, so neither applies there.
+    inbound = direction == INBOUND and entry.capabilities.can_rewrite
+    transforms = diet if inbound and mode != OBSERVE else ()
     try:
-        rewritten, findings, changed = mask(body, evaluate)
+        result = inspect(body, evaluate, transforms, scan_markers=inbound)
     except PayloadTooLarge as error:
         # Over a bound the payload is not partially scanned; the event is
         # observed instead, and the reason is recorded rather than swallowed.
         return Outcome(b"", record(ALLOW, None, note=str(error)))
 
+    rewritten, findings, changed = result.value, result.findings, result.changed
+
     if not findings:
-        return Outcome(b"", record(ALLOW, None, fields=0))
+        if not changed:
+            return Outcome(b"", record(ALLOW, None, fields=0, markers=result.markers))
+        # Nothing sensitive, but the result got smaller. The policy action is
+        # still `allow` — diet is not a decision about sensitive data — while
+        # the wire needs the shape that carries a replacement payload.
+        return Outcome(
+            entry.encode(MASK, rewritten, ""),
+            record(
+                ALLOW,
+                None,
+                out_bytes=_size(rewritten),
+                transforms=result.transforms,
+                markers=result.markers,
+            ),
+        )
 
     counts = _counts(findings)
     decision = decide(
@@ -160,15 +197,17 @@ def process(client: str, raw: bytes, mode_for, evaluate) -> Outcome:
     message = _message(direction, tool, counts, decision.action)
     emitted = rewritten if decision.action == MASK and changed else body
     output = entry.encode(decision.action, emitted, message)
-    out_bytes = (
-        len(json.dumps(emitted, ensure_ascii=False).encode())
-        if decision.action == MASK
-        else in_bytes
-    )
+    out_bytes = _size(emitted) if decision.action == MASK else in_bytes
     return Outcome(
         output,
         record(
-            decision.action, decision, counts, out_bytes=out_bytes, fields=len(findings)
+            decision.action,
+            decision,
+            counts,
+            out_bytes=out_bytes,
+            fields=len(findings),
+            transforms=result.transforms if decision.action == MASK else (),
+            markers=result.markers,
         ),
     )
 

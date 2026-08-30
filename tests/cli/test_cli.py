@@ -668,3 +668,36 @@ def test_ledger_purge_deletes_only_what_is_retained(monkeypatch, tmp_path: Path)
     again = runner.invoke(app, ["ledger", "purge", "--yes"])
     assert again.exit_code == 0
     assert "nothing retained" in again.output
+
+
+def test_diet_ships_on_and_can_be_turned_off(monkeypatch, tmp_path: Path) -> None:
+    from shim_guard.events.diet import DEFAULT_TRANSFORMS
+
+    target = _guard_config(monkeypatch, tmp_path)
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == DEFAULT_TRANSFORMS
+
+    assert runner.invoke(app, ["config", "--no-diet", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == ()
+    assert "diet = false" in target.read_text()
+
+    assert runner.invoke(app, ["config", "--diet", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == DEFAULT_TRANSFORMS
+
+
+def test_a_single_transform_can_be_named_in_the_config_file(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """R6's per-transform switch lives in the file, not behind a flag each."""
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\ndiet = ["json"]\n', encoding="utf-8"
+    )
+
+    assert load_policy(target).diet == ("json",)
+
+    # An unrelated entity edit must not silently widen it back to both.
+    assert runner.invoke(app, ["config", "--enable", "SECRET", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == ("json",)

@@ -74,6 +74,7 @@ def test_a_version_one_file_is_a_valid_version_two_file() -> None:
         "mode": {},
         "entities": {},
         "ledger": False,
+        "diet": ("json", "whitespace"),
     }
 
 
@@ -127,3 +128,21 @@ def test_policy_falls_back_to_the_shipped_defaults(tmp_path: Path) -> None:
 def test_invalid_policy_documents_fail_closed(document: str) -> None:
     with pytest.raises(ValueError):
         parse_settings(document)
+
+
+def test_a_missing_config_file_means_the_shipped_defaults_not_empty_ones(
+    tmp_path: Path,
+) -> None:
+    """Most users never write a config file, so this path is the common one.
+
+    `diet` ships on, and the dataclass default is off, so an early return that
+    skipped the shipped default turned the feature off for everybody.
+    """
+    from shim_guard.events.diet import DEFAULT_TRANSFORMS
+
+    policy = load_policy(tmp_path / "absent" / "config.toml")
+
+    assert policy.entities == DEFAULT_ENTITIES
+    assert policy.diet == DEFAULT_TRANSFORMS
+    assert policy.ledger is False
+    assert policy.mode_for("inbound") == "enforce"

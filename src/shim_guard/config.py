@@ -75,6 +75,7 @@ def render_settings(
     modes: dict | None = None,
     tool_entities: dict | None = None,
     ledger: bool = False,
+    diet: tuple | None = None,
 ) -> bytes:
     """Render the whole editable TOML settings document.
 
@@ -88,6 +89,13 @@ def render_settings(
     document: dict = {"enabled_entities": list(normalize_entities(entities))}
     if ledger:
         document["ledger"] = True
+    if diet is not None:
+        from shim_guard.events.diet import DEFAULT_TRANSFORMS
+
+        if not diet:
+            document["diet"] = False
+        elif tuple(diet) != tuple(DEFAULT_TRANSFORMS):
+            document["diet"] = list(diet)
     # Tables must follow scalars in the mapping order tomli_w is given.
     if tool_entities:
         document["entities"] = {
@@ -111,7 +119,7 @@ DEFAULT_MODES = {
     "executable-text": "warn",
 }
 MODES = ("observe", "warn", "enforce")
-_TOP_LEVEL = {"enabled_entities", "mode", "entities", "ledger"}
+_TOP_LEVEL = {"enabled_entities", "mode", "entities", "ledger", "diet"}
 
 
 @dataclass(frozen=True)
@@ -123,6 +131,8 @@ class Policy:
     tool_entities: dict
     #: Whether decisions outlive the session. Off unless the user turns it on.
     ledger: bool = False
+    #: Enabled context-diet transforms, by name. Empty means diet is off.
+    diet: tuple = ()
 
     def mode_for(self, direction: str, tool: str = "", event: str = "") -> str:
         """Return the mode for one payload, most specific override winning.
@@ -168,6 +178,25 @@ def _tool_entities(document: dict) -> dict:
     return scoped
 
 
+def _diet(document: dict) -> tuple:
+    """Return the enabled diet transforms.
+
+    Absent means the shipped default. ``false`` turns diet off completely and
+    a list names exactly which transforms run, which is R6's per-transform
+    switch.
+    """
+    from shim_guard.events.diet import DEFAULT_TRANSFORMS, TRANSFORMS
+
+    value = document.get("diet", True)
+    if value is True:
+        return DEFAULT_TRANSFORMS
+    if value is False:
+        return ()
+    if not isinstance(value, list) or any(name not in TRANSFORMS for name in value):
+        raise ValueError("SHIM Guard settings are invalid")
+    return tuple(name for name in TRANSFORMS if name in value)
+
+
 def parse_settings(text: str) -> dict:
     """Parse and validate the settings document.
 
@@ -191,6 +220,7 @@ def parse_settings(text: str) -> dict:
         "mode": _modes(document),
         "entities": _tool_entities(document),
         "ledger": ledger,
+        "diet": _diet(document),
     }
 
 
@@ -201,7 +231,12 @@ def load_policy(path: Path | None = None) -> Policy:
 
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:
-        return Policy(DEFAULT_ENTITIES, {}, {})
+        # No file means the shipped defaults, which is not the same as the
+        # dataclass defaults: `diet` ships on, and most users never write a
+        # config file at all.
+        from shim_guard.events.diet import DEFAULT_TRANSFORMS
+
+        return Policy(DEFAULT_ENTITIES, {}, {}, False, DEFAULT_TRANSFORMS)
     if state.kind is not StateKind.FILE or state.content is None:
         raise ValueError("SHIM Guard settings cannot be read safely")
     try:
@@ -214,6 +249,7 @@ def load_policy(path: Path | None = None) -> Policy:
             document["mode"],
             document["entities"],
             document["ledger"],
+            document["diet"],
         )
     except ValueError as error:
         raise ValueError("SHIM Guard settings are invalid") from error

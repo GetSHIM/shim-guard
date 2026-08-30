@@ -30,6 +30,10 @@ class Record:
     out_bytes: int = 0
     degraded_from: str = ""
     fields: int = 0
+    #: Diet transforms applied (PRD-07 R5) and injection markers seen (R7).
+    #: Markers only ever report: nothing here can cause a rewrite.
+    transforms: tuple = ()
+    markers: tuple = ()
     note: str = field(default="")
 
     def as_dict(self) -> dict:
@@ -46,5 +50,7 @@ class Record:
             "out_bytes": self.out_bytes,
             "degraded_from": self.degraded_from,
             "fields": self.fields,
+            "transforms": list(self.transforms),
+            "markers": list(self.markers),
             "note": self.note,
         }

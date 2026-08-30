@@ -314,7 +314,7 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
     def mode_for(direction: str, tool: str) -> str:
         return policy.mode_for(direction, tool, event)
 
-    outcome = process(client, raw, mode_for, scan)
+    outcome = process(client, raw, mode_for, scan, policy.diet)
     _remember(session_id, outcome.record, _elapsed_ms(), policy.ledger)
     return outcome.output
 

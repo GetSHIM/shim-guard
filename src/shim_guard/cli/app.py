@@ -162,6 +162,14 @@ def config_command(
             help="Keep session records past the end of the session. Off by default.",
         ),
     ] = None,
+    diet: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--diet/--no-diet",
+            help="Shrink tool results losslessly. Name individual transforms "
+            "in the config file.",
+        ),
+    ] = None,
     reset: bool = typer.Option(False, "--reset", help="Restore all defaults."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
@@ -175,6 +183,7 @@ def config_command(
         disable=tuple(entity.value for entity in disable or ()),
         reset=reset,
         ledger=ledger,
+        diet=diet,
         yes=yes,
         as_json=json_output,
     )

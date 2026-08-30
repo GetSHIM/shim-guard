@@ -19,6 +19,7 @@ from shim_guard.config import (
     normalize_entities,
     render_settings,
 )
+from shim_guard.events.diet import DEFAULT_TRANSFORMS
 from shim_guard.installation import (
     InstallationError,
     apply,
@@ -86,6 +87,7 @@ def configure(
     disable: tuple[str, ...],
     reset: bool,
     ledger: bool | None,
+    diet: bool | None,
     yes: bool,
     as_json: bool,
 ) -> None:
@@ -94,7 +96,9 @@ def configure(
         target = config_path()
     except ValueError:
         _fail(as_json, "Entity settings path is invalid.")
-    changing = bool(only or enable or disable or reset or ledger is not None)
+    changing = bool(
+        only or enable or disable or reset or ledger is not None or diet is not None
+    )
     if reset and (only or enable or disable):
         _fail(as_json, "--reset cannot be combined with entity options.")
     if only and (enable or disable):
@@ -119,7 +123,8 @@ def configure(
     try:
         if reset:
             # "Restore all defaults" means the whole document, not one key.
-            enabled, modes, tool_entities, keep_ledger = DEFAULT_ENTITIES, {}, {}, False
+            enabled, modes, tool_entities = DEFAULT_ENTITIES, {}, {}
+            keep_ledger, keep_diet = False, DEFAULT_TRANSFORMS
         else:
             assert policy is not None or only
             modes = policy.modes if policy else {}
@@ -127,6 +132,9 @@ def configure(
             keep_ledger = policy.ledger if policy else False
             if ledger is not None:
                 keep_ledger = ledger
+            keep_diet = policy.diet if policy else DEFAULT_TRANSFORMS
+            if diet is not None:
+                keep_diet = DEFAULT_TRANSFORMS if diet else ()
             if only:
                 enabled = normalize_entities(set(only))
             else:
@@ -165,7 +173,7 @@ def configure(
             plan_change(
                 target,
                 state,
-                render_settings(enabled, modes, tool_entities, keep_ledger),
+                render_settings(enabled, modes, tool_entities, keep_ledger, keep_diet),
             )
         )
     except (InstallationError, OSError, ValueError):

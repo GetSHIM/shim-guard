@@ -109,6 +109,31 @@ extend it. `shim ledger purge` deletes everything immediately.
 Nothing here is ever transmitted. There is no telemetry, no account, and no
 network call anywhere in shim.
 
+## What is changed on the way in
+
+Besides masking, shim compacts tool results so they take less of the model's
+context. Every transform is lossless, deterministic and idempotent — the last
+two because the provider's prompt cache only hits if the history is
+byte-identical on every request, so a transform that drifts costs money instead
+of saving it.
+
+JSON is compacted by a lexer rather than by parsing and re-serialising:
+re-serialising rewrites number literals (`1.10` becomes `1.1`, a long decimal
+loses digits to a float) and drops duplicate keys, which changes what the model
+reads. Only the whitespace between tokens is removed. Line-numbered results
+keep their line count, so blank lines are never collapsed. Nothing is ever
+truncated or summarised.
+
+Diet applies to tool **results** only — never a tool's arguments, never a local
+write, and never under `mode = "observe"`. `shim config --no-diet` turns it off;
+`diet = ["json"]` in the config file selects individual transforms.
+
+shim also flags text in a result that reads as an instruction to the model.
+Those markers are **reported and never acted upon**, and they are not entities:
+no setting can turn one into a rewrite, because rewriting a result for looking
+imperative would corrupt legitimate content — a code review, a style guide, or
+documentation about prompt injection.
+
 ## Outside SHIM's boundary
 
 The host client receives the raw prompt. Matching hooks can start concurrently,

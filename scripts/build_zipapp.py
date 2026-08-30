@@ -36,6 +36,8 @@ INCLUDED = (
     "clients/copilot/hook.py",
     "events/__init__.py",
     "events/adapters.py",
+    "events/diet.py",
+    "events/injection.py",
     "events/payload.py",
     "events/pipeline.py",
     "events/policy.py",

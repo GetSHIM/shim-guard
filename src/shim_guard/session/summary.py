@@ -15,6 +15,11 @@ ACTION_LABELS = (
 )
 #: How many distinct places are named per line before the rest are counted.
 MAX_SOURCES = 3
+#: Bytes per token. A rough industry average for English and code, used only
+#: because no provider `usage` block is visible from a hook. Every figure it
+#: produces is labelled approximate; `shim watch` will replace it with real
+#: counts rather than a better guess.
+BYTES_PER_TOKEN = 4
 
 
 def _sources(records: list) -> list:
@@ -70,6 +75,31 @@ def _overhead(records: list) -> tuple:
     return (round(median), round(latencies[index]))
 
 
+def _saved(records: list) -> int:
+    """Return bytes removed from tool results by the diet transforms."""
+    total = 0
+    for record in records:
+        if not record.get("transforms"):
+            continue
+        before = record.get("in_bytes")
+        after = record.get("out_bytes")
+        if isinstance(before, int) and isinstance(after, int) and before > after:
+            total += before - after
+    return total
+
+
+def _marker_totals(records: list) -> list:
+    counts: dict = {}
+    for record in records:
+        markers = record.get("markers")
+        if not isinstance(markers, list):
+            continue
+        for marker in markers:
+            if isinstance(marker, str):
+                counts[marker] = counts.get(marker, 0) + 1
+    return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
+
+
 def _acted(records: list) -> list:
     """Return only the records where shim did something worth reporting."""
     return [record for record in records if record.get("action") not in (None, "allow")]
@@ -78,7 +108,9 @@ def _acted(records: list) -> list:
 def render(records: list, capped: bool = False) -> str:
     """Return the session summary, or ``""`` when there is nothing to say."""
     acted = _acted(records)
-    if not acted:
+    saved = _saved(records)
+    markers = _marker_totals(records)
+    if not acted and not saved and not markers:
         return ""
     lines: list = []
     for action, label in ACTION_LABELS:
@@ -101,6 +133,13 @@ def render(records: list, capped: bool = False) -> str:
             first = False
             where = f"  ({shown})" if shown else ""
             lines.append(f"  {column:<9} {count} {entity}{where}")
+    for marker, count in markers:
+        lines.append(f"  {'flagged':<9} {count} {marker}")
+    if saved:
+        tokens = saved // BYTES_PER_TOKEN
+        lines.append(
+            f"  {'shrank':<9} {saved} bytes of tool results (~{tokens} tokens)"
+        )
     if not lines:
         # Records claiming an action but carrying no readable entity counts. A
         # heading over an empty list reads as "something happened but we will
@@ -128,11 +167,15 @@ def as_json(records: list, capped: bool = False) -> dict:
                 "sources": _sources(matching),
                 "events": len(matching),
             }
+    saved = _saved(records)
     return {
         "events": len(records),
         "acted": len(acted),
         "actions": actions,
         "overhead_ms": {"median": median, "p95": p95},
+        "bytes_saved": saved,
+        "tokens_saved_approx": saved // BYTES_PER_TOKEN,
+        "markers": dict(_marker_totals(records)),
         "capped": capped,
     }
 
