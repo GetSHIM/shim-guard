@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from shim_guard.events import payload
+from shim_guard.events.diet import DEFAULT_TRANSFORMS, JSON_COMPACTION
 from shim_guard.events.pipeline import process
 from shim_guard.events.policy import (
     ALLOW,
@@ -169,12 +171,52 @@ def test_observe_never_emits_anything_but_still_counts() -> None:
     assert dict(outcome.record.entities) == {"DB_URI": 1, "EMAIL": 1, "SECRET": 3}
 
 
-def test_an_oversized_payload_falls_back_to_observing() -> None:
-    outcome = _run("PostToolUse-Read-read-large-1.json", ENFORCE)
+def _fetched(body) -> bytes:
+    """A result too big to scan, on a tool whose payload is not a file view."""
+    return json.dumps(
+        {
+            "hook_event_name": "PostToolUse",
+            "session_id": "s",
+            "tool_name": "WebFetch",
+            "tool_input": {"url": "https://example.com/big"},
+            "tool_response": {"type": "text", "content": body},
+        }
+    ).encode()
 
-    assert outcome.record.action in (ALLOW, MASK)
-    if outcome.record.action == ALLOW and outcome.record.note:
-        assert "limit" in outcome.record.note or "safe" in outcome.record.note
+
+def _deep(levels: int):
+    node: object = "leaf"
+    for _ in range(levels):
+        node = {"n": node}
+    return node
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    (
+        ("characters", "x" * (payload.MAX_TEXT_CHARACTERS + 1)),
+        ("leaves", ["leaf"] * (payload.MAX_LEAVES + 1)),
+        ("depth", _deep(payload.MAX_DEPTH + 2)),
+    ),
+)
+def test_a_payload_past_a_bound_is_observed_and_says_why(name: str, body) -> None:
+    """Over a bound nothing is scanned, so the reason has to be recorded.
+
+    The fixture this replaced was 56 KB — under every bound — so the assertion
+    never ran. Removing the `except PayloadTooLarge` branch entirely left the
+    whole suite green, which is the definition of an untested path: a genuinely
+    over-bound result would have escaped `process`, the hook would have fallen
+    to its tool-error output, and the note explaining why nothing was scanned
+    would have been lost.
+    """
+    outcome = process(
+        "claude", _fetched(body), lambda direction, tool: ENFORCE, evaluate
+    )
+
+    assert outcome.output == b""
+    assert outcome.record.action == ALLOW
+    assert outcome.record.note, f"{name} bound recorded no reason"
+    assert outcome.record.entities == ()
 
 
 # --- the record -----------------------------------------------------------
@@ -511,3 +553,131 @@ def test_markers_are_not_collected_on_an_outbound_payload() -> None:
     )
 
     assert outcome.record.markers == ()
+
+
+def _read_result(path: str, content: str) -> bytes:
+    return json.dumps(
+        {
+            "hook_event_name": "PostToolUse",
+            "session_id": "s",
+            "tool_name": "Read",
+            "tool_input": {"file_path": path},
+            "tool_response": {
+                "type": "text",
+                "file": {"filePath": path, "content": content},
+            },
+        }
+    ).encode()
+
+
+PRETTY = json.dumps({"retries": 3, "regions": ["eu-central-1", "eu-west-1"]}, indent=2)
+
+
+def test_a_file_the_model_may_edit_is_never_shrunk() -> None:
+    """`Edit` matches `old_string` against disk, not against what was shown.
+
+    Compacting a pretty-printed file on the way in made the next `Edit` miss:
+    the model sent `"retries":3` because that is what it was shown, while the
+    file held `"retries": 3`. Observed end to end against Claude Code 2.1.251,
+    which then spent three `Bash` calls diagnosing it — costing far more than
+    the 66 bytes the transform saved.
+    """
+    outcome = process(
+        "claude",
+        _read_result("/work/settings.json", PRETTY),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        diet=DEFAULT_TRANSFORMS,
+    )
+
+    assert outcome.output == b""
+    assert outcome.record.transforms == ()
+
+
+def test_a_notebook_and_a_bare_path_are_file_views_too() -> None:
+    for key in ("notebook_path", "path"):
+        raw = json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "session_id": "s",
+                "tool_name": "Read",
+                "tool_input": {key: "/work/notes.ipynb"},
+                "tool_response": {"type": "text", "content": PRETTY},
+            }
+        ).encode()
+
+        outcome = process(
+            "claude",
+            raw,
+            lambda direction, tool: ENFORCE,
+            evaluate,
+            diet=DEFAULT_TRANSFORMS,
+        )
+
+        assert outcome.record.transforms == (), key
+
+
+def test_a_fetched_page_is_still_shrunk() -> None:
+    """Nothing edits a URL by byte match, so the win there is free."""
+    raw = json.dumps(
+        {
+            "hook_event_name": "PostToolUse",
+            "session_id": "s",
+            "tool_name": "WebFetch",
+            "tool_input": {"url": "https://example.com/data.json"},
+            "tool_response": {"type": "text", "content": PRETTY},
+        }
+    ).encode()
+
+    outcome = process(
+        "claude",
+        raw,
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        diet=DEFAULT_TRANSFORMS,
+    )
+
+    assert outcome.record.transforms == (JSON_COMPACTION,)
+    assert outcome.record.out_bytes < outcome.record.in_bytes
+
+
+def test_a_file_view_is_still_scanned_and_masked() -> None:
+    """Skipping the diet must not skip the detection."""
+    outcome = process(
+        "claude",
+        _read_result("/work/team.txt", "owner is alice@example.com, ask them first"),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        diet=DEFAULT_TRANSFORMS,
+    )
+
+    assert outcome.record.action == MASK
+    assert outcome.record.entities == (("EMAIL", 1),)
+    assert outcome.record.transforms == ()
+
+
+def test_a_per_tool_entity_scope_narrows_only_that_tool() -> None:
+    """The `[entities]` section was parsed, validated and preserved — and read
+    by nothing, so a user who wrote `Read = ["SECRET"]` still had every entity
+    scanned while the config command reported the setting as saved."""
+    payload = "owner is alice@example.com, ask them first before deploying"
+
+    narrowed = process(
+        "claude",
+        _read_result("/work/team.txt", payload),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        entities_for=lambda tool, event: ("SECRET",) if tool == "Read" else (),
+    )
+    assert narrowed.record.action == ALLOW
+    assert narrowed.record.entities == ()
+
+    wide = process(
+        "claude",
+        _read_result("/work/team.txt", payload),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        entities_for=lambda tool, event: ("EMAIL",),
+    )
+    assert wide.record.action == MASK
+    assert wide.record.entities == (("EMAIL", 1),)

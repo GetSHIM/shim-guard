@@ -31,7 +31,6 @@ def test_entity_settings_default_preset_and_round_trip_a_selection(
 @pytest.mark.parametrize(
     "content",
     [
-        b"",
         b'enabled_entities = ["UNKNOWN"]\n',
         b'enabled_entities = ["EMAIL", "EMAIL"]\n',
         b'enabled_entities = ["EMAIL"]\nextra = true\n',
@@ -43,6 +42,14 @@ def test_invalid_entity_settings_fail_safely(tmp_path: Path, content: bytes) -> 
 
     with pytest.raises(ValueError, match="settings"):
         load_entities(target)
+
+
+def test_an_empty_settings_file_is_the_shipped_defaults(tmp_path: Path) -> None:
+    """Same as no file at all, which is what an empty one means."""
+    target = tmp_path / "config.toml"
+    target.write_bytes(b"")
+
+    assert load_entities(target) == DEFAULT_ENTITIES
 
 
 def test_unsafe_or_relative_settings_paths_are_rejected(
@@ -122,12 +129,33 @@ def test_policy_falls_back_to_the_shipped_defaults(tmp_path: Path) -> None:
         'enabled_entities = ["EMAIL"]\n[entities]\nBash = "SECRET"\n',
         'enabled_entities = ["EMAIL"]\n[entities]\nBash = ["NOPE"]\n',
         'enabled_entities = ["EMAIL"]\nother = 1\n',
-        '[mode]\ndefault = "warn"\n',
+        'enabled_entities = "EMAIL"\n',
+        '[mode]\ndefault = "warn"\nother = 1\n',
     ),
 )
 def test_invalid_policy_documents_fail_closed(document: str) -> None:
     with pytest.raises(ValueError):
         parse_settings(document)
+
+
+@pytest.mark.parametrize(
+    "document",
+    (
+        '[mode]\nlocal-write = "enforce"\n',
+        "ledger = true\n",
+        "diet = false\n",
+        "",
+    ),
+)
+def test_a_file_without_an_entity_list_still_parses(document: str) -> None:
+    """Every key is optional, and this one used to be mandatory.
+
+    The README tells people to write `[mode]` by hand. A hand-written file with
+    no `enabled_entities` was rejected, and a settings file that will not parse
+    fails closed on *every prompt of the session* — so the documented way to
+    configure blocking bricked the client until the file was found and fixed.
+    """
+    assert parse_settings(document)["enabled_entities"] == list(DEFAULT_ENTITIES)
 
 
 def test_a_missing_config_file_means_the_shipped_defaults_not_empty_ones(

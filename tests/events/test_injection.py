@@ -8,6 +8,8 @@ that would make this unusable in a real codebase.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from shim_guard.events import injection
@@ -98,3 +100,60 @@ def test_scanning_never_returns_the_text_it_scanned() -> None:
     assert markers
     assert all(marker in injection.MARKERS for marker in markers)
     assert "AKIAIOSFODNN7EXAMPLE" not in "".join(markers)
+
+
+def test_scanning_stays_linear_on_a_long_whitespace_run() -> None:
+    """A quadratic pattern here is a denial of service on the whole agent.
+
+    `SYSTEM_IMPERSONATION` is anchored to a line start, so an unbounded `\\s*`
+    behind that anchor is re-entered at every newline and walks the rest of the
+    run each time. Measured before the quantifiers were bounded: 16k blank
+    lines took 6.2s and 32k took 25s — past `HOOK_DEADLINE_SECONDS`, so a file
+    of blank lines in any cloned repository stalled the client for the full
+    deadline and the tool result then went through uninspected.
+
+    The bound is generous; the point is that it does not grow with the square.
+    """
+    from shim_guard.events.payload import MAX_TEXT_CHARACTERS
+
+    worst = "\n" * MAX_TEXT_CHARACTERS
+    started = time.perf_counter()
+    injection.scan(worst)
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 1.0, f"the largest permitted leaf took {elapsed:.2f}s"
+
+
+def test_scanning_stays_linear_on_mixed_whitespace() -> None:
+    """Newlines are not the only run that can be re-entered."""
+    started = time.perf_counter()
+    injection.scan("\n \t " * 40_000)
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 1.0, f"a mixed whitespace run took {elapsed:.2f}s"
+
+
+#: Characters that render as nothing but appear in ordinary files. Flagging any
+#: of these puts a file name in front of the user at the end of every turn for
+#: no reason, which is how a security signal becomes something people ignore.
+ORDINARY_INVISIBLES = [
+    ("﻿# Config exported from Excel, with quite ordinary content here.", "BOM"),
+    (
+        "See the diagram by our resident \U0001f468‍\U0001f4bb engineer here.",
+        "ZWJ emoji",
+    ),
+    ("می‌خواهم " * 6, "Persian ZWNJ"),
+    ("‎The left-to-right mark opens this otherwise ordinary sentence.", "LRM"),
+]
+
+
+@pytest.mark.parametrize(("text", "why"), ORDINARY_INVISIBLES)
+def test_ordinary_invisible_characters_are_not_flagged(text: str, why: str) -> None:
+    assert injection.scan(text) == (), why
+
+
+def test_the_invisible_characters_that_matter_are_still_flagged() -> None:
+    """Zero-width space, the bidi overrides, and the tag block."""
+    for character in ("​", "‮", "\U000e0041"):
+        text = "A sentence long enough to be scanned" + character + " and more."
+        assert injection.HIDDEN_TEXT in injection.scan(text), repr(character)

@@ -100,6 +100,25 @@ def _marker_totals(records: list) -> list:
     return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
 
 
+def _where(records: list) -> str:
+    """Return the parenthesised list of places, or ``""``."""
+    sources = _sources(records)
+    if not sources:
+        return ""
+    shown = ", ".join(sources[:MAX_SOURCES])
+    if len(sources) > MAX_SOURCES:
+        shown += f", +{len(sources) - MAX_SOURCES} more"
+    return f"  ({shown})"
+
+
+def _carrying(records: list, marker: str) -> list:
+    return [
+        record
+        for record in records
+        if isinstance(record.get("markers"), list) and marker in record["markers"]
+    ]
+
+
 def _acted(records: list) -> list:
     """Return only the records where shim did something worth reporting."""
     return [record for record in records if record.get("action") not in (None, "allow")]
@@ -125,16 +144,19 @@ def render(records: list, capped: bool = False) -> str:
                 if isinstance(record.get("entities"), dict)
                 and entity in record["entities"]
             ]
-            sources = _sources(relevant)
-            shown = ", ".join(sources[:MAX_SOURCES])
-            if len(sources) > MAX_SOURCES:
-                shown += f", +{len(sources) - MAX_SOURCES} more"
             column = label if first else " " * len(label)
             first = False
-            where = f"  ({shown})" if shown else ""
-            lines.append(f"  {column:<9} {count} {entity}{where}")
+            lines.append(f"  {column:<9} {count} {entity}{_where(relevant)}")
+    first = True
     for marker, count in markers:
-        lines.append(f"  {'flagged':<9} {count} {marker}")
+        # "Something told your agent to ignore its instructions" is only
+        # actionable with the file name attached, so markers are sourced
+        # exactly like entities.
+        column = "flagged" if first else " " * len("flagged")
+        first = False
+        lines.append(
+            f"  {column:<9} {count} {marker}{_where(_carrying(records, marker))}"
+        )
     if saved:
         tokens = saved // BYTES_PER_TOKEN
         lines.append(
@@ -175,7 +197,10 @@ def as_json(records: list, capped: bool = False) -> dict:
         "overhead_ms": {"median": median, "p95": p95},
         "bytes_saved": saved,
         "tokens_saved_approx": saved // BYTES_PER_TOKEN,
-        "markers": dict(_marker_totals(records)),
+        "markers": {
+            marker: {"count": count, "sources": _sources(_carrying(records, marker))}
+            for marker, count in _marker_totals(records)
+        },
         "capped": capped,
     }
 

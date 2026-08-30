@@ -148,6 +148,42 @@ def append(session_id: str, entry: dict) -> bool:
             os.close(descriptor)
 
 
+def _at_cap(root: int, name: str) -> bool:
+    try:
+        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
+    except OSError:
+        return False
+    try:
+        # `append` refuses when the *next* record would cross the cap, so a
+        # full spool sits just below it and never reaches it. The reader does
+        # not know how big the refused record was, so it uses the largest one
+        # that could exist. The error is at most one record's worth of
+        # headroom, and it errs towards warning — which is the safe direction,
+        # since the alternative is a total the user believes is complete.
+        return os.fstat(descriptor).st_size + MAX_ENTRY_BYTES > MAX_SPOOL_BYTES
+    finally:
+        os.close(descriptor)
+
+
+def capped(session_id: str) -> bool:
+    """Return whether this spool stopped accepting records.
+
+    Only `append` saw the cap, and only the reader can tell the user about it,
+    so the size is asked for again here rather than carried between processes.
+    An `fstat` costs nothing next to re-reading a megabyte.
+    """
+    with _root() as root:
+        return _at_cap(root, _name(session_id, ".jsonl"))
+
+
+def capped_for_stem(stem: str) -> bool:
+    """Return whether an already-hashed spool is at its cap."""
+    if not stem.isalnum():
+        raise SpoolError("session spool name is invalid")
+    with _root() as root:
+        return _at_cap(root, f"{stem}.jsonl")
+
+
 def entries(session_id: str) -> list:
     """Return this session's records, skipping any line that is not one."""
     with _root() as root:
@@ -208,19 +244,29 @@ def newest() -> str:
     `shim report` runs in a different process from the hooks and is not told a
     session identifier, so it reports on whichever session was last active.
     """
+    # Another client's `SessionEnd` can unlink its spool between the listing
+    # and the stat. That is somebody else's session ending normally, so it is
+    # skipped rather than reported as "your records are unreadable".
+    found = []
     try:
-        spools = [path for path in root_path().glob("*.jsonl") if path.is_file()]
+        for path in root_path().glob("*.jsonl"):
+            with contextlib.suppress(OSError):
+                info = path.stat()
+                if stat.S_ISREG(info.st_mode):
+                    found.append((info.st_mtime, path.stem))
     except OSError as error:
         raise SpoolError("session directory could not be listed") from error
-    if not spools:
+    if not found:
         return ""
-    return max(spools, key=lambda path: path.stat().st_mtime).stem
+    return max(found)[1]
 
 
 __all__ = [
     "MAX_SPOOL_BYTES",
     "SpoolError",
     "append",
+    "capped",
+    "capped_for_stem",
     "clear",
     "entries",
     "entries_for_stem",

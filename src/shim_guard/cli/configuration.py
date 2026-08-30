@@ -29,7 +29,9 @@ from shim_guard.installation import (
 )
 
 
-def _show(enabled: tuple[str, ...], title: str) -> None:
+def _show(
+    enabled: tuple[str, ...], title: str, ledger: bool, diet: tuple[str, ...]
+) -> None:
     selected = set(enabled)
     output = console()
     count = f"{len(enabled)}/{len(ENTITY_TYPES)}"
@@ -55,6 +57,16 @@ def _show(enabled: tuple[str, ...], title: str) -> None:
             )
             table.add_row(entity, status)
         output.print(table)
+    # The two settings that are not entities still have to be visible. The
+    # ledger writes decisions to disk for 30 days, and "is this tool keeping a
+    # record of me?" must be answerable without opening the config file.
+    output.print(
+        Text(
+            f"Ledger: {'on' if ledger else 'off'}    "
+            f"Diet: {', '.join(diet) if diet else 'off'}",
+            style="dim",
+        )
+    )
     if not enabled:
         emit("WARN", "All sensitive-data detection is disabled.")
 
@@ -151,16 +163,16 @@ def configure(
 
     if not changing:
         if as_json:
-            _emit_settings_json(enabled)
+            _emit_settings_json(enabled, ledger=keep_ledger, diet=list(keep_diet))
             return
-        _show(enabled, "Current detection")
+        _show(enabled, "Current detection", keep_ledger, keep_diet)
         emit("PASS", f"File: {target}")
         return
 
     if as_json and not yes:
         _fail(True)
     if not as_json:
-        _show(enabled, "New detection")
+        _show(enabled, "New detection", keep_ledger, keep_diet)
         emit("WARN", f"File: {target}")
         if not yes and not typer.confirm("Save these settings?", default=False):
             emit("WARN", "Settings unchanged.")
@@ -180,7 +192,9 @@ def configure(
         _fail(as_json, "Entity settings were unsafe or changed; nothing was saved.")
 
     if as_json:
-        _emit_settings_json(enabled, changed=changed)
+        _emit_settings_json(
+            enabled, changed=changed, ledger=keep_ledger, diet=list(keep_diet)
+        )
     else:
         emit(
             "PASS",

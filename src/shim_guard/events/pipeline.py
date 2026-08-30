@@ -39,6 +39,14 @@ def _counts(findings) -> tuple:
 #: a shell string is the payload of an executable-text event, not a target, and
 #: the probe corpus contains one holding a live credential.
 TARGET_KEYS = ("file_path", "notebook_path", "path", "url")
+#: The subset of those that name a file on the user's own disk. A result that
+#: is a *view of a file* has to reach the model byte for byte, because the model
+#: reproduces those bytes to edit it: `Edit` matches `old_string` against what
+#: is on disk, not against what it was shown. Compacting a pretty-printed
+#: `settings.json` on the way in makes the next `Edit` miss — observed against
+#: Claude Code 2.1.251, which then spent three `Bash` calls working out why. A
+#: `url` is not in this set: nothing edits a fetched page by byte match.
+FILE_VIEW_KEYS = ("file_path", "notebook_path", "path")
 MAX_TARGET_CHARS = 120
 #: Bound on what the detector is asked to scan for a target. A path this long
 #: is already pathological; the cost is bounded rather than the value trusted.
@@ -72,6 +80,14 @@ def _target(document: dict, evaluate) -> str:
     return ""
 
 
+def _views_a_file(document: dict) -> bool:
+    """Return whether this event's result is a view of a file on disk."""
+    body = document.get("tool_input")
+    if not isinstance(body, dict):
+        return False
+    return any(isinstance(body.get(key), str) and body[key] for key in FILE_VIEW_KEYS)
+
+
 def _printable(text: str) -> str:
     """Drop control characters from a value that will be displayed.
 
@@ -98,11 +114,20 @@ def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
     return f"shim: found {what}{where}. Not modified."
 
 
-def process(client: str, raw: bytes, mode_for, evaluate, diet: tuple = ()) -> Outcome:
+def process(
+    client: str,
+    raw: bytes,
+    mode_for,
+    evaluate,
+    diet: tuple = (),
+    entities_for=None,
+) -> Outcome:
     """Handle one tool event and return its native response.
 
     ``mode_for(direction, tool)`` supplies the configured mode and ``diet`` the
     enabled transforms, so policy stays injectable and this function stays pure.
+    ``entities_for(tool, event)`` narrows what is looked for on this one tool;
+    without it every enabled entity is scanned, which is the default.
     """
     document = json.loads(raw.decode("utf-8"))
     if not isinstance(document, dict):
@@ -117,6 +142,13 @@ def process(client: str, raw: bytes, mode_for, evaluate, diet: tuple = ()) -> Ou
     entry = adapter(client, event)
     direction = direction_for(event, tool)
     mode = mode_for(direction, tool)
+    if entities_for is not None:
+        scoped = entities_for(tool, event)
+        original = evaluate
+
+        def evaluate(text, _entities=scoped):  # noqa: F811 - scoped rebind
+            return original(text, _entities)
+
     body = document.get(entry.root)
     in_bytes = _size(body) if body else 0
 
@@ -156,8 +188,11 @@ def process(client: str, raw: bytes, mode_for, evaluate, diet: tuple = ()) -> Ou
     # Diet and injection markers are inbound-only. Rewriting an outbound tool
     # argument to make it smaller changes what the model asked a tool to do,
     # and `observe` means look without touching, so neither applies there.
+    # Diet additionally stops at anything that shows the model a file, because
+    # the model has to be able to quote those bytes back to edit them.
     inbound = direction == INBOUND and entry.capabilities.can_rewrite
-    transforms = diet if inbound and mode != OBSERVE else ()
+    shrinkable = inbound and mode != OBSERVE and not _views_a_file(document)
+    transforms = diet if shrinkable else ()
     try:
         result = inspect(body, evaluate, transforms, scan_markers=inbound)
     except PayloadTooLarge as error:

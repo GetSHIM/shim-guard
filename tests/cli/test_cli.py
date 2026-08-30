@@ -17,6 +17,7 @@ from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
 from shim_guard.config import DEFAULT_ENTITIES, load_policy
+from shim_guard.events.diet import DEFAULT_TRANSFORMS
 
 runner = CliRunner()
 
@@ -701,3 +702,96 @@ def test_a_single_transform_can_be_named_in_the_config_file(
     # An unrelated entity edit must not silently widen it back to both.
     assert runner.invoke(app, ["config", "--enable", "SECRET", "--yes"]).exit_code == 0
     assert load_policy(target).diet == ("json",)
+
+
+def test_report_reads_the_ledger_once_the_session_has_ended(tmp_path: Path) -> None:
+    """The spool is deleted at `SessionEnd`; retained records are what is left.
+
+    Without this the ledger was write-only: `--ledger` produced a file that no
+    command would ever show.
+    """
+    from shim_guard.session import ledger
+
+    ledger.append(
+        {
+            "session_id": "ended",
+            "ts": "2026-08-30T09:00:00Z",
+            "action": "mask",
+            "tool_name": "Read",
+            "target": "/work/.env",
+            "entities": {"SECRET": 1},
+            "latency_ms": 4,
+        }
+    )
+
+    result = runner.invoke(app, ["report"])
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert result.exit_code == 0
+    assert "1 SECRET" in result.output
+    assert "retained ledger" in result.output
+    assert document["source"] == "ledger"
+
+
+def test_report_prefers_the_live_session_over_the_ledger() -> None:
+    from shim_guard.session import ledger, spool
+
+    ledger.append(
+        {
+            "session_id": "ended",
+            "ts": "2026-08-30T09:00:00Z",
+            "action": "mask",
+            "entities": {"IBAN": 9},
+        }
+    )
+    spool.append("live", {"action": "mask", "entities": {"SECRET": 1}})
+
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["source"] == "session"
+    assert document["actions"]["mask"]["entities"] == {"SECRET": 1}
+
+
+def test_report_shows_one_session_not_the_whole_month() -> None:
+    """A monthly ledger holds many sessions; the report is about the newest."""
+    from shim_guard.session import ledger
+
+    for session, when, entity in (
+        ("older", "2026-08-29T10:00:00Z", "IBAN"),
+        ("newest", "2026-08-30T11:00:00Z", "SECRET"),
+        ("newest", "2026-08-30T11:00:01Z", "EMAIL"),
+    ):
+        ledger.append(
+            {
+                "session_id": session,
+                "ts": when,
+                "action": "mask",
+                "entities": {entity: 1},
+            }
+        )
+
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["actions"]["mask"]["entities"] == {"EMAIL": 1, "SECRET": 1}
+
+
+def test_report_says_none_when_neither_source_has_anything() -> None:
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["source"] == "none"
+
+
+def test_config_shows_whether_records_are_being_kept() -> None:
+    """ "Is this tool writing me to disk?" has to be answerable from the CLI."""
+    off = json.loads(runner.invoke(app, ["config", "--json"]).output)
+
+    assert off["ledger"] is False
+    assert off["diet"] == list(DEFAULT_TRANSFORMS)
+
+    runner.invoke(app, ["config", "--ledger", "--no-diet", "--yes", "--json"])
+    on = json.loads(runner.invoke(app, ["config", "--json"]).output)
+
+    assert on["ledger"] is True
+    assert on["diet"] == []
+
+    assert "Ledger: on" in runner.invoke(app, ["config"]).output

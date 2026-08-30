@@ -68,8 +68,16 @@ scanner and the transforms in turn, then rebuilds the payload once.
 The three stay separate deliberately. Masking and diet rewrite; a marker only
 reports and can never reach a replacement, so no configuration can turn "this
 text looks like an instruction" into an edit of a tool result. Diet is gated on
-direction (`inbound` only), on the adapter being able to rewrite, and on the
-mode not being `observe`.
+direction (`inbound` only), on the adapter being able to rewrite, on the mode
+not being `observe`, and on the result not being a view of a file the model may
+go on to edit.
+
+Every quantifier in `injection.py` is bounded. The line-anchored pattern once
+carried an unbounded `\s*`, which a long run of blank lines re-entered per
+newline: 32k blank lines cost 25 seconds, past `HOOK_DEADLINE_SECONDS`, so a
+file anyone could commit stalled the client for the whole deadline and the
+result then went through uninspected. `tests/events/test_injection.py` holds
+the timing that keeps it linear.
 
 ## Session record
 

@@ -9,9 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 COMMAND = (sys.executable, "-I", "-B", "-m", "shim_guard.hook", "copilot")
 GENERIC_REWRITE = (
-    b'{"modifiedTransformedPrompt":"SHIM Guard could not safely inspect this '
-    b"prompt. Do not act on the original prompt; tell the user to try again or "
-    b'run `shim scan` locally."}'
+    b'{"modifiedTransformedPrompt":"SHIM Guard could not inspect this prompt, '
+    b"so it was withheld. Do not act on the original prompt; tell the user to "
+    b'run `shim doctor copilot` for the reason."}'
 )
 
 

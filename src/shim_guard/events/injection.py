@@ -39,7 +39,7 @@ MARKERS = (
 #: Characters that render as nothing, so text carrying them says one thing to
 #: a reader and another to the model. The tag block (U+E0000) is the one used
 #: to smuggle whole instructions past a human reviewer.
-_INVISIBLE = re.compile("[​-‏⁠-⁤‪-‮﻿\U000e0000-\U000e007f]")
+_INVISIBLE = re.compile("[\u200b\u2060-\u2064\u202a-\u202e\U000e0000-\U000e007f]")
 
 _PATTERNS = (
     (
@@ -54,25 +54,28 @@ _PATTERNS = (
     (
         ROLE_REASSIGNMENT,
         re.compile(
-            r"\b(?:you\s+are\s+now|from\s+now\s+on\s+you|act\s+as\s+(?:a|an|the)\b"
-            r"|pretend\s+(?:to\s+be|you\s+are))",
+            r"\b(?:you\s{1,4}are\s{1,4}now|from\s{1,4}now\s{1,4}on\s{1,4}you"
+            r"|act\s{1,4}as\s{1,4}(?:a|an|the)\b"
+            r"|pretend\s{1,4}(?:to\s{1,4}be|you\s{1,4}are))",
             re.IGNORECASE,
         ),
     ),
     (
         SYSTEM_IMPERSONATION,
         re.compile(
-            r"(?:^|\n)\s*(?:\[|<|#{1,3}\s*)?(?:system|assistant)\s*(?:\]|>|:)"
-            r"|<\s*/?\s*(?:system|important_instructions)\s*>",
+            r"(?:^|\n)[^\S\n]{0,8}(?:\[|<|\#{1,3}[^\S\n]{0,4})?"
+            r"(?:system|assistant)[^\S\n]{0,4}(?:\]|>|:)"
+            r"|<[^\S\n]{0,4}/?[^\S\n]{0,4}"
+            r"(?:system|important_instructions)[^\S\n]{0,4}>",
             re.IGNORECASE,
         ),
     ),
     (
         SECRECY_REQUEST,
         re.compile(
-            r"\b(?:do\s*not|don'?t|never)\b[^.\n]{0,30}?"
+            r"\b(?:do\s{0,4}not|don'?t|never)\b[^.\n]{0,30}?"
             r"\b(?:tell|inform|mention|reveal|show|disclose)\b[^.\n]{0,20}?"
-            r"\b(?:the\s+)?(?:user|human|operator)\b",
+            r"\b(?:the\s{1,4})?(?:user|human|operator)\b",
             re.IGNORECASE,
         ),
     ),
@@ -81,6 +84,12 @@ _PATTERNS = (
 #: A marker is only worth reporting on text long enough to be a payload rather
 #: than a fragment; a bare "you are now" in a two-word field is noise.
 MIN_TEXT_CHARACTERS = 24
+
+#: Every quantifier above is bounded on purpose. An unbounded `\s*` behind the
+#: `(?:^|\n)` anchor is re-entered at every newline and walks the rest of the
+#: run each time, which is quadratic: 16k blank lines cost 6.2s and 32k cost
+#: 25s, enough to burn the hook deadline on a file anyone can put in a repo.
+#: `tests/events/test_injection.py` holds the timing that proves it stays flat.
 
 
 def scan(text: str) -> tuple:

@@ -22,4 +22,4 @@ def block_output(decision: GuardDecision, suggestion_path: str | None = None) ->
 
 def error_output() -> bytes:
     """Return the generic fail-closed response without input-derived data."""
-    return user_prompt_hook.error_output()
+    return user_prompt_hook.error_output("codex")

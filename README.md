@@ -122,7 +122,8 @@ shim — this session
 ```
 
 `shim report` prints the same summary on demand, and `--json` makes it
-scriptable.
+scriptable. During a session it reads the live record; once the client has
+closed it falls back to the retained ledger, if you turned that on.
 
 ## Shrink tool results
 
@@ -132,12 +133,17 @@ key and string byte-for-byte, and only the whitespace between tokens goes.
 Nothing is truncated or summarised, and a result that cannot be shrunk safely
 is passed through untouched.
 
-Measured on one 15 KB file read: **9,617 bytes saved, and the model answered
-the question about the file correctly.**
-
 It applies to tool *results* only — never to a tool's arguments, never to
-anything written to your disk, and never under `mode = "observe"`. Turn it off
-with `shim config --no-diet`, or name individual transforms in the config file:
+anything written to your disk, and never under `mode = "observe"`.
+
+**It also never touches a result that shows you a file.** `Edit` matches its
+`old_string` against what is on disk, not against what the model was shown, so
+compacting a pretty-printed file on the way in makes the next edit of that file
+miss. Reads, notebooks and edit results are passed through byte-for-byte;
+fetched pages, command output and tool results are where the saving comes from.
+
+Turn it off with `shim config --no-diet`, or name individual transforms in the
+config file:
 
 ```toml
 diet = ["json"]   # or false to disable entirely
@@ -147,7 +153,13 @@ While reading results shim also flags text that is trying to give the model
 orders — "ignore all previous instructions", impersonated system messages,
 invisible characters. These are **reported and never acted on**: rewriting a
 tool result because it reads as imperative would corrupt legitimate content.
-They appear in the session summary as `flagged`.
+They appear in the session summary as `flagged`, naming the file they came
+from — which is the only part you can act on:
+
+```
+  flagged   1 INSTRUCTION_OVERRIDE  (Read release-notes.md)
+            1 HIDDEN_TEXT  (Read release-notes.md)
+```
 
 The record holds entity names, counts and the file or URL involved — never the
 value that was found, and never a shell command. It lives in a private file for
@@ -169,6 +181,23 @@ shim config --reset
 shim config --ledger        # keep the session record for 30 days
 shim config --no-diet       # stop shrinking tool results
 ```
+
+`shim config` with no arguments prints the entity table plus the current
+ledger and diet state, so what shim keeps and what it rewrites is answerable
+without opening the file.
+
+Detection can also be narrowed for one tool at a time, which the CLI has no
+flag for — scan commands for secrets without scanning every file read for
+phone numbers:
+
+```toml
+[entities]
+Bash = ["SECRET", "DB_URI"]
+Read = ["SECRET"]
+```
+
+Every key in the file is optional. A file holding only `[mode]` or only
+`[entities]` is valid and everything else keeps its shipped default.
 
 Changes are previewed before they are saved. The CLI, installed hook, `scan`,
 and `redact` all use the same policy.

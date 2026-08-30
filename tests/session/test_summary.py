@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from shim_guard.session import summary
@@ -135,3 +137,67 @@ def test_one_unreadable_record_does_not_hide_a_readable_one() -> None:
 
     assert "1 EMAIL" in text
     assert text.startswith("shim — this session")
+
+
+def _flagged(**changes: object) -> dict:
+    defaults: dict = {
+        "action": "allow",
+        "entities": {},
+        "markers": ["INSTRUCTION_OVERRIDE"],
+        "target": "/work/vendor/README.md",
+    }
+    defaults.update(changes)
+    return _record(**defaults)
+
+
+def test_a_marker_names_the_file_it_came_from() -> None:
+    """The only actionable half of "something tried to give orders" is where."""
+    text = summary.render([_flagged()])
+
+    assert "flagged   1 INSTRUCTION_OVERRIDE  (Read README.md)" in text
+
+
+def test_markers_alone_are_worth_a_summary() -> None:
+    """Nothing was masked and nothing shrank, and it still has to be said."""
+    assert summary.render([_flagged()]) != ""
+
+
+def test_the_flagged_label_is_written_once_per_block() -> None:
+    """Every other block blanks the repeat; this one used to shout it."""
+    text = summary.render(
+        [_flagged(markers=["INSTRUCTION_OVERRIDE", "HIDDEN_TEXT", "SECRECY_REQUEST"])]
+    )
+
+    assert text.count("flagged") == 1
+    assert "INSTRUCTION_OVERRIDE" in text
+    assert "HIDDEN_TEXT" in text
+
+
+def test_one_marker_from_several_files_names_them_all() -> None:
+    text = summary.render(
+        [
+            _flagged(target="/work/a.md"),
+            _flagged(target="/work/b.md"),
+        ]
+    )
+
+    assert "2 INSTRUCTION_OVERRIDE" in text
+    assert "Read a.md" in text
+    assert "Read b.md" in text
+
+
+def test_marker_sources_reach_the_json_report() -> None:
+    document = summary.as_json([_flagged()])
+
+    assert document["markers"] == {
+        "INSTRUCTION_OVERRIDE": {"count": 1, "sources": ["Read README.md"]}
+    }
+
+
+def test_a_marker_never_carries_the_text_that_matched_it() -> None:
+    """Markers reach the terminal; the payload that produced them must not."""
+    text = summary.render([_flagged(target="/work/notes.md")])
+    document = summary.as_json([_flagged(target="/work/notes.md")])
+
+    assert "ignore all previous" not in text.lower()
+    assert "ignore" not in json.dumps(document).lower()

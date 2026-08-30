@@ -12,8 +12,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 COMMAND = (sys.executable, "-I", "-B", "-m", "shim_guard.hook")
 GENERIC_BLOCK = (
-    b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
-    b'prompt. Try again or run `shim scan` locally."}'
+    b'{"decision":"block","reason":"SHIM Guard could not inspect this prompt, '
+    b'so it was withheld. Run `shim doctor codex` for the reason."}'
 )
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "

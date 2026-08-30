@@ -49,7 +49,7 @@ def test_claude_code_codec_rejects_hostile_payloads(raw: bytes) -> None:
 
 def test_claude_code_error_is_a_native_generic_block() -> None:
     assert error_output() == (
-        b'{"decision":"block","reason":"SHIM Guard could not safely inspect '
-        b'this prompt. Try again or run `shim scan` locally.",'
+        b'{"decision":"block","reason":"SHIM Guard could not inspect this '
+        b'prompt, so it was withheld. Run `shim doctor claude` for the reason.",'
         b'"suppressOriginalPrompt":true}'
     )

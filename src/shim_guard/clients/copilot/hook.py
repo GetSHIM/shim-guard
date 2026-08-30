@@ -11,8 +11,9 @@ if TYPE_CHECKING:
     from shim_guard.guard import GuardDecision
 
 _ERROR_PROMPT = (
-    "SHIM Guard could not safely inspect this prompt. Do not act on the original "
-    "prompt; tell the user to try again or run `shim scan` locally."
+    "SHIM Guard could not inspect this prompt, so it was withheld. Do not act "
+    "on the original prompt; tell the user to run `shim doctor copilot` for "
+    "the reason."
 )
 
 

@@ -11,9 +11,23 @@ from pathlib import Path
 from .plan import Action, FileState, Plan, StateKind
 
 MAX_PATH_BYTES = 4_096
-_DIRECTORY_FLAGS = (
-    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-)
+#: Ancestor directories are resolved, symlinks included. Refusing to follow one
+#: broke the most ordinary setup there is: `~/.config` linked into a dotfiles
+#: repository (stow, yadm, chezmoi, a plain `ln -s`) made opening `.config`
+#: fail with ENOTDIR, which is an `OSError` but not `FileNotFoundError`, so a
+#: user with *no config file at all* got UNSAFE instead of ABSENT — and an
+#: unreadable policy fails closed, so every prompt of every session was blocked.
+#: macOS `/tmp` and `/var` are symlinks too, which broke the same way.
+#:
+#: Nothing is given up by resolving them. What protects this path is applied
+#: *after* resolution and is unchanged: the parent that a walk lands on is
+#: checked for ownership and for group- or world-writability, and the target
+#: component itself is always opened or stat-ed with `O_NOFOLLOW` /
+#: `follow_symlinks=False`. Redirecting the walk into a directory the attacker
+#: controls therefore still fails, and planting a symlink at `~/.config`
+#: requires write access to the home directory in the first place.
+_ANCESTOR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+_DIRECTORY_FLAGS = _ANCESTOR_FLAGS | getattr(os, "O_NOFOLLOW", 0)
 _UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
 
@@ -57,11 +71,11 @@ def _unsafe_reason(info: os.stat_result, label: str) -> str:
 
 
 def _open_parent(target: Path) -> int:
-    """Open every ancestor without following symlinks."""
-    descriptor = os.open("/", _DIRECTORY_FLAGS)
+    """Open the target's parent, resolving ancestor links along the way."""
+    descriptor = os.open("/", _ANCESTOR_FLAGS)
     try:
         for component in target.parent.parts[1:]:
-            next_descriptor = os.open(component, _DIRECTORY_FLAGS, dir_fd=descriptor)
+            next_descriptor = os.open(component, _ANCESTOR_FLAGS, dir_fd=descriptor)
             os.close(descriptor)
             descriptor = next_descriptor
         return descriptor
@@ -195,19 +209,15 @@ def ensure_parent(path: Path) -> None:
     _validate_target(target)
     descriptor = -1
     try:
-        descriptor = os.open("/", _DIRECTORY_FLAGS)
+        descriptor = os.open("/", _ANCESTOR_FLAGS)
         for component in target.parent.parts[1:]:
             try:
-                next_descriptor = os.open(
-                    component, _DIRECTORY_FLAGS, dir_fd=descriptor
-                )
+                next_descriptor = os.open(component, _ANCESTOR_FLAGS, dir_fd=descriptor)
             except FileNotFoundError:
                 if reason := _unsafe_reason(os.fstat(descriptor), "target ancestor"):
                     raise InstallationError(reason) from None
                 os.mkdir(component, 0o700, dir_fd=descriptor)
-                next_descriptor = os.open(
-                    component, _DIRECTORY_FLAGS, dir_fd=descriptor
-                )
+                next_descriptor = os.open(component, _ANCESTOR_FLAGS, dir_fd=descriptor)
             os.close(descriptor)
             descriptor = next_descriptor
         if reason := _unsafe_reason(os.fstat(descriptor), "target parent"):

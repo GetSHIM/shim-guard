@@ -92,6 +92,11 @@ capped at 1 MB; past that the summary undercounts and says so.
 `shim report` prints the most recent session's summary. The same summary is
 shown inside the client at the end of any turn where something changed.
 
+Because the session file is deleted when the client closes, `shim report` has
+nothing to read afterwards unless the ledger below is on. When it is, the
+report falls back to the newest retained session and says that is where the
+numbers came from.
+
 ### Past the end of a session — off by default
 
 `shim config --ledger` opts in to keeping the same records after the session
@@ -105,6 +110,10 @@ month** — so an entry written on the first of a month outlives one written on
 the last by up to the length of the month. Age is taken from the file's name,
 not its modification time, so restoring a backup or touching a file does not
 extend it. `shim ledger purge` deletes everything immediately.
+
+Retention is enforced when a record is written. Turning the ledger off stops
+new records but does not expire the ones already kept; `shim ledger purge`
+does that at once.
 
 Nothing here is ever transmitted. There is no telemetry, no account, and no
 network call anywhere in shim.
@@ -125,10 +134,22 @@ keep their line count, so blank lines are never collapsed. Nothing is ever
 truncated or summarised.
 
 Diet applies to tool **results** only — never a tool's arguments, never a local
-write, and never under `mode = "observe"`. `shim config --no-diet` turns it off;
-`diet = ["json"]` in the config file selects individual transforms.
+write, and never under `mode = "observe"`. It also stops at any result that is
+a *view of a file*: the model reproduces those bytes to edit the file, and
+`Edit` matches `old_string` against what is on disk rather than against what
+the model was shown, so reshaping a file on the way in makes the next edit of
+it miss. `shim config --no-diet` turns it off; `diet = ["json"]` in the config
+file selects individual transforms.
 
 shim also flags text in a result that reads as an instruction to the model.
+Invisible-character detection covers the zero-width space, the invisible
+operators, the bidi *overrides* behind Trojan Source, and the Unicode tag block
+used to smuggle whole instructions past a human reviewer. It deliberately
+ignores characters that render as nothing but have ordinary uses — the byte
+order mark, the zero-width joiner inside emoji, the zero-width non-joiner that
+Persian and Hindi orthography require, and the plain bidi marks — because a
+marker the user learns to ignore protects nobody.
+
 Those markers are **reported and never acted upon**, and they are not entities:
 no setting can turn one into a rewrite, because rewriting a result for looking
 imperative would corrupt legitimate content — a code review, a style guide, or

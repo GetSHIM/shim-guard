@@ -13,9 +13,13 @@ if TYPE_CHECKING:
 EVENT_NAME = "UserPromptSubmit"
 MAX_REASON_CHARS = 4_000
 MAX_OUTPUT_BYTES = 4_096
+#: The client's own name goes in, because the reason has to name a command the
+#: user can actually run. `shim scan` reads standard input, so it reproduces
+#: nothing about why the hook failed; the usual cause is a settings file that
+#: will not parse, and `shim doctor` is what reports that.
 _ERROR_REASON = (
-    "SHIM Guard could not safely inspect this prompt. "
-    "Try again or run `shim scan` locally."
+    "SHIM Guard could not inspect this prompt, so it was withheld. "
+    "Run `shim doctor {client}` for the reason."
 )
 
 
@@ -125,6 +129,6 @@ def warn_output(decision: GuardDecision) -> bytes:
     return output
 
 
-def error_output(*, suppress_original_prompt: bool = False) -> bytes:
+def error_output(client: str, *, suppress_original_prompt: bool = False) -> bytes:
     """Return the generic fail-closed response without input-derived data."""
-    return _json_block(_ERROR_REASON, suppress_original_prompt)
+    return _json_block(_ERROR_REASON.format(client=client), suppress_original_prompt)

@@ -21,18 +21,24 @@ _STOP_EVENT = "Stop"
 _SESSION_END_EVENT = "SessionEnd"
 _STARTED = time.perf_counter()
 HOOK_DEADLINE_SECONDS = 25
+#: The reason has to name something that can explain the failure. The most
+#: common cause is a settings file that will not parse, which blocks every
+#: prompt in the session — and `shim scan` reads standard input, so it
+#: reproduces nothing and says nothing about the config. `shim doctor` reports
+#: exactly this, so it is what the message points at.
 _ERROR_OUTPUT = (
-    b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
-    b'prompt. Try again or run `shim scan` locally."}'
+    b'{"decision":"block","reason":"SHIM Guard could not inspect this prompt, '
+    b'so it was withheld. Run `shim doctor codex` for the reason."}'
 )
 _CLAUDE_ERROR_OUTPUT = (
-    b'{"decision":"block","reason":"SHIM Guard could not safely inspect this '
-    b'prompt. Try again or run `shim scan` locally.","suppressOriginalPrompt":true}'
+    b'{"decision":"block","reason":"SHIM Guard could not inspect this prompt, '
+    b'so it was withheld. Run `shim doctor claude` for the reason.",'
+    b'"suppressOriginalPrompt":true}'
 )
 _COPILOT_ERROR_OUTPUT = (
-    b'{"modifiedTransformedPrompt":"SHIM Guard could not safely inspect this '
-    b"prompt. Do not act on the original prompt; tell the user to try again or "
-    b'run `shim scan` locally."}'
+    b'{"modifiedTransformedPrompt":"SHIM Guard could not inspect this prompt, '
+    b"so it was withheld. Do not act on the original prompt; tell the user to "
+    b'run `shim doctor copilot` for the reason."}'
 )
 
 
@@ -276,7 +282,7 @@ def _summary_output(session_id: str, stop_active: bool) -> bytes:
         records = spool.entries(session_id)
         if len(records) <= spool.summarized(session_id):
             return b""
-        text = summary.render(records)
+        text = summary.render(records, spool.capped(session_id))
         spool.mark_summarized(session_id, len(records))
         if not text:
             return b""
@@ -308,13 +314,13 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
 
     policy = load_policy()
 
-    def scan(text: str):
-        return evaluate(text, policy.entities)
-
     def mode_for(direction: str, tool: str) -> str:
         return policy.mode_for(direction, tool, event)
 
-    outcome = process(client, raw, mode_for, scan, policy.diet)
+    def entities_for(tool: str, _event: str = "") -> tuple:
+        return policy.entities_for(tool, event)
+
+    outcome = process(client, raw, mode_for, evaluate, policy.diet, entities_for)
     _remember(session_id, outcome.record, _elapsed_ms(), policy.ledger)
     return outcome.output
 

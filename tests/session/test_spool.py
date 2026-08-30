@@ -288,3 +288,29 @@ def test_concurrent_hook_processes_do_not_lose_or_tear_records(
 
     assert len(written) == workers, "a concurrent append was lost"
     assert len(spool.entries(SESSION)) == workers, "a concurrent append was torn"
+
+
+def test_a_full_spool_says_so_to_the_reader(monkeypatch, tmp_path: Path) -> None:
+    """`append` is the only thing that sees the cap, and it cannot report it.
+
+    Without this the summary kept showing a stale total and `shim report --json`
+    said `"capped": false` for a session that had provably stopped recording,
+    while docs/privacy.md promised the opposite.
+    """
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    monkeypatch.setattr(spool, "MAX_SPOOL_BYTES", 4_000)
+    monkeypatch.setattr(spool, "MAX_ENTRY_BYTES", 400)
+
+    assert spool.capped(SESSION) is False
+    while spool.append(SESSION, _entry()):
+        pass
+
+    assert spool.capped(SESSION) is True
+    stem = spool.newest()
+    assert spool.capped_for_stem(stem) is True
+
+
+def test_an_untouched_spool_is_not_capped(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+
+    assert spool.capped("never-seen") is False

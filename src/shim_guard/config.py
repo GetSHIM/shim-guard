@@ -200,16 +200,19 @@ def _diet(document: dict) -> tuple:
 def parse_settings(text: str) -> dict:
     """Parse and validate the settings document.
 
-    A v1 file holding only ``enabled_entities`` is a valid v2 file; the extra
-    sections are optional and inherit the shipped defaults when absent.
+    Every key is optional and inherits the shipped default when absent, so a
+    v1 file holding only ``enabled_entities`` is a valid v2 file and a file
+    holding only ``[mode]`` is too. `enabled_entities` used to be mandatory,
+    which made a hand-written `[mode]` file fail to parse — and a settings file
+    that will not parse fails closed on every prompt in the session.
     """
     try:
         document = tomllib.loads(text)
     except (tomllib.TOMLDecodeError, RecursionError) as error:
         raise ValueError("SHIM Guard settings are invalid") from error
-    if not set(document) <= _TOP_LEVEL or "enabled_entities" not in document:
+    if not set(document) <= _TOP_LEVEL:
         raise ValueError("SHIM Guard settings are invalid")
-    enabled = document["enabled_entities"]
+    enabled = document.get("enabled_entities", list(DEFAULT_ENTITIES))
     if not isinstance(enabled, list):
         raise ValueError("SHIM Guard settings are invalid")
     ledger = document.get("ledger", False)
