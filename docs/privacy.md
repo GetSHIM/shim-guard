@@ -181,3 +181,26 @@ and can race POSIX pathname operations despite advisory locking.
 
 Review every temporary redaction before resubmission. The detector can miss
 sensitive content.
+
+
+## `shim watch`
+
+The proxy sees the whole wire body — the system prompt, the tools array, the
+full message history and every file the client inlined for an `@` reference.
+None of it is kept.
+
+What survives one request is a count and a size: bytes per section, entity
+counts by type, a token count from the provider, the model name and the request
+path. **No request or response body is ever written to disk**, and
+`tests/watch/test_proxy.py` asserts it by sending a unique marker through the
+proxy and then searching every file written anywhere beneath the temporary root
+for it.
+
+The proxy binds to loopback only. It is forwarding a live credential, and
+binding to anything reachable would hand that credential to the network. It
+lives for the length of one `shim watch` command, edits no shell profile, and
+changes no setting; the client is given a base URL in its own environment and
+nothing else.
+
+Nothing is transmitted anywhere except to the provider the client was already
+talking to. There is still no telemetry and no account.

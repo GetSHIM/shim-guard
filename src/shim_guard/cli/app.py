@@ -214,6 +214,19 @@ def report(
     run_report(as_json=json_output)
 
 
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def watch(
+    context: typer.Context,
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Run a client through a local measuring proxy. Try: shim watch -- claude"""
+    from shim_guard.cli.watch import watch as run_watch
+
+    run_watch(command=tuple(context.args), as_json=json_output)
+
+
 @app.command()
 def install(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],

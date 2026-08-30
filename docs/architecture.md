@@ -132,3 +132,45 @@ authoritative protocol sources for those clients. GitHub's
 [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
 defines the Copilot adapter's direct rewrite contract. Every adapter uses its
 native settings and output, not a generic cross-client hook format.
+
+
+## `shim watch`
+
+`watch/proxy.py` forwards, `watch/measure.py` reads, `watch/report.py` says what
+it saw, and `cli/watch.py` sequences the three. Nothing in `watch/` is
+importable from the hook path and `tests/contracts/test_import_hygiene.py`
+enforces that: the proxy pulls in `http.server`, `http.client`, `ssl` and
+`socketserver`, and the hook is a cold-start subprocess that would pay for all
+of it on every tool call.
+
+Three properties carry the design.
+
+**Forwarding has no opinions.** A hook that breaks fails open and the agent
+keeps working; a proxy that breaks fails closed and the agent cannot reach the
+model at all. So the relay does not retry, rewrite, decide, or invent a
+response. Headers pass through verbatim — `anthropic-beta` and
+`anthropic-version` carry an OAuth capability for subscription sign-ins and a
+request without them is a 401.
+
+**Measurement is beside the path, never in front of it.** The request is handed
+to the upstream *before* a byte of it is examined, so scanning overlaps the
+provider's own thinking time instead of being added to the user's latency. The
+response is relayed with `read1`, which returns whatever has arrived; plain
+`read(n)` blocks until it has all `n` bytes, which on a server-sent-event
+stream means blocking until the model has finished — a streaming response
+silently turned into a buffered one.
+
+**The provider's numbers and shim's are never mixed.** `usage` is read off the
+wire and is exact. Its division across `tools`, `system` and `messages` is
+inferred from byte share, carries a `~`, and is scaled so the parts always sum
+to the exact total.
+
+The response arrives gzipped. The client receives those bytes untouched; a
+second, incremental decompressor feeds the usage reader, so nothing is
+re-encoded and no body is buffered or kept.
+
+A fresh TLS connection is opened per request, measured at 23 ms against
+`api.anthropic.com`. Connections are deliberately not reused: the only way to
+make reuse safe against a stale socket is to retry, and a retried `POST` risks
+a second billable request. 23 ms against a multi-second time to first token is
+not worth that.

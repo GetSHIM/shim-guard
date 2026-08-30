@@ -168,6 +168,54 @@ as long as the client session does and is deleted when the session ends.
 `shim ledger purge` deletes it. Nothing is ever transmitted. See
 [Privacy](docs/privacy.md#what-is-recorded).
 
+## Measure a session
+
+Hooks never see some of what a session sends. Files pulled in with `@` are
+inlined by the client while it builds the prompt, so no hook fires for them;
+the system prompt, the tools array and the provider's token counts are not
+handed to any hook either. `shim watch` puts a local proxy in front of the
+client for one command and reads what actually goes past:
+
+```console
+shim watch -- claude
+shim watch -- claude -p "explain this repo"
+```
+
+```text
+shim watch — 8s, 1 requests
+  input     109,678 tokens  (exact)
+    cache read   91,562   83%
+    cache write  18,114
+  output    157 tokens  (exact)
+  where the input went  (approximate — split by byte share)
+    tools     ~      90,001   82%
+    system    ~      10,361    9%
+    messages  ~       9,185    8%
+  @ files   1 inlined, 354 bytes (invisible to hooks)
+  found     2 EMAIL in traffic
+  spend     ~$0.10  (approximate, 2026-08-30 prices)
+```
+
+Token counts come from the provider's own `usage` block and are exact. How
+they divide between sections has no ground truth on the wire, so it is
+inferred from byte share, marked `~`, and always sums to the exact total.
+
+**It forwards and measures. It does not modify.** Not one byte of a request is
+changed, no request body is ever written to disk, and nothing is transmitted
+anywhere except to the provider the client was already talking to. The proxy
+binds to loopback, exists for the length of the command, and nothing is left
+behind — no shell profile is edited and no setting is changed.
+
+Overhead measured against a live session: about 6 ms of proxy plumbing plus a
+23 ms TLS handshake per request. Scanning the body costs more than that, but it
+runs after the request has been sent, inside the window where the provider is
+already thinking, so it does not delay anything.
+
+Claude Code is verified. Codex runs with a warning — a ChatGPT sign-in behind a
+third-party proxy is documented but untested. Copilot is out of scope: it
+accepts a custom endpoint only through bring-your-own-key, which removes GitHub
+authentication altogether, so there is nothing to watch.
+
 ## Configure detection
 
 All supported entity types are enabled by default. View or change the local

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import signal
+import threading
 import time
 from collections.abc import Iterable, Iterator
 
@@ -33,7 +34,20 @@ _PRIORITY = {
 
 @contextlib.contextmanager
 def _deadline() -> Iterator[None]:
-    """Bound analysis while preserving any earlier process deadline."""
+    """Bound analysis while preserving any earlier process deadline.
+
+    Only the main thread can install a signal handler; `signal.signal` raises
+    `ValueError` anywhere else. The hook is single-threaded so this is normally
+    moot, but `shim watch` evaluates on a worker thread, and there the alarm
+    was raising and taking the whole measurement down with it — silently, since
+    the proxy drops a measurement rather than a request.
+
+    Off the main thread the alarm is skipped and the caller owns the bound.
+    `watch` bounds its input with `measure.MAX_BODY_BYTES` before calling in.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
 
     def expire(_signal_number: int, _frame: object) -> None:
         raise TimeoutError("SHIM Guard analysis deadline exceeded")

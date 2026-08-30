@@ -54,7 +54,10 @@ for name in sorted({module.split(".")[0] for module in sys.modules}):
     if specification and specification.origin and "site-packages" in specification.origin:
         third_party.append(name)
 
-sys.stdout.write(json.dumps({"third_party": third_party, "bytes": len(output)}))
+shim_modules = sorted(m for m in sys.modules if m.startswith("shim_guard."))
+sys.stdout.write(json.dumps(
+    {"third_party": third_party, "bytes": len(output), "shim": shim_modules}
+))
 """
 
 
@@ -126,3 +129,18 @@ def test_the_detector_alone_imports_nothing_third_party() -> None:
     )
     assert result.returncode == 0, result.stderr.decode()
     assert set(json.loads(result.stdout)) <= ALLOWED_THIRD_PARTY
+
+
+@pytest.mark.parametrize("client", ("codex", "claude", "copilot"))
+def test_the_hook_path_never_imports_the_watch_proxy(client: str) -> None:
+    """`shim watch` runs once per session; the hook runs per tool call.
+
+    The proxy pulls in `http.server`, `http.client`, `ssl` and `socketserver`.
+    None of that is free, and the hook pays every import on every tool call, so
+    the two must not share a module. Nothing else enforces the boundary.
+    """
+    observed = _probe(client, "Contact alice@example.com")
+
+    watch = [name for name in observed["shim"] if name.startswith("shim_guard.watch")]
+
+    assert not watch, f"{client}: the hook path imported {watch}"
