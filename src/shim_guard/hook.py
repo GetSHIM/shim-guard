@@ -306,6 +306,57 @@ def _forget(session_id: str) -> bytes:
     return b""
 
 
+def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
+    """Record a tool event that could not be inspected. Never raises.
+
+    Failing open here is deliberate — blocking a tool event destroys the user's
+    work while protecting nothing, because the result already exists. Failing
+    open *silently* is not: nothing was written down, so `shim report` and the
+    end-of-turn summary said the session was clean while an unmasked payload
+    had just gone to the model. Observed live on a customer CSV dense enough to
+    exceed the finding limit.
+    """
+    try:
+        import json
+
+        from shim_guard.events.record import NOT_INSPECTED, Record
+
+        tool = ""
+        try:
+            document = json.loads(raw.decode("utf-8", "replace"))
+            if isinstance(document, dict) and isinstance(
+                document.get("tool_name"), str
+            ):
+                tool = document["tool_name"]
+        except Exception:
+            pass
+        _remember(
+            session_id,
+            Record(
+                client=client,
+                event=event,
+                tool_name=tool,
+                direction="",
+                mode="",
+                action="report",
+                note=f"{NOT_INSPECTED}: analysis failed; passed through unchanged",
+            ),
+            _elapsed_ms(),
+            _policy_ledger(),
+        )
+    except Exception:
+        pass
+
+
+def _policy_ledger() -> bool:
+    try:
+        from shim_guard.config import load_policy
+
+        return load_policy().ledger
+    except Exception:
+        return False
+
+
 def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
     """Handle one tool event through the client-by-event matrix."""
     from shim_guard.config import load_policy
@@ -365,6 +416,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                     try:
                         return _tool_output(raw, client, event, session_id)
                     except Exception:
+                        _uninspected(raw, client, event, session_id)
                         return _tool_error_output(client)
 
                 prompt = parse_input(raw)

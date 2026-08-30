@@ -40,6 +40,47 @@ def _generator() -> ModuleType:
 _DOCUMENT = _document()
 _CASES = _DOCUMENT["cases"]
 
+#: Cases where shim now *deliberately* differs from the Presidio detector this
+#: corpus was generated against. The corpus itself is left exactly as generated
+#: — regenerating it to make a test pass would throw away the evidence — so a
+#: divergence has to be written down here, with its reason, to be accepted.
+#:
+#: Keep this list tiny. Each entry is a promise that the difference was chosen,
+#: and every other one of the 475 cases is still pinned byte for byte.
+#: Maps a case id to (reason, findings shim produces now). The new result is
+#: pinned as tightly as the old one, so this is a change of expectation and not
+#: an exemption from having one.
+DELIBERATE_DIVERGENCES = {
+    "net-3": (
+        "0.0.0.0 is the unspecified address: it names no host and no person. "
+        "Masking it stops the model telling 'bind to every interface' apart "
+        "from 'loopback only' in a config file.",
+        [],
+    ),
+    "net-10": (
+        "::1 is loopback: the machine the code is already running on. "
+        "Same reasoning as net-3.",
+        [],
+    ),
+}
+
+
+def test_every_divergence_is_still_a_real_case() -> None:
+    """A stale exemption would quietly stop guarding a case that still exists."""
+    assert set(DELIBERATE_DIVERGENCES) <= {case["id"] for case in _CASES}
+
+
+def test_divergences_only_ever_relax_detection() -> None:
+    """A divergence may drop a finding shim decided is noise; never add one.
+
+    Adding a finding here would mean the corpus had stopped covering a real
+    detection, which is the direction that hides a false negative.
+    """
+    by_id = {case["id"]: case for case in _CASES}
+    for identifier, (_reason, expected) in DELIBERATE_DIVERGENCES.items():
+        case = by_id[identifier]
+        assert len(expected) < len(case["findings"]), identifier
+
 
 def test_the_frozen_corpus_is_substantial() -> None:
     assert _DOCUMENT["case_count"] == len(_CASES) >= 400
@@ -62,6 +103,11 @@ def test_detection_is_unchanged(case: dict) -> None:
         [finding.entity_type, finding.start, finding.end, finding.score]
         for finding in decision.findings
     ]
+    if case["id"] in DELIBERATE_DIVERGENCES:
+        reason, expected = DELIBERATE_DIVERGENCES[case["id"]]
+        assert actual == expected, f"{case['id']} diverges on purpose: {reason}"
+        assert decision.redacted_text == case["text"]
+        return
     assert actual == case["findings"], (
         f"findings changed for {case['id']!r}\n"
         f"  text     : {case['text'][:120]!r}\n"

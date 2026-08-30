@@ -68,14 +68,18 @@ def test_source_normalized_intermediate_and_finding_limits() -> None:
             generated["normalization-intermediate-oversize"]["value"]
             * generated["normalization-intermediate-oversize"]["count"]
         )
+    # Bound to the constant, not to a number frozen next to it. The corpus
+    # said 101 because the limit used to be 100; when the limit moved the case
+    # quietly stopped testing anything and the suite went green.
+    assert generated["finding-count-oversize"]["count"] == MAX_FINDINGS + 1
     emails = " ".join(
-        f"user{index}@example.com"
+        f"u{index}@e.co"
         for index in range(generated["finding-count-oversize"]["count"])
     )
     with pytest.raises(ValueError, match="finding limit"):
         analyze(emails)
     assert (
-        len(analyze(" ".join(f"u{i}@example.com" for i in range(MAX_FINDINGS))))
+        len(analyze(" ".join(f"u{i}@e.co" for i in range(MAX_FINDINGS))))
         == MAX_FINDINGS
     )
 
@@ -198,3 +202,56 @@ def test_results_are_independent_of_python_hash_seed() -> None:
             ).stdout
         )
     assert outputs[0] == outputs[1]
+
+
+#: Values a developer writes constantly that name no person and no network.
+#: Detection that fires where there is obviously nothing to find is how people
+#: learn to ignore it — and once both are `<IP_ADDRESS_n>`, the model can no
+#: longer tell "bind to every interface" apart from "loopback only".
+QUIET = (
+    "127.0.0.1",
+    "127.0.1.1",
+    "0.0.0.0",
+    "::1",
+    "::",
+    "redis://localhost:6379/0",
+    "postgresql://localhost/mydb",
+    "mongodb://127.0.0.1:27017",
+    "redis://[::1]:6379",
+    'REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")',
+    "the server listens on 0.0.0.0:8080 in production",
+)
+
+#: The other side of the same line. A missed credential or a missed internal
+#: address is far worse than a noisy hit, so the exemption stops here.
+LOUD = (
+    ("10.0.0.5", "IP_ADDRESS"),
+    ("192.168.1.44", "IP_ADDRESS"),
+    ("172.16.0.1", "IP_ADDRESS"),
+    ("8.8.8.8", "IP_ADDRESS"),
+    ("203.0.113.9", "IP_ADDRESS"),
+    ("2001:db8::8a2e:370:7334", "IP_ADDRESS"),
+    ("postgres://user:pw@localhost/db", "DB_URI"),
+    ("redis://:hunter2@localhost:6379", "DB_URI"),
+    ("postgres://admin@localhost/db", "DB_URI"),
+    ("postgres://db.internal.example.com:5432/orders", "DB_URI"),
+    ("postgres://rw:Hs8xq2Lm@db.internal.example.com:5432/orders", "DB_URI"),
+    ("mysql://user:pw@host/db", "DB_URI"),
+)
+
+
+@pytest.mark.parametrize("text", QUIET)
+def test_addresses_that_name_nobody_are_left_alone(text: str) -> None:
+    decision = evaluate(text)
+
+    assert decision.counts == (), decision.redacted_text
+    assert decision.redacted_text == text
+
+
+@pytest.mark.parametrize(("text", "entity"), LOUD)
+def test_a_credential_or_a_real_host_is_still_caught(text: str, entity: str) -> None:
+    """The exemption must never become a way to smuggle one past."""
+    decision = evaluate(text)
+
+    assert entity in dict(decision.counts), decision.counts
+    assert text not in decision.redacted_text

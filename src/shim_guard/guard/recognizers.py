@@ -234,11 +234,27 @@ _IP_PATTERNS = _compile(
 
 
 def _invalidate_ip(text: str) -> bool:
+    """Reject anything that is not an address, and addresses that name nobody.
+
+    An IP is personal data when it can identify somebody's connection.
+    `127.0.0.1` and `0.0.0.0` identify no one and belong to no network — they
+    are the machine the code is already running on, and the value a server
+    binds to. Developers write both constantly, and masking them costs more
+    than it protects: `<IP_ADDRESS_1>` and `<IP_ADDRESS_2>` no longer tell the
+    model apart "listen on every interface" from "loopback only", which is a
+    difference it needs to reason about a config file.
+
+    Private ranges are deliberately still detected. `10.20.30.40` can be real
+    internal topology, and a missed address is worse than a noisy one — this
+    is the same line `_invalidate_mac` already draws by rejecting the broadcast
+    and null MACs while keeping every real one.
+    """
     try:
-        ipaddress.ip_interface(text)
+        parsed = ipaddress.ip_interface(text)
     except ValueError:
         return True
-    return False
+    address = parsed.ip
+    return address.is_loopback or address.is_unspecified
 
 
 # --- MAC_ADDRESS ----------------------------------------------------------
@@ -515,6 +531,34 @@ _DB_URI_PATTERN = re.compile(
     r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis(?:s)?|"
     r"mssql)://[^\s'\"<>]+"
 )
+#: Hosts that name the machine the code is already running on. A connection
+#: string to one of these carries no infrastructure to leak.
+_LOOPBACK = ("localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0")
+
+
+def _is_local_and_open(uri: str) -> bool:
+    """Return whether a URI has no credentials and points at this machine.
+
+    `redis://localhost:6379/0` is a default written in source, not a secret,
+    and masking it costs twice: the model loses a value it needs to reason
+    about the configuration, and the user is told something was protected when
+    nothing was. Detection that fires where there is obviously nothing to find
+    is how people learn to ignore it.
+
+    The exemption is deliberately narrow, because a missed credential is far
+    worse than a noisy hit. Any userinfo at all — `user:pw@`, or even `:pw@` —
+    disqualifies, and so does any host that is not this machine.
+    """
+    authority = uri.split("://", 1)[1].split("/", 1)[0]
+    if "@" in authority:
+        return False
+    if authority.startswith("["):  # bracketed IPv6, with or without a port
+        host = authority[1:].split("]", 1)[0]
+    elif authority.count(":") == 1:
+        host = authority.rsplit(":", 1)[0]
+    else:
+        host = authority
+    return host.lower() in _LOOPBACK
 
 
 def _scan_db_uri(text: str) -> list[Match]:
@@ -522,8 +566,11 @@ def _scan_db_uri(text: str) -> list[Match]:
     for match in _DB_URI_PATTERN.finditer(text):
         start, end = match.span()
         end = _trim_trailing_prose(text, start, end)
-        if start < end:
-            results.append(Match("DB_URI", start, end, 0.99))
+        if start >= end:
+            continue
+        if _is_local_and_open(text[start:end]):
+            continue
+        results.append(Match("DB_URI", start, end, 0.99))
     return results
 
 

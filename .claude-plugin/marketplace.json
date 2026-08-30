@@ -4,12 +4,12 @@
     "name": "SHIM Engineering",
     "url": "https://github.com/GetSHIM"
   },
-  "description": "Local prompt privacy plugins from SHIM Engineering.",
+  "description": "Local privacy tooling for coding-agent traffic, from SHIM Engineering.",
   "plugins": [
     {
       "name": "shim-guard",
       "source": "./plugins/shim-guard",
-      "description": "Block sensitive prompt data before it reaches coding-agent models.",
+      "description": "Masks secrets and personal data in tool results before the model sees them, and reports what it finds in your prompts. Runs locally: no account, no API key, no network calls.",
       "author": {
         "name": "SHIM Engineering"
       },

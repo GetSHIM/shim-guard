@@ -14,7 +14,17 @@ from .models import Finding
 from .normalize import normalize
 from .recognizers import ENTITY_MAP, Match, analyze_text
 
-MAX_FINDINGS = 100
+#: A backstop against degenerate input, not a bound on work. Work is bounded by
+#: `normalize.MAX_SOURCE_CHARACTERS` (100k characters); measured, analysis time
+#: tracks input length and is completely unaffected by this number.
+#:
+#: It was 100, which meant an ordinary 5.5 KB customer CSV produced 122 findings,
+#: raised, and was therefore passed to the model **entirely unmasked** — the more
+#: personal data a file held, the less of it was protected. Verified live against
+#: Claude Code: the model quoted back a full row of email, phone, IBAN and
+#: national ID. 100k characters of dense records is roughly 4,400 findings, so
+#: this sits above anything the input bound can actually produce.
+MAX_FINDINGS = 5_000
 ANALYSIS_DEADLINE_SECONDS = 20
 _MAX_ANALYZER_RESULTS = MAX_FINDINGS * len(ENTITY_MAP)
 _PRIORITY = {

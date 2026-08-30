@@ -134,10 +134,16 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     except (OSError, ValueError):
         _plan_error(client, "install")
 
+    # A config directory that does not exist yet is the first-run case, not an
+    # unsafe one, and it is the same for every client: someone who installs
+    # shim before ever launching the client has no `~/.claude`, `~/.codex` or
+    # `~/.copilot`. This used to be recognised for Copilot alone, so the other
+    # two refused with "cannot be changed safely — review malformed, ambiguous,
+    # or unsafe settings" about settings that did not exist.
     missing_parent = (
-        client == "copilot"
-        and plan.action is Action.REFUSE
+        plan.action is Action.REFUSE
         and plan.state.kind is StateKind.ABSENT
+        and not plan.target.parent.exists()
     )
     action = (
         Action.CREATE

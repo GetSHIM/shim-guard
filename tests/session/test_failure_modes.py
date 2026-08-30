@@ -118,3 +118,68 @@ def test_a_file_name_cannot_carry_terminal_escapes_into_the_summary() -> None:
     assert chr(27) not in rendered
     assert chr(7) not in rendered
     assert "config.env" in summary.render(records)
+
+
+def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) -> None:
+    """Failing open must not mean failing silently.
+
+    Blocking a tool event destroys the user's work and protects nothing — the
+    result already exists — so passing it through is right. But nothing was
+    written down, so `shim report` and the end-of-turn summary called the
+    session clean while an unmasked payload had just gone to the model.
+    Observed live on a customer CSV dense enough to exceed the finding limit.
+    """
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard import hook
+    from shim_guard.events.record import NOT_INSPECTED
+    from shim_guard.session import spool
+
+    def explode(*_args, **_kwargs):
+        raise ValueError("Guard analysis exceeded the safe finding limit.")
+
+    monkeypatch.setattr(hook, "_tool_output", explode)
+    payload = json.dumps(
+        {
+            "hook_event_name": "PostToolUse",
+            "session_id": "dense",
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/work/customers.csv"},
+            "tool_response": {"type": "text", "content": "a@b.com"},
+        }
+    ).encode()
+
+    output = hook._output(payload, "claude")
+
+    # The payload still goes through untouched, and the client is told.
+    assert b"could not be inspected" in output
+    records = spool.entries("dense")
+    assert len(records) == 1
+    assert records[0]["action"] == "report"
+    assert records[0]["tool_name"] == "Read"
+    assert records[0]["note"].startswith(NOT_INSPECTED)
+
+
+def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard.events.record import NOT_INSPECTED
+    from shim_guard.session import spool, summary
+
+    spool.append(
+        "dense",
+        {
+            "action": "report",
+            "event": "PostToolUse",
+            "tool_name": "Read",
+            "target": "/work/customers.csv",
+            "entities": {},
+            "note": f"{NOT_INSPECTED}: analysis failed",
+            "latency_ms": 9,
+        },
+    )
+
+    text = summary.render(spool.entries("dense"))
+
+    assert "skipped" in text
+    assert "not inspected, passed through" in text
+    assert "Read customers.csv" in text
+    assert summary.as_json(spool.entries("dense"))["not_inspected"] == 1

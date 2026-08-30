@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from click import unstyle
 from typer.testing import CliRunner
 
@@ -795,3 +796,41 @@ def test_config_shows_whether_records_are_being_kept() -> None:
     assert on["diet"] == []
 
     assert "Ledger: on" in runner.invoke(app, ["config"]).output
+
+
+@pytest.mark.parametrize(
+    ("client", "relative"),
+    (
+        ("claude", ".claude/settings.json"),
+        ("codex", ".codex/hooks.json"),
+        ("copilot", ".copilot/hooks/shim-guard.json"),
+    ),
+)
+def test_install_creates_a_config_directory_that_does_not_exist_yet(
+    monkeypatch, tmp_path: Path, client: str, relative: str
+) -> None:
+    """Installing before ever launching the client is the first-run case.
+
+    Every other install test pre-creates the config directory, which is why
+    this went unnoticed: the recovery was written for Copilot alone, so Claude
+    and Codex refused with "cannot be changed safely — review malformed,
+    ambiguous, or unsafe settings" about settings that did not exist.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    for variable in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(variable, raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    target = home / relative
+    assert not target.parent.exists()
+
+    installed = runner.invoke(app, ["install", client, "--yes"])
+
+    assert installed.exit_code == 0, installed.output
+    assert target.exists()
+    assert stat.S_IMODE(target.parent.stat().st_mode) == 0o700
+    assert (
+        json.loads(runner.invoke(app, ["status", client, "--json"]).output)["state"]
+        == "installed"
+    )

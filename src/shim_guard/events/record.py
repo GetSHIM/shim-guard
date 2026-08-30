@@ -10,6 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+#: Prefix on the note of any event shim let through without looking at it —
+#: too large to scan, or an analysis that failed. The summary keys on this,
+#: because "shim saw nothing" and "shim did not look" are different sentences
+#: and only one of them is reassuring.
+NOT_INSPECTED = "not inspected"
+
 
 @dataclass(frozen=True)
 class Record:

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from .adapters import summary
 from .payload import PayloadTooLarge, inspect
 from .policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
-from .record import Record
+from .record import NOT_INSPECTED, Record
 from .registry import TOOL_KEY, adapter
 
 
@@ -198,7 +198,7 @@ def process(
     except PayloadTooLarge as error:
         # Over a bound the payload is not partially scanned; the event is
         # observed instead, and the reason is recorded rather than swallowed.
-        return Outcome(b"", record(ALLOW, None, note=str(error)))
+        return Outcome(b"", record(ALLOW, None, note=f"{NOT_INSPECTED}: {error}"))
 
     rewritten, findings, changed = result.value, result.findings, result.changed
 

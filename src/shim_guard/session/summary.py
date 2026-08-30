@@ -119,6 +119,18 @@ def _carrying(records: list, marker: str) -> list:
     ]
 
 
+def _uninspected(records: list) -> list:
+    """Return events shim let through without looking at them."""
+    from shim_guard.events.record import NOT_INSPECTED
+
+    return [
+        record
+        for record in records
+        if isinstance(record.get("note"), str)
+        and record["note"].startswith(NOT_INSPECTED)
+    ]
+
+
 def _acted(records: list) -> list:
     """Return only the records where shim did something worth reporting."""
     return [record for record in records if record.get("action") not in (None, "allow")]
@@ -129,7 +141,8 @@ def render(records: list, capped: bool = False) -> str:
     acted = _acted(records)
     saved = _saved(records)
     markers = _marker_totals(records)
-    if not acted and not saved and not markers:
+    skipped = _uninspected(records)
+    if not acted and not saved and not markers and not skipped:
         return ""
     lines: list = []
     for action, label in ACTION_LABELS:
@@ -156,6 +169,13 @@ def render(records: list, capped: bool = False) -> str:
         first = False
         lines.append(
             f"  {column:<9} {count} {marker}{_where(_carrying(records, marker))}"
+        )
+    if skipped:
+        # The one line here that is not good news. Saying nothing would let a
+        # clean-looking summary stand for a payload shim never examined.
+        lines.append(
+            f"  {'skipped':<9} {len(skipped)} not inspected, passed through"
+            f"{_where(skipped)}"
         )
     if saved:
         tokens = saved // BYTES_PER_TOKEN
@@ -197,6 +217,7 @@ def as_json(records: list, capped: bool = False) -> dict:
         "overhead_ms": {"median": median, "p95": p95},
         "bytes_saved": saved,
         "tokens_saved_approx": saved // BYTES_PER_TOKEN,
+        "not_inspected": len(_uninspected(records)),
         "markers": {
             marker: {"count": count, "sources": _sources(_carrying(records, marker))}
             for marker, count in _marker_totals(records)
