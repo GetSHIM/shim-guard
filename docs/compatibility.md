@@ -11,7 +11,7 @@
 | Authentication routes | Codex ChatGPT sign-in, Claude Code first-party sign-in, and GitHub Copilot OAuth |
 | Trust review and client timeout behavior | Hooks reviewed and activated; safe and finding prompts exercised; forced timeout/error behavior observed to fail open |
 | `shim watch` | Claude Code verified end to end on 30 Aug 2026 against a live subscription (OAuth) sign-in: forwarded unchanged, streamed without buffering, token counts read off the wire. Codex runs with a warning — a ChatGPT sign-in behind a third-party proxy is documented but untested. Copilot is out of scope: a custom endpoint there removes GitHub authentication entirely |
-| SHIM Protect | Deferred; separate process and threat model |
+| shim Protect | Deferred; separate process and threat model |
 
 The local inspection follows the current [Codex hook docs](https://developers.openai.com/codex/hooks/).
 The Claude Code adapter follows its current
@@ -23,7 +23,7 @@ suppressed.
 
 The GitHub Copilot CLI adapter follows GitHub's current
 [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference).
-Command hooks cannot change `userPromptSubmitted`, so SHIM uses
+Command hooks cannot change `userPromptSubmitted`, so shim uses
 `userPromptTransformed` to replace the model-facing content with its typed
 redaction. The original prompt can remain visible in Copilot's timeline.
 
@@ -83,7 +83,7 @@ than the installed package; the launcher prefers the package whenever it is on
 | Nothing runnable (allow and warn) | — | ~6 ms |
 
 Thirty-nine of the milliseconds in the last-but-one row are the macOS system
-interpreter starting up, before any SHIM code runs.
+interpreter starting up, before any shim code runs.
 
 Host load dominates this measurement. The same benchmark on the same machine
 under a load average of 11 reports p50 101 ms and p95 162 ms, while a bare
@@ -95,7 +95,7 @@ This is development evidence, not tag-generated release evidence. Detector
 analysis has a 20-second deadline; the 25-second outer hook deadline covers
 stdin, bootstrap, and evaluation; all client configurations use a 30-second
 timeout. Loaded hosts and cold filesystem caches can be slower; a client
-timeout remains fail-open behavior outside SHIM's control.
+timeout remains fail-open behavior outside shim's control.
 
 ## Release evidence gate
 

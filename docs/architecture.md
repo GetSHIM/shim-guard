@@ -1,6 +1,6 @@
 # Architecture
 
-SHIM Guard is one local Python distribution with two ways of sitting between a
+shim Guard is one local Python distribution with two ways of sitting between a
 coding agent and its model, and neither replaces the other. **Hooks** are
 invoked by the client at defined lifecycle points and see tool names, paths,
 commands and results — that is where masking happens, and where most leakage
@@ -42,7 +42,7 @@ compiled into `guard/suffixes.py`, so nothing is read from the network or the
 filesystem. `phonenumbers` is the only third-party module reachable from the
 hook, which `tests/contracts/test_import_hygiene.py` enforces. The
 hook owns stdin/stdout/stderr, the client protocol, and any per-block temporary
-redaction file. Installation owns only SHIM's hook fragment and entity-policy
+redaction file. Installation owns only shim's hook fragment and entity-policy
 planning plus guarded filesystem I/O. Each adapter defines its exact target and
 owned fragment. Install preserves valid existing settings and adds only that
 fragment after informing the user; revert removes only the same fragment. Both
@@ -63,8 +63,8 @@ client — and preserves every unrelated setting. Which tool events those are
 comes from the adapter registry, so the two install paths and `shim doctor`
 cannot disagree. Each group is matched by exact value, so an install made
 before tool events existed gains only the missing groups, and revert gives up
-only SHIM's own. Malformed or ambiguous documents and unsafe or concurrently
-changed files require manual setup. Dry-run output contains only SHIM's
+only shim's own. Malformed or ambiguous documents and unsafe or concurrently
+changed files require manual setup. Dry-run output contains only shim's
 fragment, not the existing document.
 
 The GitHub Copilot CLI adapter owns
@@ -117,7 +117,7 @@ detector-scrubbed file path or URL, never a value and never a shell command.
 ## Detector boundary and corpus
 
 `shim-guard` is intentionally an independently packaged, narrow detector fork.
-It does not import the parent SHIM gateway: the gateway's reversible maps,
+It does not import the parent shim gateway: the gateway's reversible maps,
 provider flow, persistence, and broader runtime are outside a local synchronous
 hook. The public `guard-v2` synthetic corpus is Guard's executable detector
 contract and a migration reference for the parent gateway; it does not claim

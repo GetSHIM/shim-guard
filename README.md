@@ -103,7 +103,7 @@ authentication altogether, so there is nothing to watch.
 
 Tool coverage is verified against a running client, not derived from
 documentation. `shim doctor <client>` prints exactly which events are installed
-and what SHIM can and cannot change at each one.
+and what shim can and cannot change at each one.
 
 shim Guard detects email addresses, phone numbers, credit cards, IBANs, IP and
 MAC addresses, US SSNs, Turkish national and tax IDs, secrets, and database
@@ -215,10 +215,14 @@ closed it falls back to the retained ledger, if you turned that on.
 ## Shrink tool results
 
 shim compacts tool results before the model reads them, so the context window
-fills more slowly. Only losslessly: JSON keeps every number literal, duplicate
-key and string byte-for-byte, and only the whitespace between tokens goes.
-Nothing is truncated or summarised, and a result that cannot be shrunk safely
-is passed through untouched.
+fills more slowly. Nothing is ever truncated or summarised, and a result that
+cannot be shrunk safely is passed through untouched. Two transforms ship, both
+on by default:
+
+| Transform | What it does |
+| --- | --- |
+| `json` | Removes the whitespace *between* JSON tokens. Every number literal, duplicate key and string survives byte-for-byte, because this is a lexer rather than a parse and re-serialise. Lossless. |
+| `whitespace` | Strips trailing spaces and tabs from the end of each line. Line count is never changed. Not byte-for-byte: a Markdown hard line break is two trailing spaces, and it does not survive this. |
 
 It applies to tool *results* only — never to a tool's arguments, never to
 anything written to your disk, and never under `mode = "observe"`.
@@ -230,7 +234,7 @@ miss. Reads, notebooks and edit results are passed through byte-for-byte;
 fetched pages, command output and tool results are where the saving comes from.
 
 Turn it off with `shim config --no-diet`, or name individual transforms in the
-config file:
+config file — `diet = ["json"]` keeps the lossless one and drops the other:
 
 ```toml
 diet = ["json"]   # or false to disable entirely
@@ -251,7 +255,9 @@ from — which is the only part you can act on:
 The record holds entity names, counts and the file or URL involved — never the
 value that was found, and never a shell command. It lives in a private file for
 as long as the client session does and is deleted when the session ends.
-`shim config --ledger` opts in to keeping it for 30 days instead;
+`shim config --ledger` opts in to keeping it instead, in monthly files
+deleted 30 days after the end of the month they cover — so an entry lives
+between 30 and 61 days, never less;
 `shim ledger purge` deletes it. Nothing is ever transmitted. See
 [Privacy](docs/privacy.md#what-is-recorded).
 
@@ -265,7 +271,7 @@ shim config
 shim config --only EMAIL --only SECRET
 shim config --disable IP_ADDRESS --disable MAC_ADDRESS
 shim config --reset
-shim config --ledger        # keep the session record for 30 days
+shim config --ledger        # keep the session record past the session
 shim config --no-diet       # stop shrinking tool results
 ```
 

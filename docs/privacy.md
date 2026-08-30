@@ -28,7 +28,7 @@ Three things follow, and all three are limits rather than features:
 ## Data flow
 
 ```text
-client prompt -> trusted SHIM hook -> in-memory offline detector
+client prompt -> trusted shim hook -> in-memory offline detector
              <- empty success | Copilot model-facing typed rewrite
                               | native stop response with categories and file path
                                                         |
@@ -36,7 +36,7 @@ client prompt -> trusted SHIM hook -> in-memory offline detector
 ```
 
 The hook reads the submitted-prompt fields needed for the native contract. It
-does not send prompt data to SHIM and does not create a replacement map. It
+does not send prompt data to shim and does not create a replacement map. It
 does keep a record of its own decisions, described under **What is recorded**
 below; that record holds entity names and counts and never the values.
 Safe input produces exactly empty stdout and stderr. For a supported Copilot
@@ -46,7 +46,7 @@ a `0600` file in the operating system's temporary directory and returns a
 tested native block containing its absolute path in a ready-to-copy instruction
 to use the file contents as the prompt. A handled hook error returns the
 client's generic fail-closed response and leaves no suggestion file. The raw
-prompt and detected raw values are not written by SHIM.
+prompt and detected raw values are not written by shim.
 
 The temporary redaction remains until the user deletes it or the operating
 system cleans temporary storage. It can still contain sensitive content the
@@ -148,10 +148,15 @@ stand for a payload shim never examined.
 ## What is changed on the way in
 
 Besides masking, shim compacts tool results so they take less of the model's
-context. Every transform is lossless, deterministic and idempotent — the last
-two because the provider's prompt cache only hits if the history is
-byte-identical on every request, so a transform that drifts costs money instead
-of saving it.
+context. Every transform is deterministic and idempotent, because the
+provider's prompt cache only hits if the history is byte-identical on every
+request, so a transform that drifts costs money instead of saving it.
+
+Two transforms ship, both enabled by default. `json` is lossless. `whitespace`
+is not, and the difference is worth stating plainly: it strips trailing spaces
+and tabs from the end of every line, which is invisible in almost all text but
+removes a Markdown hard line break, since that break *is* two trailing spaces.
+It never changes a line count. `diet = ["json"]` keeps only the lossless one.
 
 JSON is compacted by a lexer rather than by parsing and re-serialising:
 re-serialising rewrites number literals (`1.10` becomes `1.1`, a long decimal
@@ -182,12 +187,12 @@ no setting can turn one into a rewrite, because rewriting a result for looking
 imperative would corrupt legitimate content — a code review, a style guide, or
 documentation about prompt injection.
 
-## Outside SHIM's boundary
+## Outside shim's boundary
 
 The host client receives the raw prompt. Matching hooks can start concurrently,
-so SHIM cannot stop another matching hook from receiving it. Clients,
+so shim cannot stop another matching hook from receiving it. Clients,
 operating-system tools, plugins, and providers can retain logs, transcripts,
-telemetry, caches, or history independently of SHIM.
+telemetry, caches, or history independently of shim.
 
 Copilot's `userPromptTransformed` replacement changes what is sent to the model
 and stored in session history, but the original prompt can remain visible in
@@ -195,7 +200,7 @@ Copilot's timeline.
 
 Some clients require review and trust for non-managed hooks. A hook can be
 disabled, untrusted after a change, missing, unable to start, crash, or time
-out; those outcomes are client-controlled and may fail open. SHIM does not
+out; those outcomes are client-controlled and may fail open. shim does not
 promise detection of every value, inspect automatic context, or securely erase
 Python process memory. Tool inputs and tool results *are* inspected, at the
 events listed by `shim doctor <client>`; anything reaching the model by another

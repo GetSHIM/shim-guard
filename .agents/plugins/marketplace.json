@@ -1,7 +1,7 @@
 {
   "name": "shim-guard",
   "interface": {
-    "displayName": "Shim Guard"
+    "displayName": "shim Guard"
   },
   "plugins": [
     {
