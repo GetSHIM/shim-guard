@@ -14,7 +14,9 @@
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
-      "category": "Security"
+      "category": "Security",
+      "description": "See where your context window and your spend actually go, and get told which secrets and personal data are in your agent's traffic. Runs locally: no account, no API key, no network calls."
     }
-  ]
+  ],
+  "description": "Local visibility and privacy tooling for coding agents."
 }

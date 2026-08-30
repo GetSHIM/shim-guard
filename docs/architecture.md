@@ -1,21 +1,37 @@
 # Architecture
 
-SHIM Guard is one local Python distribution. The CLI is a management and
-local-inspection interface; client-native hooks are the prompt path. It has no
-daemon, history, or service state. Copilot receives direct rewrites; blocking
-clients get one temporary redaction per blocked prompt.
+SHIM Guard is one local Python distribution with two ways of sitting between a
+coding agent and its model, and neither replaces the other. **Hooks** are
+invoked by the client at defined lifecycle points and see tool names, paths,
+commands and results — that is where masking happens, and where most leakage
+is. **`shim watch`** is a proxy the client's base URL points at for one
+command; it sees the real wire body and the provider's token counts, which no
+hook is ever handed. There is no daemon, no history and no service state.
 
 ```text
-shim config -> guarded local entity policy
+shim config  -> guarded local entity policy (entities, modes, ledger, diet)
 shim scan/redact (stdin) -> policy -> detector
                          -> categories/counts or typed redaction
-shim update -> recorded installer -> uv tool upgrade | pipx upgrade
-
-supported prompt event -> native hook adapter -> policy -> detector
-                       -> allow | Copilot direct rewrite
-                                | 0600 temporary redaction -> native block
+shim report / shim ledger purge -> session record -> summary
 shim install/status/doctor/revert -> guarded merge/revert -> client hook settings
+shim update  -> recorded installer -> uv tool upgrade | pipx upgrade
+
+prompt event -> adapter -> policy -> detector
+             -> allow | Copilot direct rewrite
+                      | 0600 temporary redaction -> native block
+
+tool event   -> adapter -> direction -> policy -> detector (+ diet, markers)
+             -> allow | report | mask in place | deny
+             -> session record -> summary at Stop
+
+shim watch -- <client> -> loopback proxy -> provider, bytes unchanged
+                       -> usage, section attribution, findings in traffic
 ```
+
+A payload's **direction** decides what may be done to it, not the tool's name:
+a prompt and a local write are never rewritten, a shell command is never
+rewritten, and an inbound result is masked in place. `events/policy.py` holds
+that table and `docs/privacy.md` explains the reasoning.
 
 The detector is functional, offline, and first party. It normalizes input once,
 validates bounded findings against a selected subset of the fixed entity

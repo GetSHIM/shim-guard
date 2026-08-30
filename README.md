@@ -19,23 +19,79 @@
   <a href="https://github.com/GetSHIM/shim-guard/stargazers"><img src="https://img.shields.io/github/stars/GetSHIM/shim-guard.svg?style=flat&amp;logo=github" alt="GitHub stars"></a>
 </p>
 
-shim Guard scans prompts and tool traffic through native client hooks. Safe
-input continues silently; detected values are reported or replaced with typed
-placeholders such as `<EMAIL_1>`, depending on where the data is going.
+shim Guard shows you what your coding agent actually sends to the model — how
+many tokens went where, what the turn cost, and which secrets and personal data
+were in it — and masks what it can before the model sees it. All of it happens
+on your machine: no account, no API key, no network call, no telemetry.
 
-> [!IMPORTANT]
-> **With the default configuration, shim Guard does not prevent a secret you
-> type into a prompt from reaching the model. It tells you afterwards.**
-> No client offers a field for rewriting a submitted prompt, so the only way to
-> stop one is to refuse the sentence you just typed — which is disruptive and
-> rare enough that it is not the default. Set `user-prompt = "enforce"` in
-> `[mode]` to block instead. Tool results *are* masked before the model sees
-> them, and that is where most leakage happens.
+Two commands, two different questions:
+
+| Command | Answers |
+| --- | --- |
+| `shim watch -- claude` | What did this session actually send, and what did it cost? |
+| `shim install claude` | Mask secrets and personal data in tool results, every session, automatically. |
 
 > [!WARNING]
 > shim Guard is alpha software and a best-effort guard, not a data-loss
 > prevention boundary. Read the [privacy limitations](docs/privacy.md) before
 > using it with sensitive data.
+
+## Measure a session
+
+Nobody can tell you where their agent's context window actually goes. `shim
+watch` puts a local proxy in front of the client for one command, forwards
+every byte unchanged, and reports what went past:
+
+```console
+shim watch -- claude
+shim watch -- claude -p "explain this repo"
+```
+
+```text
+shim watch — 8s, 1 requests
+  input     109,678 tokens  (exact)
+    cache read   91,562   83%
+    cache write  18,114
+  output    157 tokens  (exact)
+  where the input went  (approximate — split by byte share)
+    tools     ~      90,001   82%
+    system    ~      10,361    9%
+    messages  ~       9,185    8%
+  @ files   1 inlined, 354 bytes (invisible to hooks)
+  found     2 EMAIL in traffic
+  spend     ~$0.10  (approximate, 2026-08-30 prices)
+```
+
+On the session above, **the tools array was 82% of the input tokens** — before
+a single line of the user's own code. That is one session on one repository,
+not a universal figure, which is the point: it is your number and you have no
+other way to get it.
+
+Token counts come from the provider's own `usage` block and are exact. How
+they divide between sections has no ground truth on the wire, so it is
+inferred from byte share, marked `~`, and always sums to the exact total.
+Exact and inferred figures never share a column.
+
+It also covers what hooks structurally cannot see: files pulled in with `@` are
+inlined by the client while it builds the prompt, so no hook fires for them,
+and the system prompt, the tools array and the token counts are never handed to
+a hook at all.
+
+**It forwards and measures. It does not modify.** Not one byte of a request is
+changed, no request body is ever written to disk, and nothing is transmitted
+anywhere except to the provider the client was already talking to. The proxy
+binds to loopback, exists for the length of the command, and nothing is left
+behind — no shell profile is edited and no setting is changed.
+
+Overhead measured against a live session: about 6 ms of proxy plumbing plus a
+23 ms TLS handshake per request. Scanning the body costs more than that, but it
+runs after the request has been sent, inside the window where the provider is
+already thinking, so it does not delay anything.
+
+Claude Code is verified. Codex runs with a warning — a ChatGPT sign-in behind a
+third-party proxy is documented but untested. Copilot is out of scope: it
+accepts a custom endpoint only through bring-your-own-key, which removes GitHub
+authentication altogether, so there is nothing to watch.
 
 ## Supported clients
 
@@ -51,8 +107,19 @@ and what SHIM can and cannot change at each one.
 
 shim Guard detects email addresses, phone numbers, credit cards, IBANs, IP and
 MAC addresses, US SSNs, Turkish national and tax IDs, secrets, and database
-URIs. Detection runs locally without an account, API key, network request,
-daemon, telemetry, or prompt history.
+URIs. Checksums are verified where they exist, so a mistyped IBAN or national
+ID is not reported.
+
+It deliberately stays quiet on values that name nobody: loopback and
+unspecified addresses (`127.0.0.1`, `0.0.0.0`, `::1`) and connection strings to
+them that carry no credentials (`redis://localhost:6379/0`). Private ranges,
+real hosts, and anything with a `user:password@` are still detected. Once
+`0.0.0.0` and `127.0.0.1` both read as `<IP_ADDRESS_1>`, the model can no
+longer tell "listen on every interface" from "loopback only" — detection that
+fires where there is nothing to find is how people learn to ignore it.
+
+Detection runs locally without an account, API key, network request, daemon,
+telemetry, or prompt history.
 
 ## Install
 
@@ -107,6 +174,15 @@ printf '%s' 'Contact me at alice@example.com' | shim redact
 Both commands read standard input. Do not pass real prompts as command-line
 arguments, where they may be recorded in shell history or process listings.
 
+> [!IMPORTANT]
+> **With the default configuration, shim Guard does not prevent a secret you
+> type into a prompt from reaching the model. It tells you afterwards.**
+> No client offers a field for rewriting a submitted prompt, so the only way to
+> stop one is to refuse the sentence you just typed — which is disruptive and
+> rare enough that it is not the default. Set `user-prompt = "enforce"` in
+> `[mode]` to block instead. Tool results *are* masked before the model sees
+> them, and that is where most leakage happens.
+
 ## See what it did
 
 shim says nothing when it works, so it keeps a short record of its own
@@ -115,11 +191,22 @@ changed:
 
 ```text
 shim — this session
-  masked    3 SECRET  (Read .env, Bash)
-            2 DB_URI  (Read docker-compose.yml)
-  warned    1 EMAIL  (your prompt)
-  overhead  6 ms median, 14 ms p95
+  masked    60 EMAIL  (Read customers.csv)
+            60 IBAN  (Read customers.csv)
+            60 PHONE  (Read customers.csv)
+            60 TR_NATIONAL_ID  (Read customers.csv)
+  flagged   1 INSTRUCTION_OVERRIDE  (Read runbook.md)
+            1 HIDDEN_TEXT  (Read runbook.md)
+  overhead  62 ms median, 119 ms p95
 ```
+
+That is a real session against Claude Code, not an illustration: a 5.5 KB
+customer file, every value in it replaced before the model saw it, and a
+document in the repository caught trying to give the agent instructions. Run
+under `shim watch` at the same time, the proxy — which reads the actual wire,
+independently of the hook — reported two email addresses in the whole session,
+both from the client's own system messages. None of the sixty reached the
+model.
 
 `shim report` prints the same summary on demand, and `--json` makes it
 scriptable. During a session it reads the live record; once the client has
@@ -167,54 +254,6 @@ as long as the client session does and is deleted when the session ends.
 `shim config --ledger` opts in to keeping it for 30 days instead;
 `shim ledger purge` deletes it. Nothing is ever transmitted. See
 [Privacy](docs/privacy.md#what-is-recorded).
-
-## Measure a session
-
-Hooks never see some of what a session sends. Files pulled in with `@` are
-inlined by the client while it builds the prompt, so no hook fires for them;
-the system prompt, the tools array and the provider's token counts are not
-handed to any hook either. `shim watch` puts a local proxy in front of the
-client for one command and reads what actually goes past:
-
-```console
-shim watch -- claude
-shim watch -- claude -p "explain this repo"
-```
-
-```text
-shim watch — 8s, 1 requests
-  input     109,678 tokens  (exact)
-    cache read   91,562   83%
-    cache write  18,114
-  output    157 tokens  (exact)
-  where the input went  (approximate — split by byte share)
-    tools     ~      90,001   82%
-    system    ~      10,361    9%
-    messages  ~       9,185    8%
-  @ files   1 inlined, 354 bytes (invisible to hooks)
-  found     2 EMAIL in traffic
-  spend     ~$0.10  (approximate, 2026-08-30 prices)
-```
-
-Token counts come from the provider's own `usage` block and are exact. How
-they divide between sections has no ground truth on the wire, so it is
-inferred from byte share, marked `~`, and always sums to the exact total.
-
-**It forwards and measures. It does not modify.** Not one byte of a request is
-changed, no request body is ever written to disk, and nothing is transmitted
-anywhere except to the provider the client was already talking to. The proxy
-binds to loopback, exists for the length of the command, and nothing is left
-behind — no shell profile is edited and no setting is changed.
-
-Overhead measured against a live session: about 6 ms of proxy plumbing plus a
-23 ms TLS handshake per request. Scanning the body costs more than that, but it
-runs after the request has been sent, inside the window where the provider is
-already thinking, so it does not delay anything.
-
-Claude Code is verified. Codex runs with a warning — a ChatGPT sign-in behind a
-third-party proxy is documented but untested. Copilot is out of scope: it
-accepts a custom endpoint only through bring-your-own-key, which removes GitHub
-authentication altogether, so there is nothing to watch.
 
 ## Configure detection
 
@@ -272,7 +311,8 @@ Remove shim Guard's hook before uninstalling the package:
 shim revert codex
 ```
 
-Replace `codex` with the client you installed.
+Replace `codex` with the client you installed. `shim watch` needs no uninstall:
+it edits nothing, so there is nothing to undo.
 
 ## Project documentation
 

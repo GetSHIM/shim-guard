@@ -4,12 +4,13 @@
 | --- | --- |
 | Python | CPython 3.9 through 3.13; the detector is standard library only |
 | Operating systems | macOS and Linux target |
-| Clients | Codex CLI 0.149.0, Claude Code 2.1.250, and GitHub Copilot CLI 1.0.80 locally inspected |
+| Clients | Codex CLI 0.149.0, Claude Code 2.1.251, and GitHub Copilot CLI 1.0.80 locally inspected |
 | Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor`; Copilot `userPromptTransformed` documented and locally present |
 | Hook contract | Native fixture coverage for all three clients in the repository |
 | Live interactive client | All three clients exercised on macOS 26.5.2 arm64 |
 | Authentication routes | Codex ChatGPT sign-in, Claude Code first-party sign-in, and GitHub Copilot OAuth |
 | Trust review and client timeout behavior | Hooks reviewed and activated; safe and finding prompts exercised; forced timeout/error behavior observed to fail open |
+| `shim watch` | Claude Code verified end to end on 30 Aug 2026 against a live subscription (OAuth) sign-in: forwarded unchanged, streamed without buffering, token counts read off the wire. Codex runs with a warning — a ChatGPT sign-in behind a third-party proxy is documented but untested. Copilot is out of scope: a custom endpoint there removes GitHub authentication entirely |
 | SHIM Protect | Deferred; separate process and threat model |
 
 The local inspection follows the current [Codex hook docs](https://developers.openai.com/codex/hooks/).
@@ -37,7 +38,7 @@ every case. It has been superseded.
 | --- | ---: | --- |
 | `guard-v2.json` | 53 | Exact redacted output for every case, plus source spans for the 11 cases whose text is not pure ASCII or contains a percent sign—exactly the input that bypasses the normalization fast path |
 | `guard-tools-v1.json` | 24 | Exact output at 25 scanned paths inside payloads really captured from a client, per event and per policy direction |
-| `parity-v1.json` | 475 | The exact findings, spans, scores and redacted text of the previous Presidio implementation |
+| `parity-v1.json` | 475 | The exact findings, spans, scores and redacted text of the previous Presidio implementation. 473 are pinned byte for byte; 2 are recorded in `DELIBERATE_DIVERGENCES` with their reason and their new expected result pinned just as tightly — `0.0.0.0` and `::1` name no host and no person, and masking them stopped the model telling "bind to every interface" apart from "loopback only". The corpus itself is generated evidence and is never regenerated to make a test pass |
 
 Published metrics report 100% synthetic precision and recall and 100% exact
 output; every one of the 11 implementation categories has at least one positive

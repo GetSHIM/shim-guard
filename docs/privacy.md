@@ -58,6 +58,15 @@ preset enables all supported types. The local settings file contains entity
 names only. An invalid or unsafe settings file causes the hook to return its
 generic fail-closed response rather than silently ignoring the policy.
 
+Where a checksum exists it is verified, so a mistyped IBAN or Turkish national
+ID is not reported. Detection also stays deliberately quiet on values that name
+nobody: the loopback and unspecified addresses (`127.0.0.1`, `0.0.0.0`, `::1`)
+and connection strings to them that carry no credentials. Private ranges, real
+hosts, and any URI with a `user:password@` are still detected. This is a
+precision choice with a cost attached — a `10.x` address that really is
+internal topology is still masked, and the exemption is written narrowly so it
+can never be a way to smuggle a credential past.
+
 ## What is recorded
 
 shim keeps a record of what it did, so that a tool which is silent when it
@@ -117,6 +126,24 @@ does that at once.
 
 Nothing here is ever transmitted. There is no telemetry, no account, and no
 network call anywhere in shim.
+
+### When shim cannot inspect something
+
+Some payloads are refused rather than scanned: a tool result past the size
+bound, or an analysis that fails. What happens next depends on which side it
+is, and the asymmetry is deliberate.
+
+On a **prompt**, shim fails closed. The prompt is withheld and the message
+names `shim doctor`, because the usual cause is a settings file that will not
+parse, and that blocks every prompt of the session until it is fixed.
+
+On a **tool event**, shim fails open: the result already exists, so refusing it
+destroys the user's work while protecting nothing. The payload is passed
+through **unchanged and unmasked**, the client is told so, and — the part that
+matters here — it is written to the session record and appears in the summary
+as `skipped … not inspected, passed through`. Failing open is a considered
+trade; failing open silently is not, because a clean-looking summary would then
+stand for a payload shim never examined.
 
 ## What is changed on the way in
 

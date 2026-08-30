@@ -235,7 +235,7 @@ LOUD = (
     ("redis://:hunter2@localhost:6379", "DB_URI"),
     ("postgres://admin@localhost/db", "DB_URI"),
     ("postgres://db.internal.example.com:5432/orders", "DB_URI"),
-    ("postgres://rw:Hs8xq2Lm@db.internal.example.com:5432/orders", "DB_URI"),
+    ("postgres://rw:0123456789abcdef@db.internal.example.com:5432/orders", "DB_URI"),
     ("mysql://user:pw@host/db", "DB_URI"),
 )
 

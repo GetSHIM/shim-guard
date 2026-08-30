@@ -62,14 +62,39 @@ def test_a_listing_points_at_a_plugin_that_exists(path: Path) -> None:
         assert (ROOT / relative / "hooks").is_dir()
 
 
-def test_the_claude_listing_says_what_actually_happens() -> None:
-    """Naming both halves is the honest version, and it is also the sell."""
-    plugin = json.loads(CLAUDE.read_text())["plugins"][0]
-    description = plugin["description"].lower()
+def test_the_claude_listing_claims_masking_because_claude_can_mask() -> None:
+    description = json.loads(CLAUDE.read_text())["plugins"][0]["description"].lower()
 
-    assert "mask" in description, "tool results are masked — say so"
-    assert "report" in description, "prompts are reported, not blocked — say so"
+    assert "mask" in description, "Claude Code masks tool results — say so"
+    assert "tool results" in description
     assert "no network" in description or "locally" in description
+
+
+def test_the_codex_listing_does_not_claim_masking_because_codex_cannot() -> None:
+    """Codex has no surgical tool-result rewrite — only whole-result replacement.
+
+    The same sentence is true on one store and false on the other, so the two
+    listings are deliberately not copies of each other. Claiming masking here
+    would promise a capability the adapter reports it does not have.
+    """
+    from shim_guard.events.registry import ADAPTERS
+
+    assert not ADAPTERS[("codex", "PostToolUse")].capabilities.can_rewrite
+
+    description = json.loads(CODEX.read_text())["plugins"][0]["description"].lower()
+
+    assert "mask" not in description
+    assert "redact" not in description
+    assert "told" in description or "report" in description
+
+
+@pytest.mark.parametrize("path", (CLAUDE, CODEX), ids=("claude", "codex"))
+def test_a_listing_leads_with_what_the_user_gets(path: Path) -> None:
+    """Both stores show one line. It has to say something a person wants."""
+    description = json.loads(path.read_text())["plugins"][0]["description"]
+
+    assert len(description) <= 300, "stores truncate; keep it readable"
+    assert description[0].isupper() and description.rstrip().endswith(".")
 
 
 def test_both_listings_name_the_same_plugin() -> None:

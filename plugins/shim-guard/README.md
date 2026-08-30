@@ -6,6 +6,13 @@ self-contained copy of the hook in `bin/shim.pyz`, so installing the plugin is
 enough — there is no separate package-manager step, and no prerequisite beyond
 a `python3` of 3.9 or newer.
 
+**The plugin is the hooks, and only the hooks.** `shim watch`, `shim report`
+and `shim config` are commands, not hook events, so they are not in the archive
+— deliberately, because the hook runs as a cold-start subprocess on every tool
+call and must not pay for imports it never uses. Install the package as well if
+you want them; the two are not a duplicate and the launcher simply prefers the
+package when it is present.
+
 ## What runs
 
 `hooks/run-shim-guard` resolves in this order and stops at the first that works:

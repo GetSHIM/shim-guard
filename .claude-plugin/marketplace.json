@@ -4,18 +4,20 @@
     "name": "SHIM Engineering",
     "url": "https://github.com/GetSHIM"
   },
-  "description": "Local privacy tooling for coding-agent traffic, from SHIM Engineering.",
+  "description": "Local visibility and privacy tooling for coding agents, from SHIM Engineering.",
   "plugins": [
     {
       "name": "shim-guard",
       "source": "./plugins/shim-guard",
-      "description": "Masks secrets and personal data in tool results before the model sees them, and reports what it finds in your prompts. Runs locally: no account, no API key, no network calls.",
+      "description": "See where your context window and your spend actually go, and mask secrets and personal data in tool results before the model reads them. Runs locally: no account, no API key, no network calls.",
       "author": {
         "name": "SHIM Engineering"
       },
       "license": "Apache-2.0",
       "category": "security",
       "tags": [
+        "cost",
+        "context",
         "privacy",
         "security",
         "hooks"
