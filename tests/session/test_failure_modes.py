@@ -183,3 +183,102 @@ def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:
     assert "not inspected, passed through" in text
     assert "Read customers.csv" in text
     assert summary.as_json(spool.entries("dense"))["not_inspected"] == 1
+
+
+#: Every payload shape the refusal has to choose between, and whether it names
+#: a tool event. A tool event may never be answered with `decision: "block"`.
+REFUSAL_CASES = (
+    ("a parseable tool event", b'{"hook_event_name":"PreToolUse"}', True),
+    ("a parseable prompt event", b'{"hook_event_name":"UserPromptSubmit"}', False),
+    ("an unnamed event", b'{"prompt":"hello"}', False),
+    ("a truncated tool payload", b'{"hook_event_name":"PostToolUse","tool_re', True),
+    ("a truncated prompt payload", b'{"hook_event_name":"UserPromptSubm', False),
+    ("nothing at all", b"", False),
+)
+
+
+@pytest.mark.parametrize(
+    ("payload", "is_tool"),
+    [case[1:] for case in REFUSAL_CASES],
+    ids=[case[0] for case in REFUSAL_CASES],
+)
+def test_the_refusal_shape_follows_the_event(payload: bytes, is_tool: bool) -> None:
+    """The shape is chosen by what the payload is, parseable or not."""
+    from shim_guard import hook
+
+    for client in ("claude", "codex"):
+        output = hook._refusal_output(payload, client)
+
+        assert (b'"decision":"block"' in output) is not is_tool, (
+            f"{client} got the wrong shape for {payload!r}"
+        )
+
+
+def test_the_deadline_on_a_tool_event_does_not_deny_the_call() -> None:
+    """A slow detector must cost the inspection, never the user's tool call.
+
+    The deadline is the one failure that reaches `main` rather than the
+    pipeline's own handler, so it used to answer a `PreToolUse` with the
+    prompt's block — denying an ordinary `Read` and telling the user their
+    *prompt* had been withheld.
+    """
+    code = (
+        "import sys, time\n"
+        "from shim_guard import hook as runner\n"
+        "sys.argv.append('claude')\n"
+        "runner.HOOK_DEADLINE_SECONDS = 0.2\n"
+        "runner._output = lambda raw, client='codex': time.sleep(5)\n"
+        "runner.main()\n"
+    )
+    payload = json.dumps(
+        {
+            "hook_event_name": "PreToolUse",
+            "session_id": "slow",
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/work/notes.md"},
+        }
+    ).encode()
+
+    result = subprocess.run(
+        (sys.executable, "-I", "-B", "-c", code),
+        input=payload,
+        capture_output=True,
+        cwd=ROOT,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+        check=False,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr.decode()
+    assert b'"decision":"block"' not in result.stdout
+    assert b"could not be inspected" in result.stdout
+
+
+def test_session_end_sweeps_stale_redacted_prompts(tmp_path, monkeypatch) -> None:
+    """The one path that can delete them, since the writer must not.
+
+    A blocked prompt leaves its redaction in the temporary directory for the
+    user to read as their next prompt. Nothing collected them, so an enforcing
+    install grew one file per blocked prompt forever.
+    """
+    import time
+
+    from shim_guard import hook
+
+    monkeypatch.setattr(hook.tempfile, "gettempdir", lambda: str(tmp_path))
+    stale = tmp_path / "shim-guard-redacted-old.txt"
+    fresh = tmp_path / "shim-guard-redacted-new.txt"
+    other = tmp_path / "someone-elses-file.txt"
+    for path in (stale, fresh, other):
+        path.write_text("redacted", encoding="utf-8")
+    old_enough = time.time() - hook.SUGGESTION_MAX_AGE_SECONDS - 60
+    os.utime(stale, (old_enough, old_enough))
+    os.utime(other, (old_enough, old_enough))
+
+    hook._forget("any-session")
+
+    assert not stale.exists()
+    # Another client may have blocked a prompt seconds ago and its user has not
+    # read the file yet, and nothing outside our own prefix is ours to delete.
+    assert fresh.exists()
+    assert other.exists()

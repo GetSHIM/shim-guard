@@ -72,11 +72,11 @@ def _tool_error_output(client: str) -> bytes:
     return _TOOL_ERROR_OUTPUT
 
 
-#: Quoted event names, searched for in an over-cap payload. `main` stops
-#: reading at the cap, so such a payload is a truncated prefix and will not
-#: parse — but `hook_event_name` appears near the front of every real payload
-#: while a large `tool_response` is what pushed it over, so the name survives
-#: the truncation and the bulky field does not.
+#: Quoted event names, searched for in a payload that will not parse. `main`
+#: stops reading at the cap, so an over-cap payload is a truncated prefix — but
+#: `hook_event_name` appears near the front of every real payload while a large
+#: `tool_response` is what pushed it over, so the name survives the truncation
+#: and the bulky field does not.
 _TOOL_EVENT_MARKERS = (
     b'"PreToolUse"',
     b'"PostToolUse"',
@@ -89,16 +89,32 @@ _TOOL_EVENT_MARKERS = (
 )
 
 
-def _oversize_output(raw: bytes, client: str) -> bytes:
-    """Choose which shape of refusal an unparseably large payload gets.
+def _refusal_output(raw: bytes, client: str) -> bytes:
+    """Choose which shape of refusal an unhandled payload gets.
 
-    Only the shape is decided here, never whether to protect: an over-cap
-    payload is refused either way. Getting it wrong towards "prompt" would
-    deny an ordinary large file read, so the tool markers are searched for in
-    the head of the payload, where a real client puts the event name.
+    Only the shape is decided here, never whether to protect: the payload is
+    refused either way. Getting it wrong towards "prompt" answers a tool event
+    with `{"decision": "block"}`, which on `PreToolUse` denies the call — the
+    one thing the fail-closed rule above says must never happen, because the
+    user loses work and nothing is protected by taking it.
+
+    Every path that gives up outside the pipeline comes through here: an
+    over-cap payload, the hook deadline, and a dependency that would not
+    import. The event name settles it when the payload parses; when it does
+    not — which is what an over-cap payload always is — the tool markers are
+    searched for in the head, where a real client puts the event name.
     """
-    head = raw[:4096]
-    if any(marker in head for marker in _TOOL_EVENT_MARKERS):
+    try:
+        event, _session, _stop = _envelope(raw)
+    except Exception:
+        event = ""
+    if event:
+        return (
+            _error_output(client)
+            if event in _PROMPT_EVENTS
+            else _tool_error_output(client)
+        )
+    if any(marker in raw[:4096] for marker in _TOOL_EVENT_MARKERS):
         return _tool_error_output(client)
     return _error_output(client)
 
@@ -146,12 +162,41 @@ def _deadline() -> Iterator[None]:
         signal.signal(signal.SIGALRM, previous)
 
 
+#: How long a redacted-prompt suggestion is kept before `SessionEnd` sweeps it.
+#: The file has to outlive the turn that produced it — the user is told to read
+#: it as their next prompt — so this is generous. Past a day it is litter.
+SUGGESTION_MAX_AGE_SECONDS = 24 * 60 * 60
+_SUGGESTION_PREFIX = "shim-guard-redacted-"
+_SUGGESTION_SUFFIX = ".txt"
+
+
+def _sweep_suggestions() -> None:
+    """Delete stale redacted-prompt files. Never raises.
+
+    `_write_redacted_prompt` cannot clean up after itself: the path it returns
+    is handed to the client so the user can read it as their next prompt, so it
+    has to outlive the process that wrote it. Nothing else deleted it, which
+    left a file in the temporary directory for every prompt ever blocked.
+
+    The age bound is what makes this safe to run from one session: another
+    client blocking a prompt right now has a file here too, and its user has
+    not read it yet.
+    """
+    now = time.time()
+    with contextlib.suppress(OSError):
+        root = Path(tempfile.gettempdir())
+        for path in root.glob(f"{_SUGGESTION_PREFIX}*{_SUGGESTION_SUFFIX}"):
+            with contextlib.suppress(OSError):
+                if now - path.stat().st_mtime > SUGGESTION_MAX_AGE_SECONDS:
+                    path.unlink()
+
+
 def _write_redacted_prompt(text: str) -> str:
     stream = tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
-        prefix="shim-guard-redacted-",
-        suffix=".txt",
+        prefix=_SUGGESTION_PREFIX,
+        suffix=_SUGGESTION_SUFFIX,
         delete=False,
     )
     path = Path(stream.name)
@@ -292,11 +337,13 @@ def _summary_output(session_id: str, stop_active: bool) -> bytes:
 
 
 def _forget(session_id: str) -> bytes:
-    """Delete the session spool at `SessionEnd`.
+    """Delete what this session left on disk, at `SessionEnd`.
 
     The probe showed `SessionEnd` output is never rendered, so this event is
-    good for exactly one thing, and this is it.
+    good for exactly one thing: cleaning up. That is the spool, and the
+    redacted-prompt files no other path could delete.
     """
+    _sweep_suggestions()
     try:
         from shim_guard.session import spool
 
@@ -378,7 +425,7 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
 
 def _output(raw: bytes, client: str = "codex") -> bytes:
     if len(raw) > MAX_INPUT_BYTES:
-        return _oversize_output(raw, client)
+        return _refusal_output(raw, client)
 
     try:
         with _silence_dependencies():
@@ -466,7 +513,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
             except Exception:
                 return error_output()
     except Exception:
-        return _error_output(client)
+        return _refusal_output(raw, client)
 
 
 def main() -> None:
@@ -475,6 +522,9 @@ def main() -> None:
     client = "codex" if not arguments else arguments[0]
     if len(arguments) > 1:
         client = ""
+    # Bound before the read, because the deadline can expire while waiting for
+    # standard input and the refusal below still has to pick a shape.
+    raw = b""
     try:
         with _deadline():
             raw = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
@@ -482,7 +532,7 @@ def main() -> None:
         sys.stdout.buffer.write(output)
     except Exception:
         try:
-            sys.stdout.buffer.write(_error_output(client))
+            sys.stdout.buffer.write(_refusal_output(raw, client))
         except Exception:
             pass
 
