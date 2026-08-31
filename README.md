@@ -21,8 +21,9 @@
 
 shim Guard shows you what your coding agent actually sends to the model — how
 many tokens went where, what the turn cost, and which secrets and personal data
-were in it — and masks what it can before the model sees it. All of it happens
-on your machine: no account, no API key, no network call, no telemetry.
+were in it — and masks what it can before the model sees it. The hook and
+detector add no network destination, account, API key, or telemetry. The opt-in
+`shim watch` proxy forwards only to the provider the client already uses.
 
 Two commands, two different questions:
 

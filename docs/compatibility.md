@@ -2,7 +2,7 @@
 
 | Area | Current status |
 | --- | --- |
-| Python | CPython 3.9 through 3.13; the detector is standard library only |
+| Python | CPython 3.9 through 3.13 |
 | Operating systems | macOS and Linux target |
 | Clients | Codex CLI 0.149.0, Claude Code 2.1.251, and GitHub Copilot CLI 1.0.80 locally inspected |
 | Hook feature | Codex `hooks stable true`; Claude Code generated settings accepted by `claude doctor`; Copilot `userPromptTransformed` documented and locally present |
@@ -50,10 +50,10 @@ The span assertions are load-bearing rather than decorative. Introducing a
 one-character error in `normalize.py`'s span mapping fails 3 cases under the old
 category-set definition and 12 under this one.
 
-The detector is first-party and standard library only. `presidio-analyzer`,
-its spaCy pipeline and `tldextract` were removed; the eleven recognizers, the
-checksums and the public suffix table are compiled in. `phonenumbers` is the
-only third-party module the hook path imports, and a test asserts that.
+The detector is first-party and offline. `presidio-analyzer`, its spaCy pipeline
+and `tldextract` were removed; the eleven recognizers, the checksums and the
+public suffix table are compiled in. `phonenumbers` is the only third-party
+module the hook path imports, and a test asserts that.
 
 Byte-for-byte identical detection across that change is proved by
 `tests/corpus/parity-v1.json`: 475 generated adversarial cases recording the

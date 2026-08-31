@@ -124,8 +124,9 @@ Retention is enforced when a record is written. Turning the ledger off stops
 new records but does not expire the ones already kept; `shim ledger purge`
 does that at once.
 
-Nothing here is ever transmitted. There is no telemetry, no account, and no
-network call anywhere in shim.
+These records are never transmitted. The hook and detector add no network
+destination, account, API key, or telemetry. The opt-in `shim watch` proxy
+forwards only to the provider the client already uses.
 
 ### When shim cannot inspect something
 

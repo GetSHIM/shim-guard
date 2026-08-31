@@ -63,7 +63,7 @@ def _tracked() -> list[str]:
         timeout=120,
     )
     if result.returncode != 0:
-        pytest.skip("not a git checkout")
+        pytest.skip("not a git checkout", allow_module_level=True)
     return [line for line in result.stdout.decode().splitlines() if line]
 
 
