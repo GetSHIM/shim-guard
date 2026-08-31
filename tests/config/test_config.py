@@ -3,13 +3,13 @@ from pathlib import Path
 import pytest
 
 from shim_guard.config import (
-    DEFAULT_ENTITIES,
     config_path,
     load_entities,
     load_policy,
     parse_settings,
     render_entities,
 )
+from shim_guard.guard import DEFAULT_ENTITIES
 
 
 def test_entity_settings_default_preset_and_round_trip_a_selection(

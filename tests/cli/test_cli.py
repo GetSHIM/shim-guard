@@ -17,8 +17,9 @@ from shim_guard import __version__
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
-from shim_guard.config import DEFAULT_ENTITIES, load_policy
+from shim_guard.config import load_policy
 from shim_guard.events.diet import DEFAULT_TRANSFORMS
+from shim_guard.guard import DEFAULT_ENTITIES
 
 runner = CliRunner()
 

@@ -45,6 +45,7 @@ INCLUDED = (
     "events/registry.py",
     "guard/__init__.py",
     "guard/analyze.py",
+    "guard/entities.py",
     "guard/evaluate.py",
     "guard/iban_patterns.py",
     "guard/models.py",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from shim_guard.config import ENTITY_TYPES
+from .entities import ENTITY_TYPES
 
 _ENTITY_TYPES = frozenset(ENTITY_TYPES)
 

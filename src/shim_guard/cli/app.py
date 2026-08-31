@@ -14,7 +14,7 @@ from typing import Annotated, Optional
 import typer
 
 from shim_guard import __version__
-from shim_guard.config import ENTITY_TYPES
+from shim_guard.guard import ENTITY_TYPES
 
 
 class _StringEnum(str, Enum):

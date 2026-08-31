@@ -1,4 +1,4 @@
-"""Local SHIM Guard entity policy."""
+"""Local SHIM Guard settings."""
 
 from __future__ import annotations
 
@@ -7,25 +7,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from shim_guard.guard import entities as entity_catalog
+
 try:  # pragma: no cover - exercised by whichever interpreter runs the tests
     import tomllib  # ty: ignore[unresolved-import]
 except ModuleNotFoundError:  # Python < 3.11
     import tomli as tomllib
 
-ENTITY_TYPES = (
-    "EMAIL",
-    "PHONE",
-    "CREDIT_CARD",
-    "IBAN",
-    "IP_ADDRESS",
-    "MAC_ADDRESS",
-    "US_SSN",
-    "TR_NATIONAL_ID",
-    "TR_VKN",
-    "SECRET",
-    "DB_URI",
-)
-DEFAULT_ENTITIES = ENTITY_TYPES
 MAX_CONFIG_BYTES = 16_384
 
 
@@ -56,20 +44,6 @@ def _validated_path(path: Path) -> Path:
     return target
 
 
-def normalize_entities(entities: Iterable[object]) -> tuple[str, ...]:
-    """Validate and return entities in the public display order."""
-    values = tuple(entities)
-    if any(not isinstance(value, str) for value in values):
-        raise ValueError("entity names must be strings")
-    selected = set(values)
-    if len(values) != len(selected):
-        raise ValueError("entity names must not be repeated")
-    unknown = selected.difference(ENTITY_TYPES)
-    if unknown:
-        raise ValueError("unsupported entity name")
-    return tuple(entity for entity in ENTITY_TYPES if entity in selected)
-
-
 def render_settings(
     entities: Iterable[str],
     modes: dict | None = None,
@@ -86,7 +60,9 @@ def render_settings(
     """
     import tomli_w
 
-    document: dict = {"enabled_entities": list(normalize_entities(entities))}
+    document: dict = {
+        "enabled_entities": list(entity_catalog.normalize_entities(entities))
+    }
     if ledger:
         document["ledger"] = True
     if diet is not None:
@@ -174,7 +150,7 @@ def _tool_entities(document: dict) -> dict:
     for key, value in section.items():
         if not isinstance(value, list):
             raise ValueError("SHIM Guard settings are invalid")
-        scoped[key] = normalize_entities(value)
+        scoped[key] = entity_catalog.normalize_entities(value)
     return scoped
 
 
@@ -212,7 +188,7 @@ def parse_settings(text: str) -> dict:
         raise ValueError("SHIM Guard settings are invalid") from error
     if not set(document) <= _TOP_LEVEL:
         raise ValueError("SHIM Guard settings are invalid")
-    enabled = document.get("enabled_entities", list(DEFAULT_ENTITIES))
+    enabled = document.get("enabled_entities", list(entity_catalog.DEFAULT_ENTITIES))
     if not isinstance(enabled, list):
         raise ValueError("SHIM Guard settings are invalid")
     ledger = document.get("ledger", False)
@@ -239,7 +215,9 @@ def load_policy(path: Path | None = None) -> Policy:
         # config file at all.
         from shim_guard.events.diet import DEFAULT_TRANSFORMS
 
-        return Policy(DEFAULT_ENTITIES, {}, {}, False, DEFAULT_TRANSFORMS)
+        return Policy(
+            entity_catalog.DEFAULT_ENTITIES, {}, {}, False, DEFAULT_TRANSFORMS
+        )
     if state.kind is not StateKind.FILE or state.content is None:
         raise ValueError("SHIM Guard settings cannot be read safely")
     try:
@@ -248,7 +226,7 @@ def load_policy(path: Path | None = None) -> Policy:
         raise ValueError("SHIM Guard settings are invalid") from error
     try:
         return Policy(
-            normalize_entities(document["enabled_entities"]),
+            entity_catalog.normalize_entities(document["enabled_entities"]),
             document["mode"],
             document["entities"],
             document["ledger"],
@@ -265,11 +243,11 @@ def load_entities(path: Path | None = None) -> tuple[str, ...]:
 
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:
-        return DEFAULT_ENTITIES
+        return entity_catalog.DEFAULT_ENTITIES
     if state.kind is not StateKind.FILE or state.content is None:
         raise ValueError("SHIM Guard settings cannot be read safely")
     try:
         document = parse_settings(state.content.decode("utf-8"))
-        return normalize_entities(document["enabled_entities"])
+        return entity_catalog.normalize_entities(document["enabled_entities"])
     except (UnicodeDecodeError, RecursionError, ValueError) as error:
         raise ValueError("SHIM Guard settings are invalid") from error

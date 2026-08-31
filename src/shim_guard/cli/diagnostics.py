@@ -146,7 +146,8 @@ def _hook_state(client: str) -> Check:
 
 
 def _entity_settings() -> Check:
-    from shim_guard.config import ENTITY_TYPES, load_entities
+    from shim_guard.config import load_entities
+    from shim_guard.guard import ENTITY_TYPES
 
     try:
         enabled = load_entities()

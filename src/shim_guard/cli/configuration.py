@@ -11,15 +11,13 @@ from rich.text import Text
 
 from shim_guard.cli.output import console, emit, emit_json
 from shim_guard.config import (
-    DEFAULT_ENTITIES,
-    ENTITY_TYPES,
     MAX_CONFIG_BYTES,
     config_path,
     load_policy,
-    normalize_entities,
     render_settings,
 )
 from shim_guard.events.diet import DEFAULT_TRANSFORMS
+from shim_guard.guard import DEFAULT_ENTITIES, ENTITY_TYPES, normalize_entities
 from shim_guard.installation import (
     InstallationError,
     apply,

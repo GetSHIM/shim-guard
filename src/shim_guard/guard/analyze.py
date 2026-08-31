@@ -8,8 +8,7 @@ import threading
 import time
 from collections.abc import Iterable, Iterator
 
-from shim_guard.config import ENTITY_TYPES, normalize_entities
-
+from .entities import ENTITY_TYPES, normalize_entities
 from .models import Finding
 from .normalize import normalize
 from .recognizers import ENTITY_MAP, Match, analyze_text
