@@ -5,7 +5,7 @@ is written down. "In memory" is the user-facing promise and this is how it is
 kept — a file under the OS temporary directory, owned by the user, readable by
 nobody else, deleted when the session ends.
 
-There is exactly one rule about its contents, inherited from ``events.record``:
+There is exactly one rule about its contents, inherited from ``session.record``:
 no entry ever carries payload text. Entity names and counts, yes; the value
 that produced them, never. ``tests/session`` asserts it by scanning a recorded
 session for the secrets it injected.

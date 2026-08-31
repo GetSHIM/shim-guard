@@ -15,7 +15,6 @@ import pytest
 from shim_guard.events import payload
 from shim_guard.events.diet import DEFAULT_TRANSFORMS, JSON_COMPACTION
 from shim_guard.events.pipeline import process
-from shim_guard.events.record import MAX_DISPLAY_LABEL_CHARS
 from shim_guard.events.registry import ADAPTERS, INSTALLED, coverage
 from shim_guard.guard import evaluate
 from shim_guard.policy import (
@@ -31,6 +30,7 @@ from shim_guard.policy import (
     REPORT,
     WARN,
 )
+from shim_guard.session.record import MAX_DISPLAY_LABEL_CHARS
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "probe" / "claude"
 

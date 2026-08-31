@@ -11,10 +11,15 @@ import json
 from dataclasses import dataclass
 
 from shim_guard.policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
+from shim_guard.session.record import (
+    NOT_INSPECTED,
+    UNKNOWN_TOOL_LABEL,
+    Record,
+    display_label,
+)
 
 from .adapters import summary
 from .payload import PayloadTooLarge, inspect
-from .record import NOT_INSPECTED, UNKNOWN_TOOL_LABEL, Record, display_label
 from .registry import TOOL_KEY, adapter
 
 

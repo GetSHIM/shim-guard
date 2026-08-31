@@ -210,8 +210,8 @@ def test_a_configured_directory_that_is_not_a_plain_path_is_refused(
 
 def test_the_largest_record_this_code_can_produce_fits_the_entry_cap() -> None:
     """The cap exists to keep concurrent appends atomic, so it must not bite."""
-    from shim_guard.events.record import Record
     from shim_guard.guard import ENTITY_TYPES
+    from shim_guard.session.record import Record
 
     worst = Record(
         client="claude",

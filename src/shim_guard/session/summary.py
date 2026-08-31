@@ -121,7 +121,7 @@ def _carrying(records: list, marker: str) -> list:
 
 def _uninspected(records: list) -> list:
     """Return events shim let through without looking at them."""
-    from shim_guard.events.record import NOT_INSPECTED
+    from .record import NOT_INSPECTED
 
     return [
         record

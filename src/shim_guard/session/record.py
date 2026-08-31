@@ -1,4 +1,4 @@
-"""What one decision is worth remembering, and nothing more.
+"""What one session decision is worth remembering, and nothing more.
 
 PRD-06 turns these into a session summary and PRD-07 adds byte deltas for the
 context diet, so the shape is fixed here and used by both. There is exactly one
@@ -8,7 +8,7 @@ counts, yes; the value that produced them, never.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 #: Prefix on the note of any event shim let through without looking at it —
 #: too large to scan, or an analysis that failed. The summary keys on this,
@@ -54,7 +54,7 @@ class Record:
     #: Markers only ever report: nothing here can cause a rewrite.
     transforms: tuple = ()
     markers: tuple = ()
-    note: str = field(default="")
+    note: str = ""
 
     def as_dict(self) -> dict:
         return {
@@ -74,3 +74,43 @@ class Record:
             "markers": list(self.markers),
             "note": self.note,
         }
+
+
+def _timestamp() -> str:
+    import datetime
+
+    return (
+        datetime.datetime.now(datetime.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def remember(
+    session_id: str, record: Record, latency_ms: int, ledger: bool = False
+) -> None:
+    """Spool one decision. A recording failure must never fail the guard."""
+    if not session_id:
+        return
+    try:
+        entry = record.as_dict()
+        entry["session_id"] = session_id
+        entry["latency_ms"] = latency_ms
+        entry["ts"] = _timestamp()
+    except Exception:
+        return
+    try:
+        from . import spool
+
+        spool.append(session_id, entry)
+    except Exception:
+        pass
+    if not ledger:
+        return
+    try:
+        from . import ledger as store
+
+        store.append(entry)
+    except Exception:
+        pass

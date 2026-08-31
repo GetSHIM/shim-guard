@@ -131,8 +131,8 @@ def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) ->
     """
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
     from shim_guard import hook
-    from shim_guard.events.record import NOT_INSPECTED
     from shim_guard.session import spool
+    from shim_guard.session.record import NOT_INSPECTED
 
     def explode(*_args, **_kwargs):
         raise ValueError("Guard analysis exceeded the safe finding limit.")
@@ -195,8 +195,8 @@ def test_uninspected_records_never_keep_raw_event_or_tool_labels(
 
 def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
-    from shim_guard.events.record import NOT_INSPECTED
     from shim_guard.session import spool, summary
+    from shim_guard.session.record import NOT_INSPECTED
 
     spool.append(
         "dense",

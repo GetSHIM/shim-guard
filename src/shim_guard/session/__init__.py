@@ -8,7 +8,9 @@ is why they are named here rather than only inside the hook.
 
 from __future__ import annotations
 
+from .record import remember
+
 #: Claude Code's session lifecycle events, in the order they are installed.
 SESSION_EVENTS = ("SessionEnd", "Stop")
 
-__all__ = ["SESSION_EVENTS"]
+__all__ = ["SESSION_EVENTS", "remember"]

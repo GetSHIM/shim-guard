@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from shim_guard.session import ledger
+from shim_guard.session import ledger, remember
 
 JANUARY = datetime.datetime(2026, 1, 15, tzinfo=datetime.timezone.utc)
 FEBRUARY = datetime.datetime(2026, 2, 15, tzinfo=datetime.timezone.utc)
@@ -167,12 +167,12 @@ def test_a_symlinked_month_is_not_followed(tmp_path: Path) -> None:
     assert target.read_text() == ""
 
 
-def test_the_hook_writes_nothing_here_unless_the_policy_says_so(
+def test_remember_writes_nothing_to_the_ledger_unless_policy_says_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Off by default is the whole promise; this is where it is kept."""
-    from shim_guard import hook
-    from shim_guard.events.record import Record
+    from shim_guard.session import spool
+    from shim_guard.session.record import Record
 
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
     record = Record(
@@ -185,11 +185,18 @@ def test_the_hook_writes_nothing_here_unless_the_policy_says_so(
         entities=(("SECRET", 1),),
     )
 
-    hook._remember("session", record, 5, ledger=False)
+    remember("session", record, 5, ledger=False)
     assert ledger.files() == []
 
-    hook._remember("session", record, 5, ledger=True)
+    def fail_spool(*_args, **_kwargs):
+        raise spool.SpoolError("synthetic spool failure")
+
+    monkeypatch.setattr(spool, "append", fail_spool)
+    remember("session", record, 5, ledger=True)
     assert len(ledger.files()) == 1
     written = json.loads(ledger.files()[0].read_text().splitlines()[0])
     assert written["entities"] == {"SECRET": 1}
     assert written["session_id"] == "session"
+    assert written["latency_ms"] == 5
+    assert len(written["ts"]) == len("2026-08-29T14:51:06Z")
+    assert written["ts"].endswith("Z")

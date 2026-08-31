@@ -255,47 +255,9 @@ def _elapsed_ms() -> int:
     return max(0, round((time.perf_counter() - _STARTED) * 1000))
 
 
-def _remember(session_id: str, record, latency_ms: int, ledger: bool = False) -> None:
-    """Spool one decision. A recording failure must never fail the guard."""
-    if not session_id:
-        return
-    try:
-        entry = record.as_dict()
-        entry["session_id"] = session_id
-        entry["latency_ms"] = latency_ms
-        entry["ts"] = _timestamp()
-    except Exception:
-        return
-    try:
-        from shim_guard.session import spool
-
-        spool.append(session_id, entry)
-    except Exception:
-        pass
-    if not ledger:
-        return
-    try:
-        from shim_guard.session import ledger as store
-
-        store.append(entry)
-    except Exception:
-        return
-
-
-def _timestamp() -> str:
-    import datetime
-
-    return (
-        datetime.datetime.now(datetime.timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
-
-
 def _prompt_record(client, event, mode, action, decision, prompt):
     """Return the record for a prompt decision, carrying no prompt text."""
-    from shim_guard.events.record import Record
+    from shim_guard.session.record import Record
 
     return Record(
         client=client,
@@ -367,7 +329,8 @@ def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
     try:
         import json
 
-        from shim_guard.events.record import (
+        from shim_guard.session import remember
+        from shim_guard.session.record import (
             NOT_INSPECTED,
             UNKNOWN_TOOL_LABEL,
             UNSUPPORTED_EVENT_LABEL,
@@ -385,7 +348,7 @@ def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
         except Exception:
             pass
         event_label = event if event in _TOOL_EVENT_NAMES else UNSUPPORTED_EVENT_LABEL
-        _remember(
+        remember(
             session_id,
             Record(
                 client=client,
@@ -417,6 +380,7 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
     from shim_guard.config import load_policy
     from shim_guard.events.pipeline import process
     from shim_guard.guard import evaluate
+    from shim_guard.session import remember
 
     policy = load_policy()
 
@@ -427,7 +391,7 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
         return policy.entities_for(tool, event)
 
     outcome = process(client, raw, mode_for, evaluate, policy.diet, entities_for)
-    _remember(session_id, outcome.record, _elapsed_ms(), policy.ledger)
+    remember(session_id, outcome.record, _elapsed_ms(), policy.ledger)
     return outcome.output
 
 
@@ -477,6 +441,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                 prompt = parse_input(raw)
                 from shim_guard.config import load_policy
                 from shim_guard.guard import evaluate
+                from shim_guard.session import remember
 
                 policy = load_policy()
                 decision = evaluate(prompt, policy.entities)
@@ -492,7 +457,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                         )
                     except Exception:
                         return
-                    _remember(session_id, record, _elapsed_ms(), policy.ledger)
+                    remember(session_id, record, _elapsed_ms(), policy.ledger)
 
                 if not decision.blocked or client == "copilot":
                     # Copilot is the one client that can rewrite a submitted
