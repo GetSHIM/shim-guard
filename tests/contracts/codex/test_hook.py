@@ -215,6 +215,7 @@ import os
 import sys
 import types
 import warnings
+import shim_guard.guard as guard
 from shim_guard import hook as runner
 
 clients = types.ModuleType("shim_guard.clients")
@@ -222,7 +223,6 @@ clients.__path__ = []
 codex = types.ModuleType("shim_guard.clients.codex")
 codex.__path__ = []
 adapter = types.ModuleType("shim_guard.clients.codex.hook")
-guard = types.ModuleType("shim_guard.guard")
 
 def noisy(label):
     secret = os.environ["SHIM_TEST_SECRET"]
@@ -253,7 +253,6 @@ sys.modules.update({
     "shim_guard.clients": clients,
     "shim_guard.clients.codex": codex,
     "shim_guard.clients.codex.hook": adapter,
-    "shim_guard.guard": guard,
 })
 runner.main()
 """
