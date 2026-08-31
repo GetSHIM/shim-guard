@@ -7,7 +7,6 @@ identifier that never becomes a path.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import stat
@@ -53,7 +52,8 @@ def test_the_session_identifier_never_becomes_a_file_name() -> None:
     spool.append(SESSION, _entry())
 
     names = [path.name for path in spool.root_path().iterdir()]
-    assert names == [f"{hashlib.sha256(SESSION.encode()).hexdigest()[:32]}.jsonl"]
+    assert names == [f"{spool.session_key(SESSION)}.jsonl"]
+    assert len(spool.session_key(SESSION)) == 32
     assert SESSION not in names[0]
 
 
@@ -104,7 +104,7 @@ def test_a_symlinked_spool_is_not_followed(tmp_path: Path) -> None:
     root.mkdir(mode=0o700, parents=True)
     target = tmp_path / "stolen.jsonl"
     target.write_text("", encoding="utf-8")
-    name = f"{hashlib.sha256(SESSION.encode()).hexdigest()[:32]}.jsonl"
+    name = f"{spool.session_key(SESSION)}.jsonl"
     (root / name).symlink_to(target)
 
     with pytest.raises(spool.SpoolError):
@@ -188,7 +188,7 @@ def test_newest_finds_the_most_recently_written_session() -> None:
     spool.append(SESSION, _entry())
 
     stem = spool.newest()
-    assert stem == hashlib.sha256(SESSION.encode()).hexdigest()[:32]
+    assert stem == spool.session_key(SESSION)
     assert spool.entries_for_stem(stem) == [_entry()]
 
 
@@ -224,12 +224,15 @@ def test_the_largest_record_this_code_can_produce_fits_the_entry_cap() -> None:
         target="x" * 121,
         in_bytes=10**9,
         out_bytes=10**9,
-        degraded_from="mask",
         fields=99999,
         note="payload exceeds the traversal bound of 1000000 bytes",
     )
     entry = worst.as_dict()
-    entry.update(session_id="s" * 64, latency_ms=99999, ts="2026-08-29T14:51:06Z")
+    entry.update(
+        session_id=spool.session_key("s" * 10_000),
+        latency_ms=99999,
+        ts="2026-08-29T14:51:06Z",
+    )
 
     assert spool.append(SESSION, entry) is True
     assert len(json.dumps(entry, ensure_ascii=False, sort_keys=True)) < (

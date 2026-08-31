@@ -696,14 +696,14 @@ def test_a_single_transform_can_be_named_in_the_config_file(
     target = _guard_config(monkeypatch, tmp_path)
     target.parent.mkdir()
     target.write_text(
-        'enabled_entities = ["EMAIL"]\ndiet = ["json"]\n', encoding="utf-8"
+        'enabled_entities = ["EMAIL"]\ndiet = ["whitespace"]\n', encoding="utf-8"
     )
 
-    assert load_policy(target).diet == ("json",)
+    assert load_policy(target).diet == ("whitespace",)
 
-    # An unrelated entity edit must not silently widen it back to both.
+    # An unrelated entity edit must not silently replace the explicit choice.
     assert runner.invoke(app, ["config", "--enable", "SECRET", "--yes"]).exit_code == 0
-    assert load_policy(target).diet == ("json",)
+    assert load_policy(target).diet == ("whitespace",)
 
 
 def test_report_reads_the_ledger_once_the_session_has_ended(tmp_path: Path) -> None:

@@ -21,30 +21,30 @@ from shim_guard.session.record import (
 
 from .payload import PayloadTooLarge, inspect
 
-TOOL_KEY = "tool_name"
-
 
 @dataclass(frozen=True)
-class Capabilities:
-    """What a client can do at one native event."""
+class Event:
+    """One client-native event reduced to the facts shared policy uses."""
 
-    __slots__ = ("can_rewrite", "can_report")
+    __slots__ = ("tool", "payload", "target", "views_file")
 
-    can_rewrite: bool
-    can_report: bool
+    tool: str
+    payload: object
+    target: str
+    views_file: bool
 
 
 @dataclass(frozen=True)
 class Adapter:
     """The client-owned facts the shared pipeline needs for one event."""
 
-    __slots__ = ("client", "event", "root", "capabilities", "encode")
+    __slots__ = ("client", "event", "root", "decode", "encode")
 
     client: str
     event: str
     root: str
-    capabilities: Capabilities
-    encode: Callable[[str, dict, str], bytes]
+    decode: Callable[[bytes], Event]
+    encode: Callable[[str, object, str], bytes]
 
 
 @dataclass(frozen=True)
@@ -70,25 +70,13 @@ def _summary(counts) -> str:
     return ", ".join(f"{entity} ({count})" for entity, count in counts)
 
 
-#: Input keys naming *what* a tool acted on. `command` is deliberately absent:
-#: a shell string is the payload of an executable-text event, not a target, and
-#: the probe corpus contains one holding a live credential.
-TARGET_KEYS = ("file_path", "notebook_path", "path", "url")
-#: The subset of those that name a file on the user's own disk. A result that
-#: is a *view of a file* has to reach the model byte for byte, because the model
-#: reproduces those bytes to edit it: `Edit` matches `old_string` against what
-#: is on disk, not against what it was shown. Compacting a pretty-printed
-#: `settings.json` on the way in makes the next `Edit` miss — observed against
-#: Claude Code 2.1.251, which then spent three `Bash` calls working out why. A
-#: `url` is not in this set: nothing edits a fetched page by byte match.
-FILE_VIEW_KEYS = ("file_path", "notebook_path", "path")
 MAX_TARGET_CHARS = 120
 #: Bound on what the detector is asked to scan for a target. A path this long
 #: is already pathological; the cost is bounded rather than the value trusted.
 MAX_TARGET_SCAN_CHARS = 512
 
 
-def _target(document: dict, evaluate) -> str:
+def _target(value: str, evaluate) -> str:
     """Return the scrubbed file or URL a tool acted on, or ``""``.
 
     A path can itself carry a secret, so it goes through the detector like any
@@ -99,28 +87,14 @@ def _target(document: dict, evaluate) -> str:
     truncation — which is how every file in one project came to be reported
     under the name of the directory above it.
     """
-    body = document.get("tool_input")
-    if not isinstance(body, dict):
+    if not value:
         return ""
-    for key in TARGET_KEYS:
-        value = body.get(key)
-        if not isinstance(value, str) or not value:
-            continue
-        scanned = value[-MAX_TARGET_SCAN_CHARS:]
-        decision = evaluate(scanned)
-        text = _printable(decision.redacted_text if decision.counts else scanned)
-        if len(text) <= MAX_TARGET_CHARS:
-            return text
-        return "…" + text[-MAX_TARGET_CHARS:]
-    return ""
-
-
-def _views_a_file(document: dict) -> bool:
-    """Return whether this event's result is a view of a file on disk."""
-    body = document.get("tool_input")
-    if not isinstance(body, dict):
-        return False
-    return any(isinstance(body.get(key), str) and body[key] for key in FILE_VIEW_KEYS)
+    scanned = value[-MAX_TARGET_SCAN_CHARS:]
+    decision = evaluate(scanned)
+    text = _printable(decision.redacted_text if decision.counts else scanned)
+    if len(text) <= MAX_TARGET_CHARS:
+        return text
+    return "…" + text[-MAX_TARGET_CHARS:]
 
 
 def _printable(text: str) -> str:
@@ -156,38 +130,32 @@ def process(
     ``mode_for(direction, tool)`` supplies the configured mode and ``diet`` the
     enabled transforms, so policy stays injectable and this function stays pure.
     ``entities_for(tool, event)`` narrows what is looked for on this one tool;
-    without it every enabled entity is scanned, which is the default.
+    without it every enabled entity is scanned, which is the default. The
+    adapter owns validation and reduction of the native event shape.
     """
-    document = json.loads(raw.decode("utf-8"))
-    if not isinstance(document, dict):
-        raise ValueError("hook payload must be an object")
-    event = document.get("hook_event_name")
-    if not isinstance(event, str):
-        raise ValueError("hook payload has no event name")
-    if event != entry.event:
-        raise ValueError("adapter does not match hook event")
-    tool = document.get(TOOL_KEY) or ""
-    if not isinstance(tool, str):
-        raise ValueError("tool name must be text")
+    event = entry.decode(raw)
+    tool = event.tool
 
-    direction = direction_for(event, tool)
+    direction = direction_for(entry.event, tool)
     mode = mode_for(direction, tool)
-    target = _target(document, evaluate)
+    target = _target(event.target, evaluate)
+    tool_label = display_label(tool, UNKNOWN_TOOL_LABEL)
+    if tool_label != UNKNOWN_TOOL_LABEL:
+        decision = evaluate(tool_label)
+        if decision.counts:
+            tool_label = display_label(decision.redacted_text, UNKNOWN_TOOL_LABEL)
     if entities_for is not None:
-        scoped = entities_for(tool, event)
+        scoped = entities_for(tool, entry.event)
         original = evaluate
 
         def evaluate(text, _entities=scoped):  # noqa: F811 - scoped rebind
             return original(text, _entities)
 
-    body = document.get(entry.root)
+    body = event.payload
     in_bytes = _size(body) if body else 0
-
-    tool_label = display_label(tool, UNKNOWN_TOOL_LABEL)
 
     def record(
         action,
-        decision,
         counts=(),
         out_bytes=0,
         fields=0,
@@ -206,7 +174,6 @@ def process(
             entities=counts,
             in_bytes=in_bytes,
             out_bytes=out_bytes,
-            degraded_from=decision.degraded_from if decision else "",
             fields=fields,
             note=note,
             transforms=transforms,
@@ -214,28 +181,28 @@ def process(
         )
 
     if body is None:
-        return Outcome(b"", record(ALLOW, None, note="no payload at this key"))
+        return Outcome(b"", record(ALLOW, note="no payload at this key"))
 
     # Diet and injection markers are inbound-only. Rewriting an outbound tool
     # argument to make it smaller changes what the model asked a tool to do,
     # and `observe` means look without touching, so neither applies there.
     # Diet additionally stops at anything that shows the model a file, because
     # the model has to be able to quote those bytes back to edit them.
-    inbound = direction == INBOUND and entry.capabilities.can_rewrite
-    shrinkable = inbound and mode != OBSERVE and not _views_a_file(document)
+    inbound = direction == INBOUND
+    shrinkable = inbound and mode != OBSERVE and not event.views_file
     transforms = diet if shrinkable else ()
     try:
         result = inspect(body, evaluate, transforms, scan_markers=inbound)
     except PayloadTooLarge as error:
         # Over a bound the payload is not partially scanned; the event is
         # observed instead, and the reason is recorded rather than swallowed.
-        return Outcome(b"", record(ALLOW, None, note=f"{NOT_INSPECTED}: {error}"))
+        return Outcome(b"", record(ALLOW, note=f"{NOT_INSPECTED}: {error}"))
 
     rewritten, findings, changed = result.value, result.findings, result.changed
 
     if not findings:
         if not changed:
-            return Outcome(b"", record(ALLOW, None, fields=0, markers=result.markers))
+            return Outcome(b"", record(ALLOW, fields=0, markers=result.markers))
         # Nothing sensitive, but the result got smaller. The policy action is
         # still `allow` — diet is not a decision about sensitive data — while
         # the wire needs the shape that carries a replacement payload.
@@ -243,7 +210,6 @@ def process(
             entry.encode(MASK, rewritten, ""),
             record(
                 ALLOW,
-                None,
                 out_bytes=_size(rewritten),
                 transforms=result.transforms,
                 markers=result.markers,
@@ -251,31 +217,25 @@ def process(
         )
 
     counts = _counts(findings)
-    decision = decide(
-        direction,
-        mode,
-        can_rewrite=entry.capabilities.can_rewrite,
-        can_report=entry.capabilities.can_report,
-    )
-    if decision.action == ALLOW:
-        return Outcome(b"", record(ALLOW, decision, counts, fields=len(findings)))
+    action = decide(direction, mode)
+    if action == ALLOW:
+        return Outcome(b"", record(ALLOW, counts, fields=len(findings)))
 
-    message = _message(direction, tool_label, counts, decision.action)
-    emitted = rewritten if decision.action == MASK and changed else body
-    output = entry.encode(decision.action, emitted, message)
-    out_bytes = _size(emitted) if decision.action == MASK else in_bytes
+    message = _message(direction, tool_label, counts, action)
+    emitted = rewritten if action == MASK and changed else body
+    output = entry.encode(action, emitted, message)
+    out_bytes = _size(emitted) if action == MASK else in_bytes
     return Outcome(
         output,
         record(
-            decision.action,
-            decision,
+            action,
             counts,
             out_bytes=out_bytes,
             fields=len(findings),
-            transforms=result.transforms if decision.action == MASK else (),
+            transforms=result.transforms if action == MASK else (),
             markers=result.markers,
         ),
     )
 
 
-__all__ = ["Adapter", "Capabilities", "Outcome", "process"]
+__all__ = ["Adapter", "Event", "Outcome", "process"]

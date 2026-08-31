@@ -342,12 +342,24 @@ def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
         except Exception:
             pass
         event_label = event if event in _TOOL_EVENT_NAMES else UNSUPPORTED_EVENT_LABEL
+        tool_label = display_label(tool, UNKNOWN_TOOL_LABEL)
+        if tool_label != UNKNOWN_TOOL_LABEL:
+            try:
+                from shim_guard.guard import evaluate
+
+                decision = evaluate(tool_label)
+                if decision.counts:
+                    tool_label = display_label(
+                        decision.redacted_text, UNKNOWN_TOOL_LABEL
+                    )
+            except Exception:
+                tool_label = UNKNOWN_TOOL_LABEL
         remember(
             session_id,
             Record(
                 client=client,
                 event=event_label,
-                tool_name=display_label(tool, UNKNOWN_TOOL_LABEL),
+                tool_name=tool_label,
                 direction="",
                 mode="",
                 action="report",
@@ -462,21 +474,23 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                         return
                     remember(session_id, record, _elapsed_ms(), policy.ledger)
 
-                if not decision.blocked or client == "copilot":
-                    # Copilot is the one client that can rewrite a submitted
-                    # prompt, so there it is a mask rather than a warning.
-                    keep("mask" if decision.blocked else "allow")
-                    return (
-                        warn_output(decision)
-                        if client == "copilot"
-                        else block_output(decision)
-                    )
+                if not decision.blocked:
+                    keep("allow")
+                    return b""
+                if mode == "observe":
+                    keep("allow")
+                    return b""
+                if client == "copilot":
+                    # Copilot can rewrite the model-facing prompt, so its
+                    # default warning is a mask rather than a silent report.
+                    keep("mask")
+                    return warn_output(decision)
                 if mode != "enforce":
                     # The shipped default. Refusing a sentence someone just
                     # typed is the most disruptive thing this product can do,
                     # and no client offers a prompt-rewrite field.
-                    keep("allow" if mode == "observe" else "report")
-                    return b"" if mode == "observe" else warn_output(decision)
+                    keep("report")
+                    return warn_output(decision)
                 suggestion_path = _write_redacted_prompt(decision.redacted_text)
                 try:
                     output = block_output(decision, suggestion_path)

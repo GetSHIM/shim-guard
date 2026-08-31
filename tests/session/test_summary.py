@@ -139,6 +139,24 @@ def test_one_unreadable_record_does_not_hide_a_readable_one() -> None:
     assert text.startswith("shim — this session")
 
 
+def test_malformed_source_fields_do_not_hide_or_leak_readable_records() -> None:
+    records = [
+        _record(
+            event=["LEAK"],
+            tool_name=["LEAK"],
+            target={"LEAK": True},
+        ),
+        _record(entities={"EMAIL": 1}),
+    ]
+
+    text = summary.render(records)
+    document = summary.as_json(records)
+
+    assert "1 EMAIL" in text
+    assert document["actions"]["mask"]["sources"] == ["Read .env"]
+    assert "LEAK" not in text + json.dumps(document)
+
+
 def _flagged(**changes: object) -> dict:
     defaults: dict = {
         "action": "allow",

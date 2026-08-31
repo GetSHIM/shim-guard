@@ -76,12 +76,13 @@ can never be a way to smuggle a credential past.
 ## What is recorded
 
 shim keeps a record of what it did, so that a tool which is silent when it
-succeeds can still show its work. The rule for its contents is absolute: **no
-entry ever holds payload text.** Entity names and counts, yes; the value that
-produced them, never. A file path or URL is kept because it is what makes the
-summary useful, and it is run through the detector first, so a secret inside a
-path is masked there too. A shell command is never kept at all — a command is
-payload, and the probe corpus contains one carrying a live credential.
+succeeds can still show its work. No entry holds prompt text, tool input or
+response bodies, command strings, or detected values. Records keep decisions,
+counts, byte measurements, bounded labels, and a scrubbed file path or URL
+because those are what make the summary useful. A target is run through the
+detector first, so a secret inside a path is masked there too. A shell command
+is never kept at all — the probe corpus contains one carrying a live
+credential.
 
 One entry per decision:
 
@@ -91,6 +92,9 @@ One entry per decision:
  "direction": "inbound", "mode": "enforce", "action": "mask",
  "entities": {"SECRET": 2}, "latency_ms": 7, "in_bytes": 812, "out_bytes": 806}
 ```
+
+The client-supplied session identifier is never stored verbatim. Records and
+spool filenames use the same bounded, SHA-256-derived session key.
 
 ### While a session is open
 
@@ -163,11 +167,10 @@ idempotent, because the provider's prompt cache only hits if the history is
 byte-identical on every request, so a transform that drifts costs money instead
 of saving it.
 
-Two transforms ship, both enabled by default. `json` is lossless. `whitespace`
-is not, and the difference is worth stating plainly: it strips trailing spaces
-and tabs from the end of every line, which is invisible in almost all text but
-removes a Markdown hard line break, since that break *is* two trailing spaces.
-It never changes a line count. `diet = ["json"]` keeps only the lossless one.
+Two transforms ship. Only the lossless `json` transform is enabled by default.
+`whitespace` is opt in because it strips trailing spaces and tabs from every
+line, removing a Markdown hard line break since that break *is* two trailing
+spaces. It never changes a line count.
 
 JSON is compacted by a lexer rather than by parsing and re-serialising:
 re-serialising rewrites number literals (`1.10` becomes `1.1`, a long decimal
@@ -181,8 +184,8 @@ write, and never under `mode = "observe"`. It also stops at any result that is
 a *view of a file*: the model reproduces those bytes to edit the file, and
 `Edit` matches `old_string` against what is on disk rather than against what
 the model was shown, so reshaping a file on the way in makes the next edit of
-it miss. `shim config --no-diet` turns it off; `diet = ["json"]` in the config
-file selects individual transforms.
+it miss. `shim config --no-diet` turns it off. To opt in to whitespace while
+keeping JSON, set `diet = ["json", "whitespace"]`.
 
 shim also flags text in a result that reads as an instruction to the model.
 Invisible-character detection covers the zero-width space, the invisible

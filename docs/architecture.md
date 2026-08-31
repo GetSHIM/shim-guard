@@ -48,7 +48,7 @@ classification and the modes and actions built on it:
 | Owner | Responsibility |
 | --- | --- |
 | `guard/` | Entity catalog, normalization, recognizers, findings, spans, and typed redaction. |
-| `policy.py` | Directions, modes, actions, defaults, `Policy`, `Decision`, classification, and action selection. |
+| `policy.py` | Directions, modes, actions, defaults, `Policy`, classification, and action selection. |
 | `config.py` | Config path, TOML parsing/rendering, validation at file ingress, and loading a `Policy`. |
 | `events/` | Deterministic tool-payload traversal, context diet, injection markers, and the shared tool-event pipeline. |
 | `clients/<client>/` | Native prompt codecs, verified tool codecs, settings fragments, capabilities, and coexistence rules for that client. |
@@ -111,7 +111,9 @@ the hook path. No detector input or lookup is sent over the network.
 may rewrite eligible leaves; injection markers only report and can never reach
 a replacement. Diet runs only on rewrite-capable inbound results outside
 `observe`, and never on a view of a local file whose exact bytes a later edit
-may need.
+may need. Lossless JSON compaction is the default; trailing-whitespace removal
+is available only through explicit configuration because it can change
+Markdown hard breaks.
 
 The detector contracts are `guard-v2.json`, `guard-tools-v1.json`, and
 `parity-v1.json`. The last is generated migration evidence and is never

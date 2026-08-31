@@ -60,49 +60,24 @@ def test_unrewritable_directions_are_never_masked(direction: str) -> None:
     """The single most important rule in the tool policy."""
     assert policy.REWRITABLE[direction] is False
     for mode in (OBSERVE, WARN, ENFORCE):
-        assert decide(direction, mode).action != MASK
+        assert decide(direction, mode) != MASK
 
 
 @pytest.mark.parametrize("direction", (OUTBOUND, INBOUND))
 def test_rewritable_directions_mask_only_under_enforce(direction: str) -> None:
-    assert decide(direction, OBSERVE).action == ALLOW
-    assert decide(direction, WARN).action == REPORT
-    assert decide(direction, ENFORCE).action == MASK
+    assert decide(direction, OBSERVE) == ALLOW
+    assert decide(direction, WARN) == REPORT
+    assert decide(direction, ENFORCE) == MASK
 
 
 @pytest.mark.parametrize("direction", (LOCAL_WRITE, EXECUTABLE_TEXT, USER_PROMPT))
 def test_unrewritable_directions_deny_under_enforce(direction: str) -> None:
-    assert decide(direction, ENFORCE).action == DENY
+    assert decide(direction, ENFORCE) == DENY
 
 
-def test_a_client_that_cannot_rewrite_degrades_and_records_it() -> None:
-    """Codex has no surgical result rewrite; it must warn, not silently pass."""
-    decision = decide(INBOUND, ENFORCE, can_rewrite=False)
-
-    assert decision.action == REPORT
-    assert decision.degraded is True
-    assert decision.degraded_from == MASK
-    assert "rewrite" in decision.reason
-
-
-def test_a_client_that_can_neither_rewrite_nor_report_says_so() -> None:
-    decision = decide(INBOUND, ENFORCE, can_rewrite=False, can_report=False)
-
-    assert (decision.action, decision.degraded_from) == (ALLOW, MASK)
-    assert decision.reason
-
-
-def test_warn_degrades_when_the_client_cannot_show_a_message() -> None:
-    decision = decide(OUTBOUND, WARN, can_report=False)
-
-    assert (decision.action, decision.degraded_from) == (ALLOW, REPORT)
-
-
-def test_observe_never_acts_whatever_the_client_supports() -> None:
+def test_observe_never_acts() -> None:
     for direction in policy.DIRECTIONS:
-        decision = decide(direction, OBSERVE, can_rewrite=True, can_report=True)
-        assert decision.action == ALLOW
-        assert decision.degraded is False
+        assert decide(direction, OBSERVE) == ALLOW
 
 
 def test_unknown_directions_and_modes_are_refused() -> None:

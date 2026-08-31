@@ -205,7 +205,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             try:
                 chunk = upstream.read1(CHUNK_BYTES)
             except Exception:
-                break
+                self.session.failed()
+                exchange.usage = reader.usage
+                self.close_connection = True
+                return
             if not chunk:
                 break
             try:

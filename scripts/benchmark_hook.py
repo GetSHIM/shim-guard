@@ -120,8 +120,11 @@ def benchmark(
     block_samples: list[float] = []
     with tempfile.TemporaryDirectory(prefix="shim-guard-benchmark-") as directory:
         temporary = Path(directory).resolve()
+        config = temporary / "config.toml"
+        config.write_text('[mode]\nuser-prompt = "enforce"\n', encoding="utf-8")
+        config.chmod(0o600)
         environment = os.environ.copy()
-        environment["SHIM_GUARD_CONFIG"] = str(temporary / "config.toml")
+        environment["SHIM_GUARD_CONFIG"] = str(config)
         environment["TMPDIR"] = str(temporary)
         for _ in range(samples_per_fixture):
             safe_samples.append(run_hook(python, SAFE_INPUT, b"", b"", environment))

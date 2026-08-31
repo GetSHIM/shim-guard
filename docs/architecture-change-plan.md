@@ -55,8 +55,8 @@ the process runner and shared event modules:
 Internal module paths were never a promised public API, so the ownership moves
 were direct. No compatibility packages, aliases, dual parsers, or adapter flags
 were added. Existing valid `config.toml` files, native hook envelopes, detector
-output, settings merge/revert semantics, session record shape, and watch
-forwarding behavior remain valid.
+output, settings merge/revert semantics, and watch forwarding behavior remain
+valid.
 
 ## Non-obvious decisions retained
 

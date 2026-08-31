@@ -76,6 +76,16 @@ def test_copilot_runner_rewrites_sensitive_prompts_without_a_file(
     assert not _redaction_files(tmp_path)
 
 
+def test_copilot_observe_mode_does_not_rewrite_the_prompt(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text('[mode]\nuser-prompt = "observe"\n', encoding="utf-8")
+
+    result = _run(_payload("Contact alice@example.com"), tmp_path)
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, b"", b"")
+    assert _redaction_files(tmp_path) == [config]
+
+
 def test_copilot_runner_replaces_invalid_input(tmp_path: Path) -> None:
     result = _run(b'{"prompt":"hello"}', tmp_path)
     assert (result.returncode, result.stdout, result.stderr) == (

@@ -4,8 +4,8 @@ Only the TLS layer is substituted: the upstream here is a real HTTP server on
 loopback and `HTTPSConnection` is swapped for the plaintext class pointed at
 it. Everything the proxy actually has to get right — header selection, chunked
 re-framing, streaming without buffering, incremental gzip decoding — runs for
-real. A live session against `api.anthropic.com` is the other half of this and
-lives in the PRD's acceptance criteria, not in the suite.
+real. Provider interoperability remains an explicit release check because the
+suite must never send user credentials or traffic to a live API.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ import gzip
 import http.client
 import http.server
 import json
+import socket
 import socketserver
 import threading
 import time
@@ -21,7 +22,7 @@ import urllib.request
 
 import pytest
 
-from shim_guard.watch import measure, proxy
+from shim_guard.watch import proxy
 
 MESSAGE_START = (
     b"event: message_start\n"
@@ -286,6 +287,63 @@ def test_the_stream_is_relayed_in_pieces_rather_than_at_the_end(
     assert first_at < total - 0.2, f"first byte at {first_at:.2f}s of {total:.2f}s"
 
 
+def test_a_failed_upstream_read_is_not_framed_as_a_complete_response(
+    monkeypatch,
+) -> None:
+    class Response:
+        status = 200
+        reads = 0
+
+        def getheaders(self):
+            return ()
+
+        def getheader(self, _name):
+            return None
+
+        def read1(self, _size):
+            self.reads += 1
+            if self.reads == 1:
+                return b"partial"
+            raise OSError("upstream stream failed")
+
+    class Connection:
+        def __init__(self, *_args, **_kwargs):
+            self.response = Response()
+
+        def request(self, *_args, **_kwargs):
+            pass
+
+        def getresponse(self):
+            return self.response
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http.client, "HTTPSConnection", Connection)
+    running = proxy.start("api.anthropic.com")
+    try:
+        request = (
+            b"POST /v1/messages HTTP/1.1\r\n"
+            b"Host: api.anthropic.com\r\n"
+            b"Content-Type: application/json\r\n"
+            + f"Content-Length: {len(BODY)}\r\n\r\n".encode()
+            + BODY
+        )
+        with socket.create_connection(("127.0.0.1", running.port), timeout=5) as client:
+            client.sendall(request)
+            response = bytearray()
+            while chunk := client.recv(4096):
+                response.extend(chunk)
+        running.session.drain(5)
+    finally:
+        running.stop()
+
+    _headers, body = bytes(response).split(b"\r\n\r\n", 1)
+    assert body == b"7\r\npartial\r\n"
+    assert running.session.errors == 1
+    assert running.session.exchanges[0].status == 200
+
+
 def test_measurement_failing_never_fails_the_request(watched, monkeypatch) -> None:
     """The forwarding path has no opinions, including about its own numbers."""
     running, upstream = watched
@@ -381,10 +439,6 @@ def test_concurrent_requests_are_all_recorded(watched) -> None:
     running.stop()
 
     assert len(running.session.exchanges) == 8
-
-
-def test_measure_is_reachable_from_the_proxy_module() -> None:
-    assert proxy.inspect_request is measure.inspect_request
 
 
 def test_a_request_still_in_flight_is_counted_before_the_report(

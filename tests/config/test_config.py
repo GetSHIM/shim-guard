@@ -81,7 +81,7 @@ def test_a_version_one_file_is_a_valid_version_two_file() -> None:
         "mode": {},
         "entities": {},
         "ledger": False,
-        "diet": ("json", "whitespace"),
+        "diet": ("json",),
     }
 
 

@@ -30,6 +30,20 @@ ALLOWED_THIRD_PARTY = frozenset({"phonenumbers", "tomli"})
 FORBIDDEN = ("presidio_analyzer", "tldextract", "spacy", "typer", "rich", "click")
 
 SOURCE_ROOT = Path(__file__).parents[2] / "src" / "shim_guard"
+TOP_LEVEL_OWNERS = frozenset(
+    {
+        "cli",
+        "clients",
+        "config",
+        "events",
+        "guard",
+        "hook",
+        "policy",
+        "session",
+        "settings_files",
+        "watch",
+    }
+)
 ALLOWED_INTERNAL_IMPORTS = {
     "cli": (
         "shim_guard.clients",
@@ -128,24 +142,51 @@ def _module_name(path: Path) -> str:
     return ".".join(parts)
 
 
-def _imported_modules(path: Path) -> set[str]:
+def _imported_modules(path: Path) -> set[tuple[str, bool]]:
     module = _module_name(path)
     package = module if path.name == "__init__.py" else module.rpartition(".")[0]
     imported = set()
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+
+    def collect(node: ast.AST, under_type_checking: bool = False) -> None:
         if isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
+            imported.update((alias.name, under_type_checking) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             name = node.module or ""
             if node.level:
                 name = importlib.util.resolve_name("." * node.level + name, package)
             for alias in node.names:
-                imported.add(f"{name}.{alias.name}")
+                imported.add((f"{name}.{alias.name}", under_type_checking))
+
+        if isinstance(node, ast.If) and (
+            isinstance(node.test, ast.Name)
+            and node.test.id == "TYPE_CHECKING"
+            or isinstance(node.test, ast.Attribute)
+            and isinstance(node.test.value, ast.Name)
+            and node.test.value.id == "typing"
+            and node.test.attr == "TYPE_CHECKING"
+        ):
+            for child in node.body:
+                collect(child, True)
+            for child in node.orelse:
+                collect(child, under_type_checking)
+            return
+
+        for child in ast.iter_child_nodes(node):
+            collect(child, under_type_checking)
+
+    collect(ast.parse(path.read_text(encoding="utf-8")))
     return imported
 
 
 def test_internal_imports_follow_the_architecture() -> None:
     paths = tuple(SOURCE_ROOT.rglob("*.py"))
+    actual_owners = set()
+    for path in paths:
+        owner = _module_name(path).split(".")[1:2]
+        if owner:
+            actual_owners.add(owner[0])
+    assert actual_owners == TOP_LEVEL_OWNERS
+
     violations = []
 
     for path in paths:
@@ -155,31 +196,20 @@ def test_internal_imports_follow_the_architecture() -> None:
             continue
         owner_name = owner[0]
         allowed = ALLOWED_INTERNAL_IMPORTS.get(owner_name, ())
-        for imported in _imported_modules(path):
+        for imported, under_type_checking in _imported_modules(path):
             parts = imported.split(".")
             if parts[:1] != ["shim_guard"] or len(parts) < 2:
                 continue
             target_owner = parts[1]
-            if target_owner == owner_name or target_owner not in {
-                "cli",
-                "clients",
-                "config",
-                "events",
-                "guard",
-                "hook",
-                "policy",
-                "session",
-                "settings_files",
-                "watch",
-            }:
+            if target_owner == owner_name or target_owner not in TOP_LEVEL_OWNERS:
                 continue
             permitted = any(
                 imported == prefix or imported.startswith(prefix + ".")
                 for prefix in allowed
             )
-            if (
-                not permitted
-                and (relative, imported) not in ALLOWED_INTERNAL_EXCEPTIONS
+            if not permitted and not (
+                under_type_checking
+                and (relative, imported) in ALLOWED_INTERNAL_EXCEPTIONS
             ):
                 violations.append(f"{relative}: {owner_name} -> {imported}")
 

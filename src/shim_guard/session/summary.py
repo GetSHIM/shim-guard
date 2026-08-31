@@ -26,12 +26,15 @@ def _sources(records: list) -> list:
     """Return the tools involved, most active first, without duplicates."""
     order: dict = {}
     for record in records:
-        tool = record.get("tool_name") or ""
-        target = record.get("target") or ""
+        tool = record.get("tool_name")
+        target = record.get("target")
+        tool = tool if isinstance(tool, str) else ""
+        target = target if isinstance(target, str) else ""
         if tool:
             where = f"{tool} {_basename(target)}" if target else tool
         else:
-            where = _event_label(record.get("event", ""))
+            event = record.get("event")
+            where = _event_label(event if isinstance(event, str) else "")
         if where:
             order[where] = order.get(where, 0) + 1
     return [name for name, _count in sorted(order.items(), key=lambda p: (-p[1], p[0]))]

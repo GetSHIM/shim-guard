@@ -199,8 +199,8 @@ def test_a_payload_past_a_bound_is_observed_and_says_why(name: str, body) -> Non
 # --- the record -----------------------------------------------------------
 
 
-def test_the_record_never_carries_payload_text() -> None:
-    """Records must never contain the payload text they summarize."""
+def test_the_record_never_carries_detected_values() -> None:
+    """Records may keep scrubbed labels and targets, never the sensitive value."""
     for name in sorted(path.name for path in FIXTURES.glob("P*ToolUse-*.json")):
         payload = json.loads(_raw(name))
         if payload["hook_event_name"] not in ("PreToolUse", "PostToolUse"):
@@ -342,6 +342,22 @@ def test_tool_display_labels_are_safe_without_skipping_inspection(
     assert expected in rendered
     assert tool not in rendered
     assert tool not in json.dumps(outcome.record.as_dict())
+
+
+def test_tool_labels_are_scrubbed_before_per_tool_entity_scoping() -> None:
+    outcome = _process(
+        _payload(
+            "PostToolUse",
+            "alice@example.com",
+            "tool_response",
+            {"text": "nothing sensitive"},
+        ),
+        WARN,
+        entities_for=lambda _tool, _event: ("SECRET",),
+    )
+
+    assert outcome.record.tool_name == "<EMAIL_1>"
+    assert "alice@example.com" not in json.dumps(outcome.record.as_dict())
 
 
 def test_a_shell_command_is_never_recorded_as_a_target() -> None:

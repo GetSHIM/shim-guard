@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://getshim.tech">
-    <img src="docs/assets/shim-logo.svg" alt="shim" width="280">
+    <img src="https://raw.githubusercontent.com/GetSHIM/shim-guard/main/docs/assets/shim-logo.svg" alt="shim" width="280">
   </a>
 </p>
 
@@ -34,7 +34,7 @@ Two commands, two different questions:
 
 > [!WARNING]
 > shim Guard is alpha software and a best-effort guard, not a data-loss
-> prevention boundary. Read the [privacy limitations](docs/privacy.md) before
+> prevention boundary. Read the [privacy limitations](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md) before
 > using it with sensitive data.
 
 ## Measure a session
@@ -221,7 +221,8 @@ falls back to the retained ledger, if you turned that on.
 At Claude's verified `PostToolUse` event, shim compacts eligible tool results
 before the model reads them, so the context window fills more slowly. Nothing
 is ever truncated or summarised, and a result that cannot be shrunk safely is
-passed through untouched. Two transforms ship, both on by default:
+left unchanged by the diet. Two transforms ship; only lossless JSON compaction
+is on by default:
 
 | Transform | What it does |
 | --- | --- |
@@ -231,17 +232,19 @@ passed through untouched. Two transforms ship, both on by default:
 It applies to tool *results* only — never to a tool's arguments, never to
 anything written to your disk, and never under `mode = "observe"`.
 
-**It also never touches a result that shows you a file.** `Edit` matches its
+**The diet also never touches a result that shows you a file.** `Edit` matches its
 `old_string` against what is on disk, not against what the model was shown, so
 compacting a pretty-printed file on the way in makes the next edit of that file
-miss. Reads, notebooks and edit results are passed through byte-for-byte;
-fetched pages, command output and tool results are where the saving comes from.
+miss. Reads, notebooks and edit results are unchanged by the diet; sensitive
+values can still be masked according to policy. Fetched pages, command output
+and tool results are where the saving comes from.
 
 Turn it off with `shim config --no-diet`, or name individual transforms in the
-config file — `diet = ["json"]` keeps the lossless one and drops the other:
+config file. Trailing-whitespace removal is opt in because it can remove a
+Markdown hard line break:
 
 ```toml
-diet = ["json"]   # or false to disable entirely
+diet = ["json", "whitespace"]   # or false to disable entirely
 ```
 
 While reading results shim also flags text that is trying to give the model
@@ -264,7 +267,7 @@ temporary cleanup. `shim config --ledger` opts in to monthly retained copies.
 A month becomes eligible for pruning 30 days after its end and is removed on a
 later ledger write; `shim ledger purge` deletes all ledger files immediately.
 Nothing is ever transmitted. See
-[Privacy](docs/privacy.md#what-is-recorded).
+[Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md#what-is-recorded).
 
 ## Configure detection
 
@@ -311,8 +314,8 @@ and `redact` all use the same policy.
 - Redacted temporary files may still contain missed sensitive content. Review
   them before resubmission and delete them when finished.
 
-See [Privacy](docs/privacy.md) for the full trust boundary and
-[Compatibility](docs/compatibility.md) for tested versions and evidence.
+See [Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md) for the full trust boundary and
+[Compatibility](https://github.com/GetSHIM/shim-guard/blob/main/docs/compatibility.md) for tested versions and evidence.
 
 ## Uninstall
 
@@ -327,12 +330,12 @@ it edits nothing, so there is nothing to undo.
 
 ## Project documentation
 
-- [Architecture](docs/architecture.md)
-- [Compatibility](docs/compatibility.md)
-- [Privacy](docs/privacy.md)
-- [0.2.0 release notes](docs/releases/0.2.0.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
+- [Architecture](https://github.com/GetSHIM/shim-guard/blob/main/docs/architecture.md)
+- [Compatibility](https://github.com/GetSHIM/shim-guard/blob/main/docs/compatibility.md)
+- [Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md)
+- [0.2.0 release notes](https://github.com/GetSHIM/shim-guard/blob/main/docs/releases/0.2.0.md)
+- [Contributing](https://github.com/GetSHIM/shim-guard/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/GetSHIM/shim-guard/blob/main/SECURITY.md)
 
 ## Development
 
@@ -344,4 +347,4 @@ python scripts/check.py
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/GetSHIM/shim-guard/blob/main/LICENSE).

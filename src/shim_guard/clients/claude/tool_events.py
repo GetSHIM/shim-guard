@@ -4,13 +4,50 @@ from __future__ import annotations
 
 import json
 
-from shim_guard.events.pipeline import Adapter, Capabilities
+from shim_guard.clients.user_prompt_hook import parse_object
+from shim_guard.events.pipeline import Adapter, Event
 from shim_guard.policy import ALLOW, DENY, MASK, REPORT
 
+MAX_INPUT_BYTES = 1_000_000
 MAX_OUTPUT_BYTES = 1_000_000
 _DENY_REASON = "SHIM Guard: sensitive data detected; this call was not allowed."
 _ERROR_MESSAGE = "shim: this tool event could not be inspected and was not modified."
-_REWRITE = Capabilities(can_rewrite=True, can_report=True)
+#: Native input keys naming what a tool acted on. A command is payload, not a
+#: safe target to persist: the probe corpus contains one with a live credential.
+_TARGET_KEYS = ("file_path", "notebook_path", "path", "url")
+#: File results must remain byte-identical so a later Edit can quote them back.
+_FILE_VIEW_KEYS = ("file_path", "notebook_path", "path")
+
+
+def _decoder(expected_event: str, root: str):
+    def decode(raw: bytes) -> Event:
+        if len(raw) > MAX_INPUT_BYTES:
+            raise ValueError("hook input exceeds the safe limit")
+        document = parse_object(raw)
+        if document.get("hook_event_name") != expected_event:
+            raise ValueError("unexpected tool-hook event")
+        tool = document.get("tool_name")
+        if tool is None:
+            tool = ""
+        elif not isinstance(tool, str):
+            raise ValueError("tool-hook tool name must be text")
+
+        target = ""
+        views_file = False
+        tool_input = document.get("tool_input")
+        if isinstance(tool_input, dict):
+            for key in _TARGET_KEYS:
+                value = tool_input.get(key)
+                if isinstance(value, str) and value:
+                    target = value
+                    break
+            views_file = any(
+                isinstance(tool_input.get(key), str) and tool_input[key]
+                for key in _FILE_VIEW_KEYS
+            )
+        return Event(tool, document.get(root), target, views_file)
+
+    return decode
 
 
 def _dump(document: dict) -> bytes:
@@ -24,7 +61,7 @@ def _specific(event: str, **fields) -> dict:
     return {"hookSpecificOutput": dict({"hookEventName": event}, **fields)}
 
 
-def pre_tool_use(action: str, payload: dict, message: str) -> bytes:
+def pre_tool_use(action: str, payload: object, message: str) -> bytes:
     if action == ALLOW:
         return b""
     if action == REPORT:
@@ -44,7 +81,7 @@ def pre_tool_use(action: str, payload: dict, message: str) -> bytes:
     raise ValueError("unsupported action")
 
 
-def post_tool_use(action: str, payload: dict, message: str) -> bytes:
+def post_tool_use(action: str, payload: object, message: str) -> bytes:
     if action == ALLOW:
         return b""
     if action == REPORT:
@@ -62,9 +99,19 @@ def error_output() -> bytes:
 
 
 TOOL_EVENTS = {
-    "PreToolUse": Adapter("claude", "PreToolUse", "tool_input", _REWRITE, pre_tool_use),
+    "PreToolUse": Adapter(
+        "claude",
+        "PreToolUse",
+        "tool_input",
+        _decoder("PreToolUse", "tool_input"),
+        pre_tool_use,
+    ),
     "PostToolUse": Adapter(
-        "claude", "PostToolUse", "tool_response", _REWRITE, post_tool_use
+        "claude",
+        "PostToolUse",
+        "tool_response",
+        _decoder("PostToolUse", "tool_response"),
+        post_tool_use,
     ),
 }
 INSTALLED_EVENTS = tuple(sorted(TOOL_EVENTS))
@@ -76,8 +123,8 @@ def coverage() -> tuple:
         {
             "event": event,
             "sees": TOOL_EVENTS[event].root,
-            "can_mask": TOOL_EVENTS[event].capabilities.can_rewrite,
-            "can_report": TOOL_EVENTS[event].capabilities.can_report,
+            "can_mask": True,
+            "can_report": True,
             "verified": True,
             "installed": True,
         }

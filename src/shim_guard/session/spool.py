@@ -6,9 +6,10 @@ kept — a file under the OS temporary directory, owned by the user, readable by
 nobody else, deleted when the session ends.
 
 There is exactly one rule about its contents, inherited from ``session.record``:
-no entry ever carries payload text. Entity names and counts, yes; the value
-that produced them, never. ``tests/session`` asserts it by scanning a recorded
-session for the secrets it injected.
+no entry carries prompt text, a tool input or response body, a command, or a
+detected value. Bounded, scrubbed labels and targets are permitted.
+``tests/session`` asserts the boundary by scanning a recorded session for the
+secrets it injected.
 
 The session identifier is hashed rather than used as a file name. It comes from
 the client and a name is a path — hashing removes traversal as a question
@@ -85,9 +86,13 @@ def _root() -> Iterator[int]:
         os.close(descriptor)
 
 
+def session_key(session_id: str) -> str:
+    """Return the bounded key used for this untrusted session identifier."""
+    return hashlib.sha256(session_id.encode("utf-8", "replace")).hexdigest()[:32]
+
+
 def _name(session_id: str, suffix: str) -> str:
-    digest = hashlib.sha256(session_id.encode("utf-8", "replace")).hexdigest()
-    return f"{digest[:32]}{suffix}"
+    return f"{session_key(session_id)}{suffix}"
 
 
 def _read(root: int, name: str, limit: int) -> bytes:
@@ -273,5 +278,6 @@ __all__ = [
     "mark_summarized",
     "newest",
     "root_path",
+    "session_key",
     "summarized",
 ]

@@ -1,9 +1,9 @@
-"""Every transform must be idempotent, deterministic, and lossless.
+"""Every transform must be idempotent and deterministic.
 
 The first two are cache requirements: the history sent to the provider has to
 be byte-identical on every request or prompt caching stops hitting, and a
-change that misses the cache costs more than it saves. Losslessness rules out
-transforms that would alter content rather than remove redundant bytes.
+change that misses the cache costs more than it saves. Only lossless transforms
+belong in the shipped default.
 """
 
 from __future__ import annotations
@@ -182,6 +182,17 @@ def test_trailing_whitespace_never_changes_the_line_count() -> None:
     assert stripped.count("\n") == text.count("\n")
 
 
+def test_default_diet_preserves_a_markdown_hard_break() -> None:
+    text = "keep this hard break  \n" + "x" * diet.MIN_CANDIDATE_CHARS
+
+    assert diet.DEFAULT_TRANSFORMS == (diet.JSON_COMPACTION,)
+    assert diet.shrink(text) == (text, ())
+    assert diet.shrink(text, (diet.TRAILING_WHITESPACE,)) == (
+        "keep this hard break\n" + "x" * diet.MIN_CANDIDATE_CHARS,
+        (diet.TRAILING_WHITESPACE,),
+    )
+
+
 def test_a_short_leaf_is_left_alone() -> None:
     """The win cannot pay for the risk below the candidate threshold."""
     text = '{"a": 1}'
@@ -197,7 +208,7 @@ def test_shrink_reports_only_the_transforms_that_helped() -> None:
     assert len(shrunk) < len(PRETTY_JSON)
 
     text = "a line with trailing space   \n" + "b" * 80
-    _shrunk, applied = diet.shrink(text)
+    _shrunk, applied = diet.shrink(text, (diet.TRAILING_WHITESPACE,))
     assert applied == (diet.TRAILING_WHITESPACE,)
 
 

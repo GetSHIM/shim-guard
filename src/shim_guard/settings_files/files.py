@@ -27,7 +27,6 @@ MAX_PATH_BYTES = 4_096
 #: controls therefore still fails, and planting a symlink at `~/.config`
 #: requires write access to the home directory in the first place.
 _ANCESTOR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-_DIRECTORY_FLAGS = _ANCESTOR_FLAGS | getattr(os, "O_NOFOLLOW", 0)
 _UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
 

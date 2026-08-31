@@ -167,10 +167,9 @@ def test_a_symlinked_month_is_not_followed(tmp_path: Path) -> None:
     assert target.read_text() == ""
 
 
-def test_remember_writes_nothing_to_the_ledger_unless_policy_says_so(
+def test_remember_persists_only_a_session_key_and_keeps_storage_best_effort(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Off by default is the whole promise; this is where it is kept."""
     from shim_guard.session import spool
     from shim_guard.session.record import Record
 
@@ -184,19 +183,33 @@ def test_remember_writes_nothing_to_the_ledger_unless_policy_says_so(
         action="mask",
         entities=(("SECRET", 1),),
     )
+    session_id = "\x00../private/" + "session-secret-" * 200
+    session_key = spool.session_key(session_id)
 
-    remember("session", record, 5, ledger=False)
+    remember(session_id, record, 5, ledger=False)
     assert ledger.files() == []
+    spooled = spool.entries(session_id)[0]
+    spool_bytes = next(spool.root_path().glob("*.jsonl")).read_bytes()
+    assert spooled["session_id"] == session_key
+    assert session_id.encode() not in spool_bytes
+    assert b"\\u0000" not in spool_bytes
+    assert b"session-secret-" not in spool_bytes
 
     def fail_spool(*_args, **_kwargs):
         raise spool.SpoolError("synthetic spool failure")
 
     monkeypatch.setattr(spool, "append", fail_spool)
-    remember("session", record, 5, ledger=True)
+    remember(session_id, record, 5, ledger=True)
     assert len(ledger.files()) == 1
-    written = json.loads(ledger.files()[0].read_text().splitlines()[0])
+    ledger_bytes = ledger.files()[0].read_bytes()
+    written = json.loads(ledger_bytes.splitlines()[0])
     assert written["entities"] == {"SECRET": 1}
-    assert written["session_id"] == "session"
+    assert written["session_id"] == session_key
+    assert written["session_id"] == spooled["session_id"]
+    assert len(written["session_id"]) == 32
+    assert session_id.encode() not in ledger_bytes
+    assert b"\\u0000" not in ledger_bytes
+    assert b"session-secret-" not in ledger_bytes
     assert written["latency_ms"] == 5
     assert len(written["ts"]) == len("2026-08-29T14:51:06Z")
     assert written["ts"].endswith("Z")

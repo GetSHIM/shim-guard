@@ -111,23 +111,6 @@ class Policy:
         return self.entities
 
 
-@dataclass(frozen=True)
-class Decision:
-    """What policy permits for one payload, and why it was weakened."""
-
-    __slots__ = ("direction", "mode", "action", "degraded_from", "reason")
-
-    direction: str
-    mode: str
-    action: str
-    degraded_from: str
-    reason: str
-
-    @property
-    def degraded(self) -> bool:
-        return bool(self.degraded_from)
-
-
 def direction_for(event: str, tool: str) -> str:
     """Classify one payload before anything is allowed to rewrite it."""
     if event in _PROMPT_EVENTS:
@@ -143,50 +126,21 @@ def direction_for(event: str, tool: str) -> str:
     raise ValueError("unsupported hook event")
 
 
-def decide(
-    direction: str,
-    mode: str,
-    *,
-    can_rewrite: bool = True,
-    can_report: bool = True,
-) -> Decision:
-    """Return the strongest action this direction, mode and client allow.
-
-    ``can_rewrite`` and ``can_report`` describe the client, not the policy:
-    Codex cannot mask a tool result surgically, and a client that cannot render
-    a message cannot warn. Where the client cannot do what the policy asks, the
-    action degrades to the next weaker one and records that it did, rather than
-    silently doing nothing.
-    """
+def decide(direction: str, mode: str) -> str:
+    """Return the action for one supported direction and mode."""
     if direction not in REWRITABLE:
         raise ValueError("unsupported policy direction")
     if mode not in MODES:
         raise ValueError("unsupported policy mode")
 
     if mode == OBSERVE:
-        return Decision(direction, mode, ALLOW, "", "observing only")
+        return ALLOW
     if mode == WARN:
-        if can_report:
-            return Decision(direction, mode, REPORT, "", "")
-        return Decision(
-            direction, mode, ALLOW, REPORT, "the client cannot show a message"
-        )
+        return REPORT
 
     # enforce
     if REWRITABLE[direction]:
-        if can_rewrite:
-            return Decision(direction, mode, MASK, "", "")
-        if can_report:
-            return Decision(
-                direction,
-                mode,
-                REPORT,
-                MASK,
-                "the client cannot rewrite this payload in place",
-            )
-        return Decision(
-            direction, mode, ALLOW, MASK, "the client can neither rewrite nor report"
-        )
+        return MASK
     # Denying a non-rewritable payload is safer than changing a command, local
     # write, or generic user prompt.
-    return Decision(direction, mode, DENY, "", "")
+    return DENY

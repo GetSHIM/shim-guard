@@ -202,10 +202,10 @@ def test_uninspected_records_never_keep_raw_event_or_tool_labels(
 ) -> None:
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
     from shim_guard import hook
-    from shim_guard.session import spool
+    from shim_guard.session import spool, summary
 
     event = f"Unexpected{chr(27)}Event" + "X" * 256
-    tool = f"Read{chr(7)}Tool"
+    tool = "alice@example.com"
     payload = json.dumps(
         {
             "hook_event_name": event,
@@ -220,9 +220,36 @@ def test_uninspected_records_never_keep_raw_event_or_tool_labels(
     records = spool.entries("unsafe-labels")
     assert len(records) == 1
     assert records[0]["event"] == "unsupported tool event"
+    assert records[0]["tool_name"] == "<EMAIL_1>"
+    output = summary.render(records) + json.dumps(summary.as_json(records))
+    stored = json.dumps(records)
+    assert event not in output + stored
+    assert tool not in output + stored
+
+
+def test_detector_failure_still_records_an_unknown_tool(monkeypatch) -> None:
+    from shim_guard import guard, hook
+    from shim_guard.session import spool
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("detector unavailable")
+
+    monkeypatch.setattr(guard, "evaluate", explode)
+    payload = json.dumps(
+        {
+            "hook_event_name": "PostToolUse",
+            "session_id": "failed-detector",
+            "tool_name": "alice@example.com",
+            "tool_response": {"text": "safe"},
+        }
+    ).encode()
+
+    hook._output(payload, "claude")
+
+    records = spool.entries("failed-detector")
+    assert len(records) == 1
     assert records[0]["tool_name"] == "unknown tool"
-    assert event not in json.dumps(records)
-    assert tool not in json.dumps(records)
+    assert "alice@example.com" not in json.dumps(records)
 
 
 def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:

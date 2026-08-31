@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import zipfile
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -203,17 +204,43 @@ def test_archive_refuses_an_unsupported_interpreter_without_blocking(
     assert 'f"' not in source, "must parse on interpreters without f-strings"
 
 
+def _archive_members(path: Path) -> dict[str, bytes]:
+    prefix, marker, _ = path.read_bytes().partition(b"PK\x03\x04")
+    assert marker and prefix == b"#!/usr/bin/env python3\n"
+    with zipfile.ZipFile(path) as packaged:
+        infos = packaged.infolist()
+        names = [info.filename for info in infos]
+        assert len(names) == len(set(names))
+        assert packaged.comment == b""
+        for info in infos:
+            assert info.date_time == (2000, 1, 1, 0, 0, 0)
+            mode = 0o755 if info.is_dir() else 0o644
+            assert (info.external_attr >> 16) & 0o777 == mode
+        return {name: packaged.read(name) for name in names}
+
+
 def test_committed_archive_matches_a_fresh_build(archive: Path) -> None:
     assert COMMITTED.is_file(), "build plugins/shim-guard/bin/shim.pyz"
     assert os.access(COMMITTED, os.X_OK)
     assert COMMITTED.stat().st_size < MAX_ARCHIVE_BYTES
-    with zipfile.ZipFile(archive) as fresh_archive:
-        fresh = {name: fresh_archive.read(name) for name in fresh_archive.namelist()}
-    with zipfile.ZipFile(COMMITTED) as committed_archive:
-        committed = {
-            name: committed_archive.read(name) for name in committed_archive.namelist()
-        }
-    assert committed == fresh, "rebuild plugins/shim-guard/bin/shim.pyz"
+    assert _archive_members(COMMITTED) == _archive_members(archive), (
+        "rebuild plugins/shim-guard/bin/shim.pyz"
+    )
+
+
+def test_archive_build_is_reproducible(tmp_path: Path) -> None:
+    archives = (tmp_path / "one.pyz", tmp_path / "two.pyz")
+    for target, mask, timezone in zip(
+        archives, (0o022, 0o077), ("UTC", "America/Los_Angeles")
+    ):
+        subprocess.run(
+            (sys.executable, str(BUILDER), "--output", str(target)),
+            check=True,
+            env=os.environ | {"TZ": timezone},
+            preexec_fn=partial(os.umask, mask),
+            timeout=300,
+        )
+    assert archives[0].read_bytes() == archives[1].read_bytes()
 
 
 def test_archive_carries_no_compiled_extension_modules(archive: Path) -> None:

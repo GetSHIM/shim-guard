@@ -40,11 +40,11 @@ jobs:
           test -z "$(printf '%s' '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}' \
             | env -i PATH=/nonexistent plugins/shim-guard/hooks/run-shim-guard claude 2>/dev/null)"
           # The bundled archive must detect on its own, with no package installed.
-          env -i PATH=/usr/bin:/bin HOME="$HOME" \
+          test "$(env -i PATH=/usr/bin:/bin HOME="$HOME" \
             CLAUDE_PLUGIN_ROOT="$PWD/plugins/shim-guard" \
             plugins/shim-guard/hooks/run-shim-guard claude \
-            <<< '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}' \
-            | grep -q '"decision":"block"'
+            <<< '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}')" \
+            = '{"systemMessage":"shim: found EMAIL (1) in your prompt. Not modified."}'
       - run: uv build --no-build-isolation
       - name: Export locked package-test dependencies
         run: |

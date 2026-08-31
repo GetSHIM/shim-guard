@@ -1,9 +1,9 @@
 """What one session decision is worth remembering, and nothing more.
 
 Session summaries consume these records, including the context diet's byte
-deltas, so the shape is fixed here and used by both. There is exactly one rule
-about its contents: no field ever carries payload text. Entity names and counts,
-yes; the value that produced them, never.
+deltas, so the shape is fixed here and used by both. No field carries prompt
+text, a tool input or response body, a command, or a detected value. Bounded,
+scrubbed labels and targets are retained because they make the summary useful.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def display_label(text: str, fallback: str) -> str:
 
 @dataclass(frozen=True)
 class Record:
-    """One policy decision, with no payload content in any field."""
+    """One policy decision with no prompt, tool body, command, or detected value."""
 
     client: str
     event: str
@@ -48,7 +48,6 @@ class Record:
     target: str = ""
     in_bytes: int = 0
     out_bytes: int = 0
-    degraded_from: str = ""
     fields: int = 0
     #: Diet transforms applied and injection markers seen.
     #: Markers only ever report: nothing here can cause a rewrite.
@@ -68,7 +67,6 @@ class Record:
             "entities": {name: count for name, count in self.entities},
             "in_bytes": self.in_bytes,
             "out_bytes": self.out_bytes,
-            "degraded_from": self.degraded_from,
             "fields": self.fields,
             "transforms": list(self.transforms),
             "markers": list(self.markers),
@@ -94,15 +92,15 @@ def remember(
     if not session_id:
         return
     try:
+        from . import spool
+
         entry = record.as_dict()
-        entry["session_id"] = session_id
+        entry["session_id"] = spool.session_key(session_id)
         entry["latency_ms"] = latency_ms
         entry["ts"] = _timestamp()
     except Exception:
         return
     try:
-        from . import spool
-
         spool.append(session_id, entry)
     except Exception:
         pass

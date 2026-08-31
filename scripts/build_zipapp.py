@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import argparse
 import compileall
+import os
 import shutil
+import time
 import zipapp
 from pathlib import Path
 
@@ -144,7 +146,12 @@ def stage(destination: Path, vendor: bool = True) -> Path:
 def build(
     output: Path, staging: Path, interpreter: str = "/usr/bin/env python3"
 ) -> Path:
-    """Write the compressed archive and make it executable."""
+    """Write a reproducible compressed archive and make it executable."""
+    # ZIP records local timestamps and Unix mode bits; normalize both.
+    timestamp = time.mktime((2000, 1, 1, 0, 0, 0, 0, 1, -1))
+    for path in staging.rglob("*"):
+        path.chmod(0o755 if path.is_dir() else 0o644)
+        os.utime(path, (timestamp, timestamp))
     output.parent.mkdir(parents=True, exist_ok=True)
     zipapp.create_archive(
         staging, target=output, interpreter=interpreter, compressed=True
