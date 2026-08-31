@@ -126,6 +126,37 @@ def test_a_file_name_cannot_carry_terminal_escapes_into_the_summary() -> None:
     assert "config.env" in summary.render(records)
 
 
+@pytest.mark.parametrize(
+    "tool",
+    (f"Read{chr(27)}[31m", "T" * 121),
+    ids=("control-character", "over-bound"),
+)
+def test_tool_labels_are_safe_in_the_spool_and_summary(tool: str) -> None:
+    from shim_guard.session import spool, summary
+
+    _run(
+        json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "session_id": "unsafe-tool-label",
+                "tool_name": tool,
+                "tool_response": {"text": "contact synthetic.user@example.com"},
+            }
+        ).encode()
+    )
+
+    records = spool.entries("unsafe-tool-label")
+    assert len(records) == 1
+    assert records[0]["entities"] == {"EMAIL": 1}
+    assert records[0]["tool_name"] == "unknown tool"
+    rendered = summary.render(records)
+    structured = json.dumps(summary.as_json(records))
+    stored = json.dumps(records)
+    assert "unknown tool" in rendered + structured + stored
+    assert tool not in rendered
+    assert json.dumps(tool)[1:-1] not in structured + stored
+
+
 def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) -> None:
     """Failing open must not mean failing silently.
 
