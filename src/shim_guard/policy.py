@@ -6,9 +6,9 @@ user's mode then chooses how strongly to act within that permission.
 
 The rule is about the kind of payload, not the tool name:
 
-* **user-prompt** — a sentence a person typed. Never rewritten: no client
-  offers a prompt-rewrite field, and silently editing someone's own words is
-  not a thing this product does.
+* **user-prompt** — a sentence a person typed. Generic policy never rewrites
+  it. Copilot's verified ``userPromptTransformed`` adapter may replace the
+  model-facing copy through its native response field.
 * **outbound** — structured arguments leaving the machine, such as an MCP tool
   argument object. Masking here is egress control: the model already produced
   the value, so what masking buys is stopping it from leaving.
@@ -187,8 +187,6 @@ def decide(
         return Decision(
             direction, mode, ALLOW, MASK, "the client can neither rewrite nor report"
         )
-    if direction == LOCAL_WRITE:
-        # Denying a disk write is the strongest safe action: rewriting it would
-        # put a placeholder into the user's real file.
-        return Decision(direction, mode, DENY, "", "")
+    # Denying a non-rewritable payload is safer than changing a command, local
+    # write, or generic user prompt.
     return Decision(direction, mode, DENY, "", "")
