@@ -1,17 +1,19 @@
 # SHIM Guard plugin
 
-This plugin registers SHIM Guard's local hooks — the user's prompt, and the tool
-events whose mutation shape has been confirmed against a running client. It carries a
-self-contained copy of the hook in `bin/shim.pyz`, so installing the plugin is
-enough — there is no separate package-manager step, and no prerequisite beyond
-a `python3` of 3.9 or newer.
+This plugin registers SHIM Guard's local hooks. Claude Code gets the prompt,
+verified `PreToolUse` and `PostToolUse`, `Stop`, and `SessionEnd` events. Codex
+gets the prompt event only.
 
-**The plugin is the hooks, and only the hooks.** `shim watch`, `shim report`
-and `shim config` are commands, not hook events, so they are not in the archive
-— deliberately, because the hook runs as a cold-start subprocess on every tool
-call and must not pay for imports it never uses. Install the package as well if
-you want them; the two are not a duplicate and the launcher simply prefers the
-package when it is present.
+Release-tag Claude plugins carry a self-contained hook in `bin/shim.pyz`, so
+they need no package-manager step and no prerequisite beyond Python 3.9 or
+newer. The Codex launcher currently uses `shim-guard-hook` from the installed
+CLI package. A development checkout may not contain the release archive.
+
+**The plugin is the hooks, and only the hooks.** `shim watch`, `shim report`,
+and `shim config` are CLI commands and are not in the archive. The hook is a
+cold-start subprocess on every event and must not import command-only code.
+Install the package to use those commands; for Claude, adding it does not
+duplicate hook registration because the launcher simply prefers the package.
 
 ## What runs
 
@@ -20,7 +22,8 @@ package when it is present.
 1. `shim-guard-hook` on `PATH` — the package install. Preferred when present:
    it is the newest build and starts faster, because a zipapp has no bytecode
    cache and reparses its modules on every event.
-2. `${CLAUDE_PLUGIN_ROOT}/bin/shim.pyz` — the archive bundled here.
+2. For Claude, `${CLAUDE_PLUGIN_ROOT}/bin/shim.pyz` — the archive bundled in a
+   release tag.
 3. Nothing runnable — the prompt is **allowed** and one line is written to
    stderr explaining why it was not inspected.
 
@@ -37,14 +40,16 @@ client — that combination inspects every prompt and every tool event twice.
 ## Choosing an installation method
 
 The marketplace plugin and `shim install codex` / `shim install claude` are
-alternatives. Do not use both for the same client. Adding the package as well
-is fine and is not a duplicate: the launcher simply switches to it.
+alternative hook registrations. Do not use both for the same client. Claude
+can add the package for CLI commands without duplicating registration: the
+plugin launcher switches to the package hook. Codex requires that package hook
+today.
 
 ```console
 uv tool install shim-guard
 shim help
 ```
 
-`bin/shim.pyz` is built by `scripts/build_zipapp.py` and is committed only on
-release tags; a checkout between tags may not contain it, in which case the
-launcher falls back to `PATH` or to case 3.
+`bin/shim.pyz` is built by `scripts/build_zipapp.py` and committed only for a
+release tag. Between tags it may be absent; the launcher then falls back to
+`PATH` or to case 3.

@@ -39,7 +39,7 @@ def test_claude_code_settings_use_shell_free_exec_form(tmp_path: Path) -> None:
 def test_claude_code_registers_the_prompt_tool_and_session_events(
     tmp_path: Path,
 ) -> None:
-    """`shim install` must cover exactly what the adapter registry installs.
+    """`shim install` must cover exactly the verified Claude event list.
 
     A tool adapter promoted to verified without reaching the settings file
     would leave `shim doctor` claiming coverage the hook never receives.

@@ -7,13 +7,7 @@ design.
 Before a pull request:
 
 ```console
-uv sync --locked
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked ty check
-uv run --locked pytest
-uv build --no-build-isolation
-git diff --check
+python scripts/check.py
 ```
 
 Use synthetic values in tests and examples. Never commit real prompts, secrets,

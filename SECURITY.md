@@ -2,8 +2,7 @@
 
 ## Supported versions
 
-Only the latest released `shim-guard` version receives security fixes. This
-repository is pre-release until a version is published.
+Only the latest released `shim-guard` version receives security fixes.
 
 ## Reporting a vulnerability
 
@@ -19,5 +18,6 @@ advisory.
 
 The hook is a local best-effort guard, not an enforcement boundary. A report
 involving prompt leakage, unsafe hook output, persistence beyond the documented
-private redaction file in OS temporary storage, network access, installer
-ownership failures, or a fail-open path is in scope.
+temporary suggestion, session spool, or opt-in ledger boundaries, an
+undocumented network destination or transmission, installer ownership
+failures, or an unsafe fail-open path is in scope.

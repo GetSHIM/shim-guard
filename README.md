@@ -7,7 +7,7 @@
 <h1 align="center">shim Guard</h1>
 
 <p align="center">
-  <strong>Local, offline privacy protection for coding-agent prompts.</strong><br>
+  <strong>Local traffic visibility and privacy controls for coding agents.</strong><br>
   <a href="https://getshim.tech">getshim.tech</a>
 </p>
 
@@ -30,7 +30,7 @@ Two commands, two different questions:
 | Command | Answers |
 | --- | --- |
 | `shim watch -- claude` | What did this session actually send, and what did it cost? |
-| `shim install claude` | Mask secrets and personal data in tool results, every session, automatically. |
+| `shim install claude` | Mask secrets and personal data in eligible tool results, every session, automatically. |
 
 > [!WARNING]
 > shim Guard is alpha software and a best-effort guard, not a data-loss
@@ -98,9 +98,9 @@ authentication altogether, so there is nothing to watch.
 
 | Client | Your typed prompt | Tool input and results |
 | --- | --- | --- |
-| [Claude Code](https://github.com/anthropics/claude-code) | Reports what it found and lets it through; blocks under `enforce` | **Masked before the model sees them** |
-| [Codex CLI](https://github.com/openai/codex) | Reports what it found and lets it through; blocks under `enforce` | Reported only — Codex has no surgical result rewrite |
-| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | Replaces the model-facing prompt with the redacted text | Reported only, pending verification |
+| [Claude Code](https://github.com/anthropics/claude-code) | Reports what it found and lets it through; blocks under `enforce` | Eligible structured arguments and inbound results are masked; commands and local writes are report-or-deny only |
+| [Codex CLI](https://github.com/openai/codex) | Reports what it found and lets it through; blocks under `enforce` | Not installed — no verified native tool-event adapter |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | Replaces the model-facing prompt with the redacted text | Not installed — no verified native tool-event adapter |
 
 Tool coverage is verified against a running client, not derived from
 documentation. `shim doctor <client>` prints exactly which events are installed
@@ -146,8 +146,7 @@ commands.
 
 ### Marketplace plugins
 
-Codex and Claude Code users can install the repository's marketplace plugin
-after installing the CLI:
+Codex and Claude Code users can install the repository's marketplace plugin:
 
 ```console
 codex plugin marketplace add GetSHIM/shim-guard
@@ -159,8 +158,11 @@ codex plugin add shim-guard@shim-guard
 /plugin install shim-guard@shim-guard
 ```
 
-The marketplace plugin and `shim install` are alternative installation
-methods. Do not use both for the same client.
+The marketplace plugin and `shim install` are alternative hook-registration
+methods. Do not use both for the same client. Release-tag Claude plugins bundle
+the hook archive and need only Python 3.9 or newer; the Codex plugin currently
+uses `shim-guard-hook` from the installed CLI package. A development checkout
+may not contain the release archive.
 
 ## Use
 
@@ -178,17 +180,18 @@ arguments, where they may be recorded in shell history or process listings.
 > [!IMPORTANT]
 > **With the default configuration, shim Guard does not prevent a secret you
 > type into a prompt from reaching the model. It tells you afterwards.**
-> No client offers a field for rewriting a submitted prompt, so the only way to
-> stop one is to refuse the sentence you just typed — which is disruptive and
-> rare enough that it is not the default. Set `user-prompt = "enforce"` in
-> `[mode]` to block instead. Tool results *are* masked before the model sees
-> them, and that is where most leakage happens.
+> Codex and Claude Code offer no field for rewriting a submitted prompt, so the
+> only way to stop one is to refuse the sentence you just typed — which is
+> disruptive and rare enough that it is not the default. Set
+> `user-prompt = "enforce"` in `[mode]` to block instead. Copilot's
+> `userPromptTransformed` event does support a model-facing replacement. Claude
+> tool results are masked at the verified installed events.
 
 ## See what it did
 
 shim says nothing when it works, so it keeps a short record of its own
-decisions and shows you the total at the end of any turn where something
-changed:
+decisions. Claude's verified `Stop` hook shows the total at the end of a turn
+where something changed:
 
 ```text
 shim — this session
@@ -210,15 +213,15 @@ both from the client's own system messages. None of the sixty reached the
 model.
 
 `shim report` prints the same summary on demand, and `--json` makes it
-scriptable. During a session it reads the live record; once the client has
-closed it falls back to the retained ledger, if you turned that on.
+scriptable. It reads the newest temporary spool first; if none remains, it
+falls back to the retained ledger, if you turned that on.
 
 ## Shrink tool results
 
-shim compacts tool results before the model reads them, so the context window
-fills more slowly. Nothing is ever truncated or summarised, and a result that
-cannot be shrunk safely is passed through untouched. Two transforms ship, both
-on by default:
+At Claude's verified `PostToolUse` event, shim compacts eligible tool results
+before the model reads them, so the context window fills more slowly. Nothing
+is ever truncated or summarised, and a result that cannot be shrunk safely is
+passed through untouched. Two transforms ship, both on by default:
 
 | Transform | What it does |
 | --- | --- |
@@ -254,12 +257,13 @@ from — which is the only part you can act on:
 ```
 
 The record holds entity names, counts and the file or URL involved — never the
-value that was found, and never a shell command. It lives in a private file for
-as long as the client session does and is deleted when the session ends.
-`shim config --ledger` opts in to keeping it instead, in monthly files
-deleted 30 days after the end of the month they cover — so an entry lives
-between 30 and 61 days, never less;
-`shim ledger purge` deletes it. Nothing is ever transmitted. See
+value that was found, and never a shell command. It lives in a private OS
+temporary file. Claude's installed `SessionEnd` hook deletes that session's
+file; clients without a verified lifecycle hook leave it to operating-system
+temporary cleanup. `shim config --ledger` opts in to monthly retained copies.
+A month becomes eligible for pruning 30 days after its end and is removed on a
+later ledger write; `shim ledger purge` deletes all ledger files immediately.
+Nothing is ever transmitted. See
 [Privacy](docs/privacy.md#what-is-recorded).
 
 ## Configure detection
@@ -326,8 +330,17 @@ it edits nothing, so there is nothing to undo.
 - [Architecture](docs/architecture.md)
 - [Compatibility](docs/compatibility.md)
 - [Privacy](docs/privacy.md)
+- [0.2.0 release notes](docs/releases/0.2.0.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
+
+## Development
+
+Run the complete local check from the repository root:
+
+```console
+python scripts/check.py
+```
 
 ## License
 

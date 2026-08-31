@@ -1,192 +1,148 @@
 # Architecture
 
-shim Guard is one local Python distribution with two ways of sitting between a
-coding agent and its model, and neither replaces the other. **Hooks** are
-invoked by the client at defined lifecycle points and see tool names, paths,
-commands and results — that is where masking happens, and where most leakage
-is. **`shim watch`** is a proxy the client's base URL points at for one
-command; it sees the real wire body and the provider's token counts, which no
-hook is ever handed. There is no daemon, no history and no service state.
+shim Guard is one Python distribution and one domain-sliced modular monolith.
+It has two independent paths between a coding agent and its model:
+
+- The synchronous **hook** receives native client events, applies local policy,
+  and can report, block, or rewrite only where that client has a verified native
+  response shape. The hook and detector make no network connection.
+- Opt-in **`shim watch`** runs a loopback forwarding proxy for one command. It
+  sends the client's existing requests only to that client's configured
+  provider, forwards bytes unchanged, and measures traffic the hooks cannot see.
+
+There is no daemon or remote shim service. Hooks may write a private session
+spool, and the user may opt into a retained ledger; those stores are described
+in [Privacy](privacy.md).
+
+## Runtime flow
 
 ```text
-shim config  -> guarded local entity policy (entities, modes, ledger, diet)
-shim scan/redact (stdin) -> policy -> detector
-                         -> categories/counts or typed redaction
-shim report / shim ledger purge -> session record -> summary
-shim install/status/doctor/revert -> guarded merge/revert -> client hook settings
-shim update  -> recorded installer -> uv tool upgrade | pipx upgrade
+shim config -> guarded TOML -> Policy
+shim scan/redact (stdin) -> detector -> counts or typed redaction
+shim install/status/doctor/revert -> client settings + guarded file boundary
+shim report / shim ledger purge -> session-owned records
 
-prompt event -> adapter -> policy -> detector
-             -> allow | Copilot direct rewrite
-                      | 0600 temporary redaction -> native block
+prompt event -> client codec -> Policy -> detector
+             -> allow/report | Copilot rewrite | native block + 0600 suggestion
 
-tool event   -> adapter -> direction -> policy -> detector (+ diet, markers)
-             -> allow | report | mask in place | deny
-             -> session record -> summary at Stop
+verified Claude tool event -> Claude adapter -> shared event pipeline
+                           -> Policy -> detector, diet, markers
+                           -> Claude response + session Record
 
-shim watch -- <client> -> loopback proxy -> provider, bytes unchanged
-                       -> usage, section attribution, findings in traffic
+shim watch -- <client> -> loopback proxy -> configured provider, bytes unchanged
+                       -> in-memory sizes, counts, usage, and report
 ```
 
-A payload's **direction** decides what may be done to it, not the tool's name:
-a prompt and a local write are never rewritten, a shell command is never
-rewritten, and an inbound result is masked in place. `events/policy.py` holds
-that table and `docs/privacy.md` explains the reasoning.
+A payload's direction determines what may be done to it. `policy.py` owns that
+classification and the modes and actions built on it:
 
-The detector is functional, offline, and first party. It normalizes input once,
-validates bounded findings against a selected subset of the fixed entity
-allowlist, resolves spans deterministically, and produces typed ordinal
-placeholders. Every recognizer, checksum and deny rule lives in
-`guard/recognizers.py`; the public suffix table used to validate email hosts is
-compiled into `guard/suffixes.py`, so nothing is read from the network or the
-filesystem. `phonenumbers` is the only third-party module reachable from the
-hook, which `tests/contracts/test_import_hygiene.py` enforces. The
-hook owns stdin/stdout/stderr, the client protocol, and any per-block temporary
-redaction file. Installation owns only shim's hook fragment and entity-policy
-planning plus guarded filesystem I/O. Each adapter defines its exact target and
-owned fragment. Install preserves valid existing settings and adds only that
-fragment after informing the user; revert removes only the same fragment. Both
-operations are idempotent.
+- user prompts are reported by default; Codex and Claude can block under
+  `enforce`, while Copilot can replace the model-facing prompt;
+- structured outbound arguments may be masked before leaving the machine;
+- inbound results may be masked before entering model context;
+- local writes and executable command text are never rewritten, because doing
+  so would change a file or command the user intended.
 
-The local TOML policy defaults to every public entity. The CLI and hook validate
-it through the same bounded, no-symlink file inspection path; the detector
-itself remains pure and receives the enabled tuple explicitly. Malformed or
-unsafe policy files fail closed. Configuration stores entity names only—never
-prompt-derived data.
+## Ownership and dependencies
 
-Each adapter owns its client's configuration and coexistence rules. The Codex
-adapter leaves inline `config.toml` hooks untouched; they may coexist with
-`hooks.json` with a client warning. The Claude Code adapter changes only its own
-groups inside `hooks` in user `settings.json` — `UserPromptSubmit`, plus one
-group per tool event whose mutation shape has been confirmed against a running
-client — and preserves every unrelated setting. Which tool events those are
-comes from the adapter registry, so the two install paths and `shim doctor`
-cannot disagree. Each group is matched by exact value, so an install made
-before tool events existed gains only the missing groups, and revert gives up
-only shim's own. Malformed or ambiguous documents and unsafe or concurrently
-changed files require manual setup. Dry-run output contains only shim's
-fragment, not the existing document.
+| Owner | Responsibility |
+| --- | --- |
+| `guard/` | Entity catalog, normalization, recognizers, findings, spans, and typed redaction. |
+| `policy.py` | Directions, modes, actions, defaults, `Policy`, `Decision`, classification, and action selection. |
+| `config.py` | Config path, TOML parsing/rendering, validation at file ingress, and loading a `Policy`. |
+| `events/` | Deterministic tool-payload traversal, context diet, injection markers, and the shared tool-event pipeline. |
+| `clients/<client>/` | Native prompt codecs, verified tool codecs, settings fragments, capabilities, and coexistence rules for that client. |
+| `session/` | `Record`, timestamps, best-effort `remember()`, spool, ledger, cleanup, and summaries. |
+| `settings_files/` | Guarded inspection, pure change planning, parent creation, revalidation, and atomic publication. |
+| `watch/` | Proxy forwarding, wire measurement, and watch report values. |
+| `hook.py` | Deadline, bounded stdin, envelope dispatch, visible failure behavior, temporary prompt-file lifecycle, and stdout. |
+| `cli/` | Command composition and human or JSON presentation. |
 
-The GitHub Copilot CLI adapter owns
-`$COPILOT_HOME/hooks/shim-guard.json` (defaulting to
-`~/.copilot/hooks/shim-guard.json`). Its `userPromptTransformed` hook evaluates
-the model-facing content and returns `modifiedTransformedPrompt` with the typed
-redaction. Copilot stores and sends the replacement while leaving the original
-timeline display unchanged. Revert retains an empty versioned hook document.
+The dependency direction is deliberately small:
 
-## Context diet and injection markers
+```text
+cli  ------> config, clients, session, settings_files, watch, guard
+hook ------> config, clients, events, session, guard
+config ----> policy, guard/entities, settings_files, events/diet
+clients ---> policy, events, session, settings_files
+events ----> policy, guard, session/record
+```
 
-`events/diet.py` shrinks inbound tool results and `events/injection.py` flags
-text addressed to the model. Both ride the single payload walk in
-`events/payload.inspect`, which offers each string leaf to the detector, the
-scanner and the transforms in turn, then rebuilds the payload once.
+`guard`, `policy`, `session`, `settings_files`, and `watch` do not depend on
+the CLI or hook. `guard` does not import configuration, `session` does not
+import events, events do not import clients, and the hook does not import
+`watch`. `tests/contracts/test_import_hygiene.py` enforces these boundaries.
+Composition stays explicit in `hook.py` and the CLI; there is no dependency
+container, dynamic adapter registry, or architecture framework.
 
-The three stay separate deliberately. Masking and diet rewrite; a marker only
-reports and can never reach a replacement, so no configuration can turn "this
-text looks like an instruction" into an edit of a tool result. Diet is gated on
-direction (`inbound` only), on the adapter being able to rewrite, on the mode
-not being `observe`, and on the result not being a view of a file the model may
-go on to edit.
+## Client protocols
 
-Every quantifier in `injection.py` is bounded. The line-anchored pattern once
-carried an unbounded `\s*`, which a long run of blank lines re-entered per
-newline: 32k blank lines cost 25 seconds, past `HOOK_DEADLINE_SECONDS`, so a
-file anyone could commit stalled the client for the whole deadline and the
-result then went through uninspected. `tests/events/test_injection.py` holds
-the timing that keeps it linear.
+Each client directory owns its native protocol. Prompt hooks are supported for
+all three clients:
 
-## Session record
+| Client | Installed prompt event | Verified installed tool events |
+| --- | --- | --- |
+| Claude Code | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` |
+| Codex CLI | `UserPromptSubmit` | None |
+| GitHub Copilot CLI | `userPromptTransformed` | None |
 
-Hooks are separate processes, so anything that spans events must be written
-down. `shim_guard.session` owns that: `spool` is a per-session JSONL file under
-the OS temporary directory (`0700` directory, `0600` files, session identifier
-hashed rather than used as a name), `summary` renders it, and `ledger` is the
-opt-in copy that outlives the session.
+Claude's verified event list and encoders live together in
+`clients/claude/tool_events.py`; its settings also install `Stop` for summaries
+and `SessionEnd` for cleanup. Codex and Copilot have prompt codecs and settings
+only. A new tool adapter requires a live protocol probe, a synthetic fixture,
+and a verified mutation or report channel; it is not enabled by a flag.
 
-Recording is deliberately best-effort — every write is wrapped so that a spool
-that cannot be used leaves masking working and the summary absent, never the
-other way round. Because that failure is silent by design, `shim doctor` probes
-the spool and reports it.
+Codex installation leaves inline `config.toml` hooks untouched. Claude
+installation changes only shim's exact groups in user `settings.json`.
+Copilot owns its dedicated `hooks/shim-guard.json` and retains an empty
+versioned document on revert. All clients preserve unrelated settings;
+malformed, ambiguous, unsafe, or concurrently changed files require manual
+action.
 
-`Stop` renders hook output and `SessionEnd` does not, so the summary is emitted
-at `Stop` — once per change, carrying session totals, guarded by
-`stop_hook_active` — and `SessionEnd` exists only to delete the spool. No
-record field ever carries payload text: entity names, counts, and a
-detector-scrubbed file path or URL, never a value and never a shell command.
+## Detector and event processing
 
-## Detector boundary and corpus
+The detector is deterministic, bounded, offline, and independent of CLI,
+configuration, clients, events, sessions, and watch. Recognizers and checksums
+live in `guard/recognizers.py`; the public suffix table is compiled into
+`guard/suffixes.py`. `phonenumbers` is the one third-party module allowed on
+the hook path. No detector input or lookup is sent over the network.
 
-`shim-guard` is intentionally an independently packaged, narrow detector fork.
-It does not import the parent shim gateway: the gateway's reversible maps,
-provider flow, persistence, and broader runtime are outside a local synchronous
-hook. The public `guard-v2` synthetic corpus is Guard's executable detector
-contract and a migration reference for the parent gateway; it does not claim
-current result parity between the independently released implementations.
-Guard category coverage and behavior change only with an explicit corpus
-update. `guard-tools-v1.json` extends the same contract to tool-event
-payloads captured from a real client. `tests/corpus/parity-v1.json` is a third,
-larger contract: 475
-generated cases recording the exact findings and redacted output produced
-before the detector was reimplemented, so a refactor that changes a span, a
-score or a placeholder ordinal fails immediately rather than silently.
+`events/payload.inspect` walks a tool payload once. Masking and context diet
+may rewrite eligible leaves; injection markers only report and can never reach
+a replacement. Diet runs only on rewrite-capable inbound results outside
+`observe`, and never on a view of a local file whose exact bytes a later edit
+may need.
 
-The secret recognizer is deliberately stricter than broad gateway-style prose
-matching. Assignment-style secrets require `key = value` or `key: value` (with
-the explicit `--password` form also supported); prose such as “a password
-should never be shared” remains safe. This reduces false blocks at the prompt
-boundary without claiming complete secret detection.
+The detector contracts are `guard-v2.json`, `guard-tools-v1.json`, and
+`parity-v1.json`. The last is generated migration evidence and is never
+regenerated to make a test pass; intentional differences are recorded in
+`DELIBERATE_DIVERGENCES`. Detailed evidence belongs in
+[Compatibility](compatibility.md), not in this module map.
 
-No daemon, database, HTTP client, account, analytics, plugin framework,
-provider-neutral adapter layer, or reversible raw-value store belongs in this
-MVP. Every client gets its own native adapter and fixtures; adding one does not
-widen the hook's trust boundary.
+## Session records
 
-The [Codex hooks reference](https://developers.openai.com/codex/hooks/) and
-Claude Code [hooks](https://code.claude.com/docs/en/hooks) and
-[settings](https://code.claude.com/docs/en/settings) references are the
-authoritative protocol sources for those clients. GitHub's
-[Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
-defines the Copilot adapter's direct rewrite contract. Every adapter uses its
-native settings and output, not a generic cross-client hook format.
+`session.record` owns the bounded persisted schema and the best-effort
+`remember()` effect. Records contain entity names and counts, byte counts,
+actions, bounded labels, and a detector-scrubbed target path or URL. They never
+contain a finding value, replacement value, prompt, response body, or shell
+command. Storage failure cannot disable masking or blocking.
 
+The spool uses a hashed session filename in a private OS-temporary directory.
+Claude's `Stop` renders only unseen records and `SessionEnd` removes that
+session's spool. The ledger is a separate, explicit opt-in store. Exact
+permissions, caps, cleanup triggers, and retention are in
+[Privacy](privacy.md#what-is-recorded).
 
 ## `shim watch`
 
-`watch/proxy.py` forwards, `watch/measure.py` reads, `watch/report.py` says what
-it saw, and `cli/watch.py` sequences the three. Nothing in `watch/` is
-importable from the hook path and `tests/contracts/test_import_hygiene.py`
-enforces that: the proxy pulls in `http.server`, `http.client`, `ssl` and
-`socketserver`, and the hook is a cold-start subprocess that would pay for all
-of it on every tool call.
+`watch/proxy.py` forwards, `watch/measure.py` observes a copy, and
+`watch/report.py` renders. This is the distribution's sole network path. It
+binds to loopback, starts before the client, edits no setting or shell profile,
+originates no provider request, rewrites no byte, and never retries a `POST`.
+If the proxy cannot start, the client is not launched.
 
-Three properties carry the design.
-
-**Forwarding has no opinions.** A hook that breaks fails open and the agent
-keeps working; a proxy that breaks fails closed and the agent cannot reach the
-model at all. So the relay does not retry, rewrite, decide, or invent a
-response. Headers pass through verbatim — `anthropic-beta` and
-`anthropic-version` carry an OAuth capability for subscription sign-ins and a
-request without them is a 401.
-
-**Measurement is beside the path, never in front of it.** The request is handed
-to the upstream *before* a byte of it is examined, so scanning overlaps the
-provider's own thinking time instead of being added to the user's latency. The
-response is relayed with `read1`, which returns whatever has arrived; plain
-`read(n)` blocks until it has all `n` bytes, which on a server-sent-event
-stream means blocking until the model has finished — a streaming response
-silently turned into a buffered one.
-
-**The provider's numbers and shim's are never mixed.** `usage` is read off the
-wire and is exact. Its division across `tools`, `system` and `messages` is
-inferred from byte share, carries a `~`, and is scaled so the parts always sum
-to the exact total.
-
-The response arrives gzipped. The client receives those bytes untouched; a
-second, incremental decompressor feeds the usage reader, so nothing is
-re-encoded and no body is buffered or kept.
-
-A fresh TLS connection is opened per request, measured at 23 ms against
-`api.anthropic.com`. Connections are deliberately not reused: the only way to
-make reuse safe against a stale socket is to retry, and a retried `POST` risks
-a second billable request. 23 ms against a multi-second time to first token is
-not worth that.
+Measurement stays beside the forwarding path: request bytes go upstream before
+they are scanned, and streaming response bytes go to the client while a second
+incremental reader extracts usage. Request and response bodies are not written
+to disk. Provider usage is exact; attribution across tools, system, and messages
+is inferred from byte share and is always marked approximate.

@@ -3,17 +3,19 @@
 ## What this does and does not prevent
 
 **With the default configuration, shim Guard does not prevent a secret typed
-into a prompt from reaching the model.** It detects the value, reports what it
-found, and lets the prompt through. This is a consequence of the hook APIs:
-no supported client offers a field for rewriting a submitted prompt, so the
-only available alternative is refusing the sentence the user just typed. That
-is the most disruptive thing this product can do, and it is opt-in
-(`user-prompt = "enforce"`).
+into a Codex or Claude Code prompt from reaching the model.** It detects the
+value, reports what it found, and lets the prompt through. Those clients offer
+no prompt-rewrite field, so the only available alternative is refusing the
+sentence the user just typed. That is the most disruptive thing this product
+can do, and it is opt-in (`user-prompt = "enforce"`). Copilot is different:
+its verified `userPromptTransformed` event replaces the model-facing prompt
+with the typed redaction by default, although the original can remain visible
+in Copilot's timeline.
 
-What the default configuration *does* prevent is local data entering the
-model's context through tool results — a file read, a grep, command output, an
-MCP response. Those are masked in place before the model sees them, which is
-where most leakage actually happens.
+At Claude's verified `PostToolUse` event, the default configuration prevents
+detected local data in eligible tool results from entering model context. A
+file read, grep, command output, or MCP response is masked in place before the
+model sees it. Codex and Copilot currently install no tool-event adapter.
 
 Three things follow, and all three are limits rather than features:
 
@@ -29,10 +31,9 @@ Three things follow, and all three are limits rather than features:
 
 ```text
 client prompt -> trusted shim hook -> in-memory offline detector
-             <- empty success | Copilot model-facing typed rewrite
-                              | native stop response with categories and file path
-                                                        |
-                                                        -> 0600 typed redaction
+             <- empty success | default Codex/Claude report
+                              | Copilot model-facing typed rewrite
+                              | enforce-mode native stop + 0600 typed redaction
 ```
 
 The hook reads the submitted-prompt fields needed for the native contract. It
@@ -41,22 +42,27 @@ does keep a record of its own decisions, described under **What is recorded**
 below; that record holds entity names and counts and never the values.
 Safe input produces exactly empty stdout and stderr. For a supported Copilot
 finding, the hook returns the typed redaction as the model-facing replacement
-and writes no file. For Codex and Claude Code, it writes one typed redaction to
-a `0600` file in the operating system's temporary directory and returns a
-tested native block containing its absolute path in a ready-to-copy instruction
-to use the file contents as the prompt. A handled hook error returns the
-client's generic fail-closed response and leaves no suggestion file. The raw
-prompt and detected raw values are not written by shim.
+and writes no file. For Codex and Claude Code, the default `warn` mode reports
+the finding and creates no suggestion. Under `user-prompt = "enforce"`, the
+hook writes one typed redaction to a `0600` file in the operating system's
+temporary directory and returns a tested native block containing its absolute
+path in a ready-to-copy instruction to use the file contents as the prompt. A
+handled hook error returns the client's generic fail-closed response and leaves
+no suggestion file. The raw prompt and detected raw values are not written by
+shim.
 
-The temporary redaction remains until the user deletes it or the operating
-system cleans temporary storage. It can still contain sensitive content the
-detector missed, so users must review it before resubmission and delete it when
-finished.
+The temporary redaction remains until the user deletes it, the operating
+system cleans temporary storage, or a registered `SessionEnd` hook sweeps SHIM
+suggestions older than 24 hours. Claude installs `SessionEnd`; Codex and
+Copilot do not. The file can still contain sensitive content the detector
+missed, so users must review it before resubmission and delete it when finished
+rather than relying on a later sweep.
 
 Users may enable or disable public entity types with `shim config`. The default
-preset enables all supported types. The local settings file contains entity
-names only. An invalid or unsafe settings file causes the hook to return its
-generic fail-closed response rather than silently ignoring the policy.
+preset enables all supported types. The local settings file contains policy
+labels and booleans, never prompt-derived data. An invalid or unsafe settings
+file causes the hook to return its generic fail-closed response rather than
+silently ignoring the policy.
 
 Where a checksum exists it is verified, so a mistyped IBAN or Turkish national
 ID is not reported. Detection also stays deliberately quiet on values that name
@@ -95,16 +101,20 @@ with `0600` files). shim refuses to use that directory if it finds it readable
 by other users, and `shim doctor` reports when that has happened — recording
 never breaks the guard, so without that check the failure would be silent.
 
-**The session file is deleted at `SessionEnd`**, when the client closes. It is
-capped at 1 MB; past that the summary undercounts and says so.
+The spool is capped at 1 MB; past that the summary undercounts and says so.
+Claude installs `Stop` and `SessionEnd`: `Stop` renders only records not shown
+in an earlier turn, and `SessionEnd` deletes that session's `.jsonl` spool and
+summary marker. Codex and Copilot currently install prompt events only, so they
+provide no lifecycle event that deletes a spool; those files remain in OS
+temporary storage until the operating system removes them.
 
-`shim report` prints the most recent session's summary. The same summary is
-shown inside the client at the end of any turn where something changed.
+`shim report` prints the most recent session's summary. Claude's `Stop` hook
+shows the same summary inside that client at the end of a turn where something
+changed.
 
-Because the session file is deleted when the client closes, `shim report` has
-nothing to read afterwards unless the ledger below is on. When it is, the
-report falls back to the newest retained session and says that is where the
-numbers came from.
+`shim report` reads the most recently active spool. If no spool remains and the
+ledger below has entries, it falls back to the newest retained session and says
+that is where the numbers came from.
 
 ### Past the end of a session — off by default
 
@@ -113,16 +123,15 @@ ends. It is off unless you turn it on, and `shim config --no-ledger` turns it
 back off. Files live under `$XDG_STATE_HOME/shim-guard` (or
 `~/.local/state/shim-guard`), one per month, `0600`, capped at 5 MB each.
 
-Retention is 30 days, enforced by deleting whole months. The exact promise is
-therefore: **a month's records are deleted 30 days after the end of that
-month** — so an entry written on the first of a month outlives one written on
-the last by up to the length of the month. Age is taken from the file's name,
-not its modification time, so restoring a backup or touching a file does not
-extend it. `shim ledger purge` deletes everything immediately.
+Retention uses whole months. A month becomes eligible for deletion 30 days
+after its end, and the next ledger write prunes every eligible file. An entry
+therefore has at least 30 days before eligibility, but an inactive ledger can
+remain past that point because there is no background process. Age comes from
+the file name, not its modification time, so restoring a backup or touching a
+file does not reset eligibility.
 
-Retention is enforced when a record is written. Turning the ledger off stops
-new records but does not expire the ones already kept; `shim ledger purge`
-does that at once.
+Turning the ledger off stops new records but does not delete existing files.
+`shim ledger purge` deletes every ledger file immediately.
 
 These records are never transmitted. The hook and detector add no network
 destination, account, API key, or telemetry. The opt-in `shim watch` proxy
@@ -130,9 +139,9 @@ forwards only to the provider the client already uses.
 
 ### When shim cannot inspect something
 
-Some payloads are refused rather than scanned: a tool result past the size
-bound, or an analysis that fails. What happens next depends on which side it
-is, and the asymmetry is deliberate.
+Some payloads cannot be scanned: a tool result past the size bound, or an
+analysis that fails. What happens next depends on which side it is, and the
+asymmetry is deliberate.
 
 On a **prompt**, shim fails closed. The prompt is withheld and the message
 names `shim doctor`, because the usual cause is a settings file that will not
@@ -148,10 +157,11 @@ stand for a payload shim never examined.
 
 ## What is changed on the way in
 
-Besides masking, shim compacts tool results so they take less of the model's
-context. Every transform is deterministic and idempotent, because the
-provider's prompt cache only hits if the history is byte-identical on every
-request, so a transform that drifts costs money instead of saving it.
+At Claude's verified result event, shim can also compact tool results so they
+take less of the model's context. Every transform is deterministic and
+idempotent, because the provider's prompt cache only hits if the history is
+byte-identical on every request, so a transform that drifts costs money instead
+of saving it.
 
 Two transforms ship, both enabled by default. `json` is lossless. `whitespace`
 is not, and the difference is worth stating plainly: it strips trailing spaces
@@ -202,10 +212,10 @@ Copilot's timeline.
 Some clients require review and trust for non-managed hooks. A hook can be
 disabled, untrusted after a change, missing, unable to start, crash, or time
 out; those outcomes are client-controlled and may fail open. shim does not
-promise detection of every value, inspect automatic context, or securely erase
-Python process memory. Tool inputs and tool results *are* inspected, at the
-events listed by `shim doctor <client>`; anything reaching the model by another
-route is outside that list.
+promise detection of every value, inspection of automatic context, or secure
+erasure of Python process memory. Only events listed by `shim doctor <client>`
+are inspected; anything reaching the model by another route is outside that
+list.
 
 Installer checks detect unsafe paths and observed drift, but they are not an
 isolation boundary against a malicious process already running as the same OS

@@ -6,7 +6,7 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 
 ## Safety boundaries
 
-- The hook is synchronous, local, and network-free, with no daemon or history.
+- The hook is synchronous, local, and network-free, with no daemon.
   `shim watch` is the one component that touches the network, and only as a
   forwarding proxy: it runs for the length of one command, binds to loopback
   only, forwards bytes unchanged, and originates no request of its own. Nothing
@@ -20,9 +20,11 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
   command. `shim watch` keeps sizes and counts only; no request or response body
   reaches disk.
 - Safe hook input must produce exactly empty stdout and stderr.
-- Handled hook errors must block with a generic native response.
+- Handled prompt errors must block with a generic native response. A verified
+  tool event that cannot be inspected must pass through unchanged and report
+  the failure without denying already-created work.
 - Entity settings default to all public types; malformed or unsafe settings fail
-  closed, and the settings file must never contain prompt-derived data.
+  closed, and no settings field may contain prompt-derived data.
 - Never modify real user configuration in development or tests; use temporary paths.
 - This repository is public and much of its documentation and corpus comes from
   running the tool for real. Nothing committed may carry the machine it was
@@ -34,8 +36,8 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
   every tracked file, with the markers read from the environment so it protects
   whoever runs it.
 - Install may create a missing client settings file or append SHIM's exact hook
-  group last while preserving unrelated settings and hooks; revert removes only
-  that group and retains the document even when empty.
+  groups last while preserving unrelated settings and hooks; revert removes
+  only those groups and retains the document even when empty.
 - Keep install and revert idempotent, leave Codex inline `config.toml` hooks
   untouched, preview only SHIM's fragment, and require manual setup for malformed,
   ambiguous, unsafe, or concurrently changed files.
@@ -54,16 +56,9 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 
 ## Checks
 
-Use CPython 3.13 and uv `0.12.5`. The supported floor is CPython 3.9; run the
-suite there too with `uv run --locked --python 3.9 pytest`:
+Use CPython 3.13 and a compatible uv 0.12.x. CI also covers the supported
+CPython 3.9 floor. Run the complete local check from the repository root:
 
 ```bash
-uv sync --locked
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked ty check
-uv run --locked pytest
-uv run --locked python scripts/build_zipapp.py --output plugins/shim-guard/bin/shim.pyz
-uv build --no-build-isolation
-git diff --check
+python scripts/check.py
 ```
