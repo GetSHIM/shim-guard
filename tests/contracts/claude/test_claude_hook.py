@@ -18,12 +18,6 @@ READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
 def _redaction_files(root):
-    """Return only the redacted-prompt files, not the session spool.
-
-    The spool is a separate promise with its own tests: it holds entity names
-    and counts and is checked for payload content in
-    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
-    """
     return [
         item
         for item in root.rglob("*")
@@ -78,7 +72,6 @@ ENFORCE_PROMPT = (
 def test_claude_code_runner_reports_a_finding_and_lets_the_prompt_through(
     tmp_path: Path,
 ) -> None:
-    """The shipped default reports the finding and lets the prompt through."""
     result = _run(_payload("Contact alice@example.com"), tmp_path)
     document = json.loads(result.stdout)
 
@@ -115,3 +108,15 @@ def test_claude_code_runner_blocks_with_a_private_redaction(tmp_path: Path) -> N
 def test_claude_code_runner_fails_closed_on_invalid_input(tmp_path: Path) -> None:
     result = _run(b'{"hook_event_name":"UserPromptSubmit"}', tmp_path)
     assert (result.returncode, result.stdout, result.stderr) == (0, GENERIC_BLOCK, b"")
+
+
+def test_claude_code_runner_does_not_block_a_truncated_tool_event(
+    tmp_path: Path,
+) -> None:
+    result = _run(b'{"hook_event_name":"PostToolUse",', tmp_path)
+    document = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert "decision" not in document
+    assert "could not be inspected" in document["systemMessage"]

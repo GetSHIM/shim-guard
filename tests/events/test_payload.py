@@ -1,5 +1,3 @@
-"""Traversal must preserve shape exactly and refuse to partially scan."""
-
 from __future__ import annotations
 
 import json
@@ -75,7 +73,6 @@ def test_mask_returns_the_original_object_when_nothing_is_found() -> None:
 
 
 def test_ordinals_restart_for_each_leaf() -> None:
-    """Each leaf is text the model reads on its own."""
     document = {
         "first": "Contact alice@example.com",
         "second": "Contact bob@example.org",
@@ -109,7 +106,6 @@ def test_too_many_leaves_are_refused() -> None:
 
 
 def test_a_real_read_result_is_masked_in_place() -> None:
-    """Mask a captured client `Read` result without changing its structure."""
     document = {
         "type": "text",
         "file": {

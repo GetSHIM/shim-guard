@@ -1,5 +1,3 @@
-"""Run the complete local verification sequence."""
-
 import subprocess
 from pathlib import Path
 

@@ -1,16 +1,4 @@
-"""Freeze the current detector's exact output as a refactoring oracle.
-
-The replacement detector must produce identical results, and the 27-case
-`guard-v1` corpus is far too small to prove that: it asserts category
-sets, so a finding at the wrong offset or with a drifted score passes. This
-generator builds a deterministic, adversarial case set and records the exact
-`(entity_type, start, end, score)` tuples and redacted text the detector
-produces today. The frozen file is the contract the rewrite must meet.
-
-Run once, before the rewrite, with the Presidio implementation installed:
-
-    python scripts/build_parity_corpus.py --output tests/corpus/parity-v1.json
-"""
+"""Build the frozen detector-output refactoring oracle."""
 
 from __future__ import annotations
 
@@ -21,11 +9,8 @@ from pathlib import Path
 
 CORPUS_VERSION = 1
 
-# --- value builders -------------------------------------------------------
-
 
 def luhn(prefix: str, length: int) -> str:
-    """Return a Luhn-valid number of ``length`` digits starting with ``prefix``."""
     body = (prefix + "0123456789" * length)[: length - 1]
     total = 0
     for index, character in enumerate(reversed(body)):
@@ -39,7 +24,6 @@ def luhn(prefix: str, length: int) -> str:
 
 
 def iban(country: str, body: str) -> str:
-    """Return a mod-97 valid IBAN for ``country`` over the given account body."""
     rearranged = body + country + "00"
     digits = "".join(
         str(string.digits.index(character))
@@ -52,7 +36,6 @@ def iban(country: str, body: str) -> str:
 
 
 def tckn(seed: int) -> str:
-    """Return a checksum-valid Turkish national identity number."""
     digits = [int(character) for character in f"{seed:09d}"]
     digits[0] = digits[0] or 1
     tenth = (sum(digits[0:9:2]) * 7 - sum(digits[1:8:2])) % 10
@@ -62,7 +45,6 @@ def tckn(seed: int) -> str:
 
 
 def vkn(seed: int) -> str:
-    """Return a checksum-valid Turkish tax identification number."""
     digits = [int(character) for character in f"{seed:09d}"]
     checksum = 0
     for index, digit in enumerate(digits):
@@ -71,8 +53,6 @@ def vkn(seed: int) -> str:
             checksum += (adjusted * 2 ** (9 - index)) % 9
     return "".join(str(digit) for digit in digits) + str((10 - checksum % 10) % 10)
 
-
-# --- case families --------------------------------------------------------
 
 _TLDS = (
     "com",
@@ -185,9 +165,9 @@ _PROSE_NEGATIVES = (
 
 
 def _email_cases() -> list[tuple[str, str]]:
-    cases = []
-    for tld in _TLDS:
-        cases.append((f"email-tld-{tld}", f"Contact alice@example.{tld} today"))
+    cases = [
+        (f"email-tld-{tld}", f"Contact alice@example.{tld} today") for tld in _TLDS
+    ]
     cases += [
         ("email-subdomain", "Contact alice@mail.corp.example.com today"),
         ("email-plus", "Contact alice+tag@example.com today"),
@@ -410,11 +390,11 @@ def _normalization_cases() -> list[tuple[str, str]]:
         ("norm-bom", "Contact alice﻿@example.com"),
         ("norm-rlo", "Contact ‮alice@example.com‬"),
         ("norm-combining", "Contact alíce@example.com"),
-        ("norm-fullwidth-card", "Card ４１１１１１１１１１１１１１１１"),
-        ("norm-fullwidth-at", "Contact alice＠example.com"),
+        ("norm-fullwidth-card", "Card \uff14" + "\uff11" * 15),
+        ("norm-fullwidth-at", "Contact alice\uff20example.com"),
         ("norm-hangul", "가 alice@example.com 한"),
         ("norm-hangul-jamo", "각 alice@example.com"),
-        ("norm-nbsp", "Phone +90 532 123 45 67"),
+        ("norm-nbsp", "Phone\xa0+90 532 123 45 67"),
         ("norm-ligature", "ﬁle alice@example.com"),
         ("norm-mixed", "Contact ali%63e​@example.com now"),
         ("norm-arabic", "البريد alice@example.com"),
@@ -456,7 +436,6 @@ def _edge_cases() -> list[tuple[str, str]]:
 
 
 def cases() -> list[tuple[str, str]]:
-    """Return every parity case as ``(id, text)``, deterministically ordered."""
     collected: list[tuple[str, str]] = []
     for family in (
         _email_cases,
@@ -479,7 +458,6 @@ def cases() -> list[tuple[str, str]]:
 
 
 def build() -> dict[str, object]:
-    """Run the detector over every case and return the frozen document."""
     from shim_guard.guard import evaluate
 
     records = []

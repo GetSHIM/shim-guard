@@ -1,20 +1,4 @@
-"""The short-lived, per-session record of what shim did.
-
-Hooks are separate processes: nothing survives between two events except what
-is written down. "In memory" is the user-facing promise and this is how it is
-kept — a file under the OS temporary directory, owned by the user, readable by
-nobody else, deleted when the session ends.
-
-There is exactly one rule about its contents, inherited from ``session.record``:
-no entry carries prompt text, a tool input or response body, a command, or a
-detected value. Bounded, scrubbed labels and targets are permitted.
-``tests/session`` asserts the boundary by scanning a recorded session for the
-secrets it injected.
-
-The session identifier is hashed rather than used as a file name. It comes from
-the client and a name is a path — hashing removes traversal as a question
-rather than answering it, and keeps the identifier itself off the filesystem.
-"""
+"""Private, bounded temporary records keyed by hashed session identifiers."""
 
 from __future__ import annotations
 
@@ -27,22 +11,16 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
-#: A spool stops growing here. Entries are ~200 bytes, so this is a very long
-#: session; past it the summary undercounts and says so rather than filling the
-#: user's temporary directory.
+# Cap bounds storage; summaries must expose refused records.
 MAX_SPOOL_BYTES = 1_000_000
-#: Several hook processes append to one spool at once — Claude Code runs
-#: tools in parallel. Concurrent `O_APPEND` writes do not interleave at
-#: these sizes; the worst record this code can produce is ~811 bytes, so
-#: the cap leaves headroom without approaching the size where that stops
-#: being reliable. `tests/session` proves both halves.
+# Keep each concurrent O_APPEND write small enough not to interleave.
 MAX_ENTRY_BYTES = 2_048
 _DIR_MODE = 0o700
 _FILE_MODE = 0o600
 
 
 class SpoolError(RuntimeError):
-    """The spool could not be used safely. Callers allow the event anyway."""
+    pass
 
 
 def _identity() -> int:
@@ -50,7 +28,6 @@ def _identity() -> int:
 
 
 def root_path() -> Path:
-    """Return the directory the spools live in."""
     configured = os.environ.get("SHIM_GUARD_SESSION_DIR")
     if configured:
         root = Path(configured).expanduser()
@@ -62,13 +39,7 @@ def root_path() -> Path:
 
 @contextlib.contextmanager
 def _root() -> Iterator[int]:
-    """Yield a descriptor for the spool directory, creating it if needed.
-
-    The directory lives in a world-writable place, so it is opened without
-    following links and checked for ownership and mode before anything is
-    written into it. Every path below is then resolved relative to this
-    descriptor, so the directory cannot be swapped underneath us.
-    """
+    """Open the private root; descriptor-relative children resist root swaps."""
     path = root_path()
     try:
         path.mkdir(mode=_DIR_MODE, parents=True, exist_ok=True)
@@ -87,7 +58,6 @@ def _root() -> Iterator[int]:
 
 
 def session_key(session_id: str) -> str:
-    """Return the bounded key used for this untrusted session identifier."""
     return hashlib.sha256(session_id.encode("utf-8", "replace")).hexdigest()[:32]
 
 
@@ -128,7 +98,6 @@ def _parse(content: bytes) -> list:
 
 
 def append(session_id: str, entry: dict) -> bool:
-    """Append one record. Returns False when the spool is at its cap."""
     line = json.dumps(entry, ensure_ascii=False, sort_keys=True).encode() + b"\n"
     if len(line) > MAX_ENTRY_BYTES:
         raise SpoolError("session record is too large")
@@ -159,30 +128,17 @@ def _at_cap(root: int, name: str) -> bool:
     except OSError:
         return False
     try:
-        # `append` refuses when the *next* record would cross the cap, so a
-        # full spool sits just below it and never reaches it. The reader does
-        # not know how big the refused record was, so it uses the largest one
-        # that could exist. The error is at most one record's worth of
-        # headroom, and it errs towards warning — which is the safe direction,
-        # since the alternative is a total the user believes is complete.
+        # Refused writes leave the file below the cap; warn within one max entry.
         return os.fstat(descriptor).st_size + MAX_ENTRY_BYTES > MAX_SPOOL_BYTES
     finally:
         os.close(descriptor)
 
 
 def capped(session_id: str) -> bool:
-    """Return whether this spool stopped accepting records.
-
-    Only `append` saw the cap, and only the reader can tell the user about it,
-    so the size is asked for again here rather than carried between processes.
-    An `fstat` costs nothing next to re-reading a megabyte.
-    """
-    with _root() as root:
-        return _at_cap(root, _name(session_id, ".jsonl"))
+    return capped_for_stem(session_key(session_id))
 
 
 def capped_for_stem(stem: str) -> bool:
-    """Return whether an already-hashed spool is at its cap."""
     if not stem.isalnum():
         raise SpoolError("session spool name is invalid")
     with _root() as root:
@@ -190,13 +146,10 @@ def capped_for_stem(stem: str) -> bool:
 
 
 def entries(session_id: str) -> list:
-    """Return this session's records, skipping any line that is not one."""
-    with _root() as root:
-        return _parse(_read(root, _name(session_id, ".jsonl"), MAX_SPOOL_BYTES))
+    return entries_for_stem(session_key(session_id))
 
 
 def entries_for_stem(stem: str) -> list:
-    """Return the records of an already-hashed spool, for `shim report`."""
     if not stem.isalnum():
         raise SpoolError("session spool name is invalid")
     with _root() as root:
@@ -204,7 +157,6 @@ def entries_for_stem(stem: str) -> list:
 
 
 def summarized(session_id: str) -> int:
-    """Return how many records the user has already been shown."""
     with _root() as root:
         content = _read(root, _name(session_id, ".mark"), 32)
     try:
@@ -214,7 +166,6 @@ def summarized(session_id: str) -> int:
 
 
 def mark_summarized(session_id: str, count: int) -> None:
-    """Remember how many records have been shown, so the next turn is quiet."""
     with _root() as root:
         try:
             descriptor = os.open(
@@ -232,26 +183,16 @@ def mark_summarized(session_id: str, count: int) -> None:
 
 
 def clear(session_id: str) -> None:
-    """Delete this session's spool. Called at `SessionEnd`."""
     with _root() as root:
-        for suffix in (".jsonl", ".mark"):
-            try:
-                os.unlink(_name(session_id, suffix), dir_fd=root)
-            except FileNotFoundError:
-                continue
-            except OSError as error:
-                raise SpoolError("session spool could not be removed") from error
+        try:
+            for suffix in (".jsonl", ".mark"):
+                with contextlib.suppress(FileNotFoundError):
+                    os.unlink(_name(session_id, suffix), dir_fd=root)
+        except OSError as error:
+            raise SpoolError("session spool could not be removed") from error
 
 
 def newest() -> str:
-    """Return the file stem of the most recently written spool, or ``""``.
-
-    `shim report` runs in a different process from the hooks and is not told a
-    session identifier, so it reports on whichever session was last active.
-    """
-    # Another client's `SessionEnd` can unlink its spool between the listing
-    # and the stat. That is somebody else's session ending normally, so it is
-    # skipped rather than reported as "your records are unreadable".
     found = []
     try:
         for path in root_path().glob("*.jsonl"):

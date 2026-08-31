@@ -1,5 +1,3 @@
-"""Direction classification and the policy table are the safety rules."""
-
 from __future__ import annotations
 
 import pytest
@@ -57,7 +55,6 @@ def test_unknown_events_are_refused_rather_than_guessed() -> None:
 
 @pytest.mark.parametrize("direction", (LOCAL_WRITE, EXECUTABLE_TEXT, USER_PROMPT))
 def test_unrewritable_directions_are_never_masked(direction: str) -> None:
-    """The single most important rule in the tool policy."""
     assert policy.REWRITABLE[direction] is False
     for mode in (OBSERVE, WARN, ENFORCE):
         assert decide(direction, mode) != MASK

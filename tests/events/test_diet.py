@@ -1,11 +1,3 @@
-"""Every transform must be idempotent and deterministic.
-
-The first two are cache requirements: the history sent to the provider has to
-be byte-identical on every request or prompt caching stops hitting, and a
-change that misses the cache costs more than it saves. Only lossless transforms
-belong in the shipped default.
-"""
-
 from __future__ import annotations
 
 import json
@@ -47,7 +39,6 @@ SAMPLES = (
 
 @pytest.mark.parametrize("text", SAMPLES)
 def test_every_transform_is_idempotent(text: str) -> None:
-    """A transform that drifts would invalidate the cached prefix."""
     for name in diet.TRANSFORMS:
         once, _ = diet.shrink(text, (name,))
         twice, _ = diet.shrink(once, (name,))
@@ -64,7 +55,6 @@ def test_every_transform_is_deterministic_within_a_process(text: str) -> None:
 
 
 def test_transforms_are_deterministic_across_processes() -> None:
-    """Hash randomisation differs per process; transform output must not."""
     source = (
         "import json,sys\n"
         "from shim_guard.events import diet\n"
@@ -118,12 +108,6 @@ def test_json_compaction_preserves_the_parsed_value() -> None:
     ],
 )
 def test_json_compaction_keeps_number_literals_verbatim(literal: str) -> None:
-    """A parse-and-re-emit would rewrite these; a lexer does not.
-
-    `json.dumps(json.loads("1.10"))` is `1.1`, and a long decimal loses digits
-    to a float. Those are different bytes for the model to read, and for a
-    consumer that parses the text again they can be different values.
-    """
     text = (
         '{\n  "value": ' + literal + ',\n  "padding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n}'
     )
@@ -148,7 +132,6 @@ def test_json_compaction_never_touches_string_contents() -> None:
 
 
 def test_json_compaction_preserves_duplicate_keys() -> None:
-    """A round-trip through `json.loads` would silently drop the first one."""
     text = '{\n  "a": 1,\n  "a": 2\n}'
 
     assert diet.compact_json(text) == '{"a":1,"a":2}'
@@ -169,11 +152,6 @@ def test_text_that_is_not_json_passes_through_untouched(text: str) -> None:
 
 
 def test_trailing_whitespace_never_changes_the_line_count() -> None:
-    """`Read` results are line-numbered and the model edits by line.
-
-    This is why repeated-blank-line collapsing is not implemented: removing a
-    blank line shifts every line after it.
-    """
     text = "one   \n\n\n\ntwo\t\t\nthree  "
 
     stripped = diet.strip_trailing_whitespace(text)
@@ -194,7 +172,6 @@ def test_default_diet_preserves_a_markdown_hard_break() -> None:
 
 
 def test_a_short_leaf_is_left_alone() -> None:
-    """The win cannot pay for the risk below the candidate threshold."""
     text = '{"a": 1}'
 
     assert len(text) < diet.MIN_CANDIDATE_CHARS
@@ -213,7 +190,6 @@ def test_shrink_reports_only_the_transforms_that_helped() -> None:
 
 
 def test_disabling_a_transform_disables_exactly_that_transform() -> None:
-    """Selecting one transform must leave every other transform disabled."""
     shrunk, applied = diet.shrink(PRETTY_JSON, (diet.TRAILING_WHITESPACE,))
 
     assert applied == ()

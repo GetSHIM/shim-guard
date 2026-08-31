@@ -24,7 +24,6 @@ READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
 def percentile(samples: list[float], fraction: float) -> float:
-    """Return the nearest-rank percentile from positive sample data."""
     if not samples:
         raise ValueError("samples are required")
     return sorted(samples)[math.ceil(len(samples) * fraction) - 1]

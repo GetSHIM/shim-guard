@@ -84,7 +84,6 @@ def test_inline_hook_detection_is_bounded_and_refuses_links(tmp_path: Path) -> N
     with pytest.raises(ValueError):
         has_inline_hooks(config)
 
-    # A linked ancestor resolves; only the file itself is never followed.
     real = tmp_path / "real"
     real.mkdir()
     (real / "config.toml").write_text("[hooks]\nUserPromptSubmit = []\n")

@@ -1,10 +1,3 @@
-"""The spool is the only thing shim writes that outlives one hook process.
-
-It sits in a world-writable directory, so its safety properties are tested
-here rather than assumed: ownership, mode, no link following, and a session
-identifier that never becomes a path.
-"""
-
 from __future__ import annotations
 
 import json
@@ -48,7 +41,6 @@ def test_records_round_trip_in_order() -> None:
 
 
 def test_the_session_identifier_never_becomes_a_file_name() -> None:
-    """A name from the client is a path. Hashing removes the question."""
     spool.append(SESSION, _entry())
 
     names = [path.name for path in spool.root_path().iterdir()]
@@ -178,7 +170,7 @@ def test_clearing_removes_the_session_entirely() -> None:
     assert spool.entries(SESSION) == []
     assert spool.summarized(SESSION) == 0
     assert list(spool.root_path().iterdir()) == []
-    spool.clear(SESSION)  # a second clear is not an error
+    spool.clear(SESSION)
 
 
 def test_newest_finds_the_most_recently_written_session() -> None:
@@ -209,7 +201,6 @@ def test_a_configured_directory_that_is_not_a_plain_path_is_refused(
 
 
 def test_the_largest_record_this_code_can_produce_fits_the_entry_cap() -> None:
-    """The cap exists to keep concurrent appends atomic, so it must not bite."""
     from shim_guard.guard import ENTITY_TYPES
     from shim_guard.session.record import Record
 
@@ -243,11 +234,6 @@ def test_the_largest_record_this_code_can_produce_fits_the_entry_cap() -> None:
 def test_concurrent_hook_processes_do_not_lose_or_tear_records(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Claude Code runs tools in parallel, so this is the normal case.
-
-    Each hook is its own process appending to the same file. A torn line would
-    corrupt the record silently, and a lost one would undercount the summary.
-    """
     import subprocess
     import sys
 
@@ -294,12 +280,6 @@ def test_concurrent_hook_processes_do_not_lose_or_tear_records(
 
 
 def test_a_full_spool_says_so_to_the_reader(monkeypatch, tmp_path: Path) -> None:
-    """`append` is the only thing that sees the cap, and it cannot report it.
-
-    Without this the summary kept showing a stale total and `shim report --json`
-    said `"capped": false` for a session that had provably stopped recording,
-    while docs/privacy.md promised the opposite.
-    """
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
     monkeypatch.setattr(spool, "MAX_SPOOL_BYTES", 4_000)
     monkeypatch.setattr(spool, "MAX_ENTRY_BYTES", 400)

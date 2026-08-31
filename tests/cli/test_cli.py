@@ -115,21 +115,19 @@ def test_help_command_lists_a_description_for_every_command() -> None:
     result = runner.invoke(app, ["help"], color=False)
     rendered = unstyle(result.output)
     descriptions = (
-        "Show command usage and descriptions.",
-        "Update SHIM Guard with its installation tool.",
-        "Run the local synthetic detector proof.",
-        "Scan bounded UTF-8 text from standard input.",
-        "Redact bounded UTF-8 text from standard input.",
-        "Show or change locally enabled sensitive-data entities.",
-        "Preview or install a client prompt hook.",
-        "Show the prompt-hook installation state.",
-        "Run client compatibility and hook health checks.",
-        "Remove only SHIM Guard's client prompt hook.",
+        "Show help.",
+        "Update SHIM Guard.",
+        "Run a synthetic detector check.",
+        "Scan UTF-8 stdin.",
+        "Redact UTF-8 stdin.",
+        "Show or change detection settings.",
+        "Preview or install a client hook.",
+        "Show hook status.",
+        "Check client and hook health.",
+        "Remove SHIM Guard's client hook.",
     )
 
     assert result.exit_code == 0
-    # Typer renders the subcommand slot as COMMAND or [COMMAND] depending on
-    # version; the descriptions below are what this test is actually about.
     assert "Usage: shim [OPTIONS]" in rendered
     assert "[ARGS]..." in rendered
     assert "--version" in rendered
@@ -559,12 +557,6 @@ def test_doctor_version_states(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_config_preserves_the_sections_it_does_not_change(monkeypatch, tmp_path: Path):
-    """Regression: an entity edit used to silently delete `[mode]`.
-
-    Config v2 added sections the writer did not know about, so saving an
-    entity change reverted a deliberate `enforce` back to the shipped default
-    without saying anything.
-    """
     target = _guard_config(monkeypatch, tmp_path)
     target.parent.mkdir()
     target.write_text(
@@ -692,7 +684,6 @@ def test_diet_ships_on_and_can_be_turned_off(monkeypatch, tmp_path: Path) -> Non
 def test_a_single_transform_can_be_named_in_the_config_file(
     monkeypatch, tmp_path: Path
 ) -> None:
-    """A per-transform selection lives in the config file, not separate flags."""
     target = _guard_config(monkeypatch, tmp_path)
     target.parent.mkdir()
     target.write_text(
@@ -701,17 +692,11 @@ def test_a_single_transform_can_be_named_in_the_config_file(
 
     assert load_policy(target).diet == ("whitespace",)
 
-    # An unrelated entity edit must not silently replace the explicit choice.
     assert runner.invoke(app, ["config", "--enable", "SECRET", "--yes"]).exit_code == 0
     assert load_policy(target).diet == ("whitespace",)
 
 
 def test_report_reads_the_ledger_once_the_session_has_ended(tmp_path: Path) -> None:
-    """The spool is deleted at `SessionEnd`; retained records are what is left.
-
-    Without this the ledger was write-only: `--ledger` produced a file that no
-    command would ever show.
-    """
     from shim_guard.session import ledger
 
     ledger.append(
@@ -755,7 +740,6 @@ def test_report_prefers_the_live_session_over_the_ledger() -> None:
 
 
 def test_report_shows_one_session_not_the_whole_month() -> None:
-    """A monthly ledger holds many sessions; the report is about the newest."""
     from shim_guard.session import ledger
 
     for session, when, entity in (
@@ -784,7 +768,6 @@ def test_report_says_none_when_neither_source_has_anything() -> None:
 
 
 def test_config_shows_whether_records_are_being_kept() -> None:
-    """ "Is this tool writing me to disk?" has to be answerable from the CLI."""
     off = json.loads(runner.invoke(app, ["config", "--json"]).output)
 
     assert off["ledger"] is False
@@ -810,13 +793,6 @@ def test_config_shows_whether_records_are_being_kept() -> None:
 def test_install_creates_a_config_directory_that_does_not_exist_yet(
     monkeypatch, tmp_path: Path, client: str, relative: str
 ) -> None:
-    """Installing before ever launching the client is the first-run case.
-
-    Every other install test pre-creates the config directory, which is why
-    this went unnoticed: the recovery was written for Copilot alone, so Claude
-    and Codex refused with "cannot be changed safely — review malformed,
-    ambiguous, or unsafe settings" about settings that did not exist.
-    """
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))

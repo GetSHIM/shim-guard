@@ -1,5 +1,3 @@
-"""GitHub Copilot CLI ``userPromptTransformed`` adapter."""
-
 from __future__ import annotations
 
 import json
@@ -18,7 +16,6 @@ _ERROR_PROMPT = (
 
 
 def parse_input(raw: bytes) -> str:
-    """Return Copilot's model-facing transformed prompt."""
     payload = user_prompt_hook.parse_object(raw)
     prompt = payload.get("prompt")
     transformed = payload.get("transformedPrompt")
@@ -46,21 +43,12 @@ def _rewrite(text: str) -> bytes:
 
 
 def warn_output(decision: GuardDecision) -> bytes:
-    """Copilot has no message channel, so its warn is its mask.
-
-    Copilot is the one client that can rewrite a submitted prompt, and doing so
-    is invisible to the user rather than disruptive. Degrading it to silence on
-    the assumption that it cannot show a message would remove the only
-    protection it has, on an assumption no probe has confirmed.
-    """
     return block_output(decision)
 
 
 def block_output(decision: GuardDecision, _suggestion_path: str | None = None) -> bytes:
-    """Replace sensitive model-facing content with its typed redaction."""
     return _rewrite(decision.redacted_text) if decision.blocked else b""
 
 
 def error_output() -> bytes:
-    """Replace an uninspectable prompt with generic fail-closed guidance."""
     return _rewrite(_ERROR_PROMPT)

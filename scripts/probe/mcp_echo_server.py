@@ -1,10 +1,3 @@
-"""A one-tool stdio MCP server used only by the client capability probe.
-
-It exists so the probe can capture a real ``mcp__*`` tool call: the argument
-object and tool result become synthetic, reproducible payload and hook fixtures.
-A local echo server keeps real client traffic out of them. Not product code.
-"""
-
 from __future__ import annotations
 
 import json
@@ -29,7 +22,6 @@ TOOL = {
 
 
 def respond(request: dict[str, object]) -> dict[str, object] | None:
-    """Return the JSON-RPC response for one request, or None for a notification."""
     method = request.get("method")
     identifier = request.get("id")
     if identifier is None:
@@ -69,7 +61,6 @@ def _call(params: object) -> dict[str, object]:
 
 
 def serve(source: IO[str], sink: IO[str]) -> None:
-    """Run the newline-delimited JSON-RPC loop until the client closes stdin."""
     for line in source:
         line = line.strip()
         if not line:

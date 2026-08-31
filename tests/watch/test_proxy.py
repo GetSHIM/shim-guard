@@ -1,13 +1,3 @@
-"""The forwarding path, over real sockets.
-
-Only the TLS layer is substituted: the upstream here is a real HTTP server on
-loopback and `HTTPSConnection` is swapped for the plaintext class pointed at
-it. Everything the proxy actually has to get right — header selection, chunked
-re-framing, streaming without buffering, incremental gzip decoding — runs for
-real. Provider interoperability remains an explicit release check because the
-suite must never send user credentials or traffic to a live API.
-"""
-
 from __future__ import annotations
 
 import gzip
@@ -37,8 +27,6 @@ MESSAGE_DELTA = (
 
 
 class _Upstream:
-    """A stand-in provider that records what it was handed."""
-
     def __init__(self, *, gzip_body: bool = True, delay: float = 0.0) -> None:
         self.seen: list = []
         self.gzip_body = gzip_body
@@ -99,11 +87,10 @@ def upstream():
 
 @pytest.fixture
 def watched(monkeypatch, upstream):
-    """A running proxy whose "TLS" connection is plaintext to the fake."""
     port = upstream.port
 
     class Plain(http.client.HTTPConnection):
-        def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
+        def __init__(self, host, timeout=None, context=None):
             super().__init__("127.0.0.1", port, timeout=timeout or 30)
 
     monkeypatch.setattr(http.client, "HTTPSConnection", Plain)
@@ -118,9 +105,6 @@ def _post(running, body: bytes, headers: dict, path: str = "/v1/messages?beta=tr
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         result = response.status, dict(response.headers), response.read()
-    # The record is written just after the last byte is flushed, so a caller
-    # that reads `session.exchanges` the instant its own read returns can beat
-    # it. `Watch.stop` waits the same way before the report is built.
     running.session.drain(10)
     return result
 
@@ -153,7 +137,6 @@ def test_the_request_reaches_the_provider_byte_identical(watched) -> None:
 
 
 def test_the_headers_that_carry_the_sign_in_are_forwarded_verbatim(watched) -> None:
-    """Stripping `anthropic-beta` fails a subscription request with 401."""
     running, upstream = watched
 
     _post(running, BODY, HEADERS)
@@ -166,7 +149,6 @@ def test_the_headers_that_carry_the_sign_in_are_forwarded_verbatim(watched) -> N
 
 
 def test_the_query_string_survives(watched) -> None:
-    """A real client asks for `/v1/messages?beta=true`, not `/v1/messages`."""
     running, upstream = watched
 
     _post(running, BODY, HEADERS)
@@ -192,7 +174,6 @@ def test_the_provider_s_own_response_headers_are_kept(watched) -> None:
 
 
 def test_the_client_receives_the_bytes_the_provider_sent(watched) -> None:
-    """The body is relayed as-is; only measurement decodes a copy."""
     running, _upstream = watched
 
     _status, headers, body = _post(running, BODY, HEADERS)
@@ -226,10 +207,8 @@ def test_the_request_is_measured_without_being_kept(watched) -> None:
 
 
 def test_an_unreachable_provider_is_reported_not_invented(monkeypatch) -> None:
-    """An unreachable provider must surface as an error, never a shim response."""
-
     class Refused(http.client.HTTPConnection):
-        def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
+        def __init__(self, host, timeout=None, context=None):
             super().__init__("127.0.0.1", 1, timeout=1)
 
     monkeypatch.setattr(http.client, "HTTPSConnection", Refused)
@@ -245,7 +224,6 @@ def test_an_unreachable_provider_is_reported_not_invented(monkeypatch) -> None:
 
 
 def test_the_proxy_binds_to_loopback_only() -> None:
-    """It forwards a live credential; anything reachable would hand it out."""
     running = proxy.start("api.anthropic.com")
     try:
         assert running._server.server_address[0] == "127.0.0.1"
@@ -257,12 +235,11 @@ def test_the_proxy_binds_to_loopback_only() -> None:
 def test_the_stream_is_relayed_in_pieces_rather_than_at_the_end(
     monkeypatch,
 ) -> None:
-    """A buffered proxy would return everything only once upstream closed."""
     upstream = _Upstream(delay=0.35)
     port = upstream.port
 
     class Plain(http.client.HTTPConnection):
-        def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
+        def __init__(self, host, timeout=None, context=None):
             super().__init__("127.0.0.1", port, timeout=30)
 
     monkeypatch.setattr(http.client, "HTTPSConnection", Plain)
@@ -282,8 +259,6 @@ def test_the_stream_is_relayed_in_pieces_rather_than_at_the_end(
         upstream.stop()
 
     assert first
-    # Two parts, 0.35s apart. Buffering would push the first byte past the
-    # second sleep; streaming delivers it before.
     assert first_at < total - 0.2, f"first byte at {first_at:.2f}s of {total:.2f}s"
 
 
@@ -345,7 +320,6 @@ def test_a_failed_upstream_read_is_not_framed_as_a_complete_response(
 
 
 def test_measurement_failing_never_fails_the_request(watched, monkeypatch) -> None:
-    """The forwarding path has no opinions, including about its own numbers."""
     running, upstream = watched
 
     def explode(*_args, **_kwargs):
@@ -364,7 +338,7 @@ def test_an_uncompressed_stream_is_read_too(monkeypatch) -> None:
     port = upstream.port
 
     class Plain(http.client.HTTPConnection):
-        def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
+        def __init__(self, host, timeout=None, context=None):
             super().__init__("127.0.0.1", port, timeout=30)
 
     monkeypatch.setattr(http.client, "HTTPSConnection", Plain)
@@ -378,11 +352,6 @@ def test_an_uncompressed_stream_is_read_too(monkeypatch) -> None:
 
 
 def test_no_request_body_is_written_anywhere_on_disk(watched, tmp_path) -> None:
-    """Request bodies must never be persisted, verified with a unique marker.
-
-    A unique marker goes through the proxy in a request body; afterwards every
-    file anywhere under the temporary roots is searched for it.
-    """
     running, _upstream = watched
     marker = "ZQX-CANARY-9f13ab-DO-NOT-PERSIST"
     body = json.dumps(
@@ -415,14 +384,13 @@ def test_no_request_body_is_written_anywhere_on_disk(watched, tmp_path) -> None:
 
 
 def test_concurrent_requests_are_all_recorded(watched) -> None:
-    """A client opens several connections at once; none may be dropped."""
     running, _upstream = watched
     failures: list = []
 
     def attempt() -> None:
         try:
-            _post(running, BODY, HEADERS)  # noqa: F841
-        except Exception as error:  # surfaced, never swallowed by the thread
+            _post(running, BODY, HEADERS)
+        except Exception as error:
             failures.append(repr(error))
 
     threads = [threading.Thread(target=attempt) for _ in range(8)]
@@ -433,9 +401,6 @@ def test_concurrent_requests_are_all_recorded(watched) -> None:
 
     assert failures == []
     assert [thread.is_alive() for thread in threads] == [False] * 8
-    # A record lands just after the last byte reaches the client, so the count
-    # is only complete once in-flight handlers have drained. `stop` is what
-    # guarantees that, and it is what the command calls before reporting.
     running.stop()
 
     assert len(running.session.exchanges) == 8
@@ -444,15 +409,10 @@ def test_concurrent_requests_are_all_recorded(watched) -> None:
 def test_a_request_still_in_flight_is_counted_before_the_report(
     monkeypatch, upstream
 ) -> None:
-    """The last request of a session is usually the most expensive one.
-
-    Handler threads are daemons so a wedged upstream cannot stop the command
-    from exiting, which means shutdown will not wait for them on its own.
-    """
     port = upstream.port
 
     class Slow(http.client.HTTPConnection):
-        def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
+        def __init__(self, host, timeout=None, context=None):
             super().__init__("127.0.0.1", port, timeout=30)
 
     monkeypatch.setattr(http.client, "HTTPSConnection", Slow)
@@ -482,13 +442,6 @@ def test_stopping_twice_is_harmless() -> None:
 def test_measurement_runs_on_a_worker_thread_without_the_signal_deadline(
     watched,
 ) -> None:
-    """The detector arms `SIGALRM`, which only the main thread may do.
-
-    Off the main thread `signal.signal` raises `ValueError`, and the proxy
-    drops a failed measurement rather than a request — so every section,
-    `@`-file and finding silently vanished from a real watched session while
-    every unit test, which calls in from the main thread, passed.
-    """
     from shim_guard.guard import evaluate
 
     running, _upstream = watched
@@ -513,7 +466,6 @@ def test_measurement_runs_on_a_worker_thread_without_the_signal_deadline(
 
 
 def test_the_request_is_on_its_way_before_it_is_measured(watched, monkeypatch) -> None:
-    """Measurement must not sit between the user and the model."""
     running, upstream = watched
     order: list = []
 
@@ -534,8 +486,6 @@ def test_the_request_is_on_its_way_before_it_is_measured(watched, monkeypatch) -
 
     _post(running, BODY, HEADERS)
 
-    # The client's own urllib call goes through the same method, so only the
-    # events recorded on the handler thread are the proxy's.
     assert "measured" in order
     assert order[order.index("measured") - 1] == "sent"
     assert upstream.seen

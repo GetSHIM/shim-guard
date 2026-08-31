@@ -1,19 +1,8 @@
-"""Build the plugin's self-contained hook archive.
-
-The plugin ships a runnable hook so `/plugin install` alone produces a working
-guard, with no separate package-manager step. Only the hook path goes in — the
-CLI and its presentation dependencies stay out — plus the parts of
-`phonenumbers` the phone recognizer actually uses. Its geocoder, carrier,
-short-number and timezone data sets are 20 MB and are never touched by
-`PhoneNumberMatcher`, so they are excluded.
-
-    python scripts/build_zipapp.py --output plugins/shim-guard/bin/shim.pyz
-"""
+"""Build the plugin's self-contained hook archive."""
 
 from __future__ import annotations
 
 import argparse
-import compileall
 import os
 import shutil
 import time
@@ -61,15 +50,7 @@ INCLUDED = (
     "settings_files/files.py",
     "settings_files/plan.py",
 )
-# The geocoder, carrier and timezone data sets are 19 MB between them and are
-# only reachable through modules the recognizer never imports. shortdata cannot
-# be dropped wholesale because phonenumbers/__init__ imports shortnumberinfo,
-# but its 241 per-region tables are loaded lazily and only by short-number
-# APIs, which this hook never calls. .pyi stubs have no runtime role.
-# Compiled extension modules cannot be imported from inside a zip at all, and
-# are specific to one interpreter version and platform, so vendoring them would
-# make the archive non-reproducible across build machines for no benefit: the
-# pure-Python sources beside them are what actually run.
+# Zip-unsafe extensions and unreachable data make builds platform-dependent.
 COMPILED = ("*.so", "*.pyd", "*.dylib")
 VENDORED_EXCLUDES = (
     "__pycache__",
@@ -77,17 +58,10 @@ VENDORED_EXCLUDES = (
     "carrierdata",
     "tzdata",
     "*.pyi",
-) + COMPILED
+    *COMPILED,
+)
 VENDORED_PRUNE = ("shortdata/region_*.py",)
-MAIN = '''"""Entry point for the bundled SHIM Guard hook.
-
-Deliberately written in the subset of Python that both 2.x and 3.x can parse.
-The launcher hands this archive to whatever ``python3`` it finds, and an
-unsupported interpreter must produce the client's allow response and one line
-of explanation rather than a syntax error. Checking the version here instead of
-in the launcher also avoids spawning a second process on every hook event.
-"""
-
+MAIN = """# Must parse before Python 3.9 so unsupported interpreters fail open.
 import sys
 
 MINIMUM = (3, 9)
@@ -106,11 +80,10 @@ from shim_guard.hook import main  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(main())
-'''
+"""
 
 
-def stage(destination: Path, vendor: bool = True) -> Path:
-    """Lay out the archive contents and return the staging directory."""
+def stage(destination: Path, vendor: bool = True) -> None:
     package = destination / PACKAGE
     for relative in INCLUDED:
         source = SOURCE_ROOT / PACKAGE / relative
@@ -121,9 +94,7 @@ def stage(destination: Path, vendor: bool = True) -> Path:
     if vendor:
         import phonenumbers
 
-        # tomli is the stdlib TOML parser backported; `config.py` prefers
-        # `tomllib` and falls back to it below 3.11, which the system
-        # interpreter this archive targets is.
+        # Python 3.9/3.10 need the tomllib backport inside the archive.
         import tomli
 
         shutil.copytree(
@@ -140,13 +111,11 @@ def stage(destination: Path, vendor: bool = True) -> Path:
         for pattern in VENDORED_PRUNE:
             for path in vendored.glob(pattern):
                 path.unlink()
-    return destination
 
 
 def build(
     output: Path, staging: Path, interpreter: str = "/usr/bin/env python3"
-) -> Path:
-    """Write a reproducible compressed archive and make it executable."""
+) -> None:
     # ZIP records local timestamps and Unix mode bits; normalize both.
     timestamp = time.mktime((2000, 1, 1, 0, 0, 0, 0, 1, -1))
     for path in staging.rglob("*"):
@@ -157,7 +126,6 @@ def build(
         staging, target=output, interpreter=interpreter, compressed=True
     )
     output.chmod(0o755)
-    return output
 
 
 def main() -> int:
@@ -174,9 +142,6 @@ def main() -> int:
         staging = Path(args.staging) if args.staging else Path(directory) / "app"
         staging.mkdir(parents=True, exist_ok=True)
         stage(staging, vendor=not args.no_vendor)
-        compileall.compile_dir(str(staging), quiet=2, force=True)
-        for cache in staging.rglob("__pycache__"):
-            shutil.rmtree(cache)
         build(args.output, staging)
 
     size = args.output.stat().st_size

@@ -1,5 +1,3 @@
-"""Local SHIM Guard settings."""
-
 from __future__ import annotations
 
 import os
@@ -9,16 +7,15 @@ from pathlib import Path
 from shim_guard import policy
 from shim_guard.guard import entities as entity_catalog
 
-try:  # pragma: no cover - exercised by whichever interpreter runs the tests
+try:  # pragma: no cover
     import tomllib  # ty: ignore[unresolved-import]
-except ModuleNotFoundError:  # Python < 3.11
+except ModuleNotFoundError:
     import tomli as tomllib
 
 MAX_CONFIG_BYTES = 16_384
 
 
 def config_path(home: Path | None = None) -> Path:
-    """Return the user-scoped SHIM Guard settings path."""
     try:
         if home is not None:
             target = Path(home) / ".config" / "shim-guard" / "config.toml"
@@ -51,13 +48,7 @@ def render_settings(
     ledger: bool = False,
     diet: tuple | None = None,
 ) -> bytes:
-    """Render the whole editable TOML settings document.
-
-    Everything the file can hold is written, not just the part being changed.
-    A writer that knows only about ``enabled_entities`` deletes the sections it
-    has never heard of, which silently reverts a deliberate `enforce` back to
-    the shipped default.
-    """
+    """Render the complete document so updates preserve unrelated policy."""
     import tomli_w
 
     document: dict = {
@@ -72,7 +63,6 @@ def render_settings(
             document["diet"] = False
         elif tuple(diet) != tuple(DEFAULT_TRANSFORMS):
             document["diet"] = list(diet)
-    # Tables must follow scalars in the mapping order tomli_w is given.
     if tool_entities:
         document["entities"] = {
             key: list(value) for key, value in sorted(tool_entities.items())
@@ -83,7 +73,6 @@ def render_settings(
 
 
 def render_entities(entities: Iterable[str]) -> bytes:
-    """Render a settings document holding only the entity list."""
     return render_settings(entities)
 
 
@@ -115,11 +104,6 @@ def _tool_entities(document: dict) -> dict:
 
 
 def _diet(document: dict) -> tuple:
-    """Return the enabled diet transforms.
-
-    Absent means the shipped default. ``false`` turns diet off completely and
-    a list names exactly which transforms run, providing a per-transform switch.
-    """
     from shim_guard.events.diet import DEFAULT_TRANSFORMS, TRANSFORMS
 
     value = document.get("diet", True)
@@ -133,14 +117,7 @@ def _diet(document: dict) -> tuple:
 
 
 def parse_settings(text: str) -> dict:
-    """Parse and validate the settings document.
-
-    Every key is optional and inherits the shipped default when absent, so a
-    v1 file holding only ``enabled_entities`` is a valid v2 file and a file
-    holding only ``[mode]`` is too. `enabled_entities` used to be mandatory,
-    which made a hand-written `[mode]` file fail to parse — and a settings file
-    that will not parse fails closed on every prompt in the session.
-    """
+    """Parse all-optional settings; absent keys inherit shipped defaults."""
     try:
         document = tomllib.loads(text)
     except (tomllib.TOMLDecodeError, RecursionError) as error:
@@ -163,15 +140,11 @@ def parse_settings(text: str) -> dict:
 
 
 def load_policy(path: Path | None = None) -> policy.Policy:
-    """Load the full policy, falling back to the shipped defaults."""
     target = config_path() if path is None else _validated_path(path)
     from shim_guard.settings_files import StateKind, inspect_file
 
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:
-        # No file means the shipped defaults, which is not the same as the
-        # dataclass defaults: `diet` ships on, and most users never write a
-        # config file at all.
         from shim_guard.events.diet import DEFAULT_TRANSFORMS
 
         return policy.Policy(
@@ -196,17 +169,4 @@ def load_policy(path: Path | None = None) -> policy.Policy:
 
 
 def load_entities(path: Path | None = None) -> tuple[str, ...]:
-    """Load enabled entities, using the default preset when no file exists."""
-    target = config_path() if path is None else _validated_path(path)
-    from shim_guard.settings_files import StateKind, inspect_file
-
-    state = inspect_file(target, MAX_CONFIG_BYTES)
-    if state.kind is StateKind.ABSENT:
-        return entity_catalog.DEFAULT_ENTITIES
-    if state.kind is not StateKind.FILE or state.content is None:
-        raise ValueError("SHIM Guard settings cannot be read safely")
-    try:
-        document = parse_settings(state.content.decode("utf-8"))
-        return entity_catalog.normalize_entities(document["enabled_entities"])
-    except (UnicodeDecodeError, RecursionError, ValueError) as error:
-        raise ValueError("SHIM Guard settings are invalid") from error
+    return load_policy(path).entities

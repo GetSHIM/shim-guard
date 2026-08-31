@@ -1,11 +1,3 @@
-"""Strict mutation of a client's shared JSON hook settings file.
-
-One SHIM group is registered per event. The groups are added and removed
-independently and each is matched by exact value, so a file that already holds
-some of them — an install from before tool events existed, say — gains only the
-missing ones and gives up only its own on revert.
-"""
-
 from __future__ import annotations
 
 import json
@@ -14,9 +6,7 @@ from collections.abc import Sequence
 
 MAX_SETTINGS_BYTES = 1_000_000
 
-#: An ``(event, group)`` pair: the settings key to file under, and the exact
-#: group value SHIM owns there.
-Registration = tuple  # (event, group)
+Registration = tuple
 
 
 def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -103,63 +93,54 @@ def _same_group(left: object, right: object) -> bool:
         raise ValueError("invalid hook settings") from error
 
 
-def add_group(
-    content: bytes | None,
-    group: dict[str, object],
-    event: str = "UserPromptSubmit",
-) -> bytes:
-    """Append one exact hook group while preserving existing order."""
-    document = {} if content is None else _load(content)
-    hooks = document.setdefault("hooks", {})
-    assert isinstance(hooks, dict)
-    groups = hooks.setdefault(event, [])
-    assert isinstance(groups, list)
-    matches = [item for item in groups if _same_group(item, group)]
-    if len(matches) > 1:
-        raise ValueError("duplicate SHIM hook groups are ambiguous")
-    if matches:
-        assert content is not None
-        return content
-    groups.append(group)
-    return _dump(document)
-
-
-def remove_group(
-    content: bytes,
-    group: dict[str, object],
-    event: str = "UserPromptSubmit",
-) -> bytes:
-    """Remove one exact hook group while preserving unrelated settings."""
-    document = _load(content)
-    if "hooks" not in document:
-        return content
-    hooks = document["hooks"]
-    assert isinstance(hooks, dict)
-    groups = hooks.get(event, [])
-    assert isinstance(groups, list)
+def _match(groups: list, group: dict[str, object]) -> int | None:
     matches = [index for index, item in enumerate(groups) if _same_group(item, group)]
     if len(matches) > 1:
         raise ValueError("duplicate SHIM hook groups are ambiguous")
-    if not matches:
-        return content
-    del groups[matches[0]]
-    if not groups:
-        del hooks[event]
-    if not hooks:
-        del document["hooks"]
-    return _dump(document)
+    return matches[0] if matches else None
 
 
 def add_groups(content: bytes | None, registrations: Sequence[Registration]) -> bytes:
-    """Add every registration, leaving the ones already present untouched."""
+    if not registrations:
+        assert content is not None
+        return content
+    document = {} if content is None else _load(content)
+    hooks = document.setdefault("hooks", {})
+    assert isinstance(hooks, dict)
+    changed = content is None
     for event, group in registrations:
-        content = add_group(content, group, event)
-    assert content is not None  # at least one registration is always declared
+        groups = hooks.setdefault(event, [])
+        assert isinstance(groups, list)
+        if _match(groups, group) is None:
+            groups.append(group)
+            changed = True
+    if changed:
+        return _dump(document)
+    assert content is not None
     return content
 
 
 def remove_groups(content: bytes, registrations: Sequence[Registration]) -> bytes:
-    """Remove every registration SHIM owns and keep everything else."""
+    if not registrations:
+        return content
+    document = _load(content)
+    hooks = document.get("hooks")
+    if hooks is None:
+        return content
+    assert isinstance(hooks, dict)
+    changed = False
     for event, group in registrations:
-        content = remove_group(content, group, event)
-    return content
+        groups = hooks.get(event, [])
+        assert isinstance(groups, list)
+        match = _match(groups, group)
+        if match is None:
+            continue
+        del groups[match]
+        changed = True
+        if not groups:
+            del hooks[event]
+    if not changed:
+        return content
+    if not hooks:
+        del document["hooks"]
+    return _dump(document)

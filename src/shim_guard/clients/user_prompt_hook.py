@@ -1,5 +1,3 @@
-"""Strict codec primitives shared by prompt-hook clients."""
-
 from __future__ import annotations
 
 import json
@@ -13,10 +11,6 @@ if TYPE_CHECKING:
 EVENT_NAME = "UserPromptSubmit"
 MAX_REASON_CHARS = 4_000
 MAX_OUTPUT_BYTES = 4_096
-#: The client's own name goes in, because the reason has to name a command the
-#: user can actually run. `shim scan` reads standard input, so it reproduces
-#: nothing about why the hook failed; the usual cause is a settings file that
-#: will not parse, and `shim doctor` is what reports that.
 _ERROR_REASON = (
     "SHIM Guard could not inspect this prompt, so it was withheld. "
     "Run `shim doctor {client}` for the reason."
@@ -42,7 +36,6 @@ def _float(value: str) -> float:
 
 
 def parse_object(raw: bytes) -> dict[str, object]:
-    """Return one strict JSON hook payload object."""
     try:
         payload = json.loads(
             raw.decode("utf-8", errors="strict"),
@@ -58,7 +51,6 @@ def parse_object(raw: bytes) -> dict[str, object]:
 
 
 def parse_input(raw: bytes) -> str:
-    """Return the submitted prompt from one strict hook payload."""
     payload = parse_object(raw)
     if payload.get("hook_event_name") != EVENT_NAME:
         raise ValueError("unexpected prompt-hook event")
@@ -90,7 +82,6 @@ def block_output(
     *,
     suppress_original_prompt: bool = False,
 ) -> bytes:
-    """Serialize a blocked decision using the common native hook shape."""
     if not decision.blocked:
         return b""
     if not isinstance(suggestion_path, str) or not suggestion_path:
@@ -112,13 +103,6 @@ def block_output(
 
 
 def warn_output(decision: GuardDecision) -> bytes:
-    """Report what was found and let the prompt through.
-
-    This is the shipped default. A client cannot rewrite a submitted prompt, so
-    the alternative to reporting is refusing the sentence someone just typed,
-    which is the most disruptive thing this product can do. The message carries
-    entity names and counts only, never a detected value.
-    """
     if not decision.blocked:
         return b""
     counts = ", ".join(f"{category} ({count})" for category, count in decision.counts)
@@ -130,5 +114,4 @@ def warn_output(decision: GuardDecision) -> bytes:
 
 
 def error_output(client: str, *, suppress_original_prompt: bool = False) -> bytes:
-    """Return the generic fail-closed response without input-derived data."""
     return _json_block(_ERROR_REASON.format(client=client), suppress_original_prompt)

@@ -1,5 +1,3 @@
-"""Pure Guard decision and typed ordinal redaction."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable

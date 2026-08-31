@@ -1,5 +1,3 @@
-"""Codex ``UserPromptSubmit`` input and output adapter."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -16,10 +14,8 @@ warn_output = user_prompt_hook.warn_output
 
 
 def block_output(decision: GuardDecision, suggestion_path: str | None = None) -> bytes:
-    """Serialize a Guard decision using Codex's native block shape."""
     return user_prompt_hook.block_output(decision, suggestion_path)
 
 
 def error_output() -> bytes:
-    """Return the generic fail-closed response without input-derived data."""
     return user_prompt_hook.error_output("codex")

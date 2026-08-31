@@ -1,5 +1,3 @@
-"""The report says which numbers are the provider's and which are shim's."""
-
 from __future__ import annotations
 
 import json
@@ -49,7 +47,6 @@ def test_provider_numbers_are_marked_exact_and_shim_s_are_not() -> None:
 
     assert "(exact)" in text
     assert "approximate" in text
-    # Every inferred figure carries the marker; no exact one does.
     for line in text.splitlines():
         if "(exact)" in line:
             assert "~" not in line
@@ -75,7 +72,6 @@ def test_the_section_split_totals_the_exact_input() -> None:
 
 
 def test_the_tools_array_is_reported_as_the_largest_contributor() -> None:
-    """The report must name the section measured as the largest contributor."""
     text = report.render(_session(_exchange()), 62.0)
 
     assert "tools" in text
@@ -101,7 +97,6 @@ def test_spend_is_priced_per_kind_of_token() -> None:
 
 
 def test_an_unknown_model_is_named_rather_than_guessed() -> None:
-    """A stale price is worse than none: people quote the number."""
     dollars, priced, unpriced = report.spend([_exchange(model="some-future-model")])
 
     assert dollars == 0.0
@@ -142,7 +137,6 @@ def test_forwarding_failures_are_reported() -> None:
 
 
 def test_only_model_requests_are_counted() -> None:
-    """Token counting and OAuth refresh calls are not turns."""
     session = _session(_exchange(), _exchange(path="/v1/organizations/me"))
 
     assert report.as_json(session, 5.0)["requests"] == 1

@@ -1,14 +1,3 @@
-"""`shim report` — what shim did, on demand rather than at the end of a turn.
-
-The hook emits the same summary at `Stop`, but only once per change and only
-inside the client. This is the way to ask for it: from a script, when the
-message scrolled away, or after the client has closed.
-
-That last case only works if the ledger is on. The spool is deleted at
-`SessionEnd` — that is the point of it — so once the client exits, the retained
-ledger is the only thing left to read, and this reads it.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -20,12 +9,6 @@ from shim_guard.session import spool, summary
 
 
 def _retained() -> list:
-    """Return the newest retained session's records, or ``[]``.
-
-    Records from many sessions share one monthly file, so the newest timestamp
-    selects the session and the session id then selects its records — "the most
-    recent session", not "the last few things that happened".
-    """
     from shim_guard.session import ledger
 
     try:
@@ -40,7 +23,6 @@ def _retained() -> list:
 
 
 def report(*, as_json: bool) -> None:
-    """Print the most recent session's summary, live or retained."""
     try:
         stem = spool.newest()
         records = spool.entries_for_stem(stem) if stem else []
@@ -74,15 +56,14 @@ def report(*, as_json: bool) -> None:
     if not text:
         emit("PASS", f"shim inspected {len(records)} events and found nothing.")
         return
-    # The summary is multi-line, so newlines have to survive the escaping
-    # that keeps a file name from repainting the terminal.
+    # Preserve summary newlines while escaping terminal controls in targets.
     print(terminal_text(text, sys.stdout, "\n"))
     if source == "ledger":
         emit("WARN", "From the retained ledger; the live session has ended.")
 
 
 def purge(*, yes: bool, as_json: bool) -> None:
-    """Delete every retained record. The spool is separate and untouched."""
+    """Delete retained records without touching the live spool."""
     from shim_guard.session import ledger
 
     try:

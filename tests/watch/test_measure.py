@@ -1,10 +1,3 @@
-"""Measurement is pure, bounded, and keeps nothing it measured.
-
-The fixtures here are the shapes a live Claude Code session actually put on the
-wire on 30 Aug 2026, not invented ones: the `@`-file wrapper and the staged
-`usage` blocks were both captured from a real request through a local proxy.
-"""
-
 from __future__ import annotations
 
 import json
@@ -13,8 +6,6 @@ import pytest
 
 from shim_guard.watch import measure
 
-#: `message_start` carries the input side; `message_delta` carries the final
-#: output count. Copied from a live response.
 MESSAGE_START = (
     "event: message_start\n"
     'data: {"type":"message_start","message":{"model":"claude-sonnet-5",'
@@ -47,9 +38,6 @@ def _request(**changes) -> dict:
     return document
 
 
-# --- usage: exact, and never double counted -------------------------------
-
-
 def test_usage_is_read_from_a_stream_arriving_in_pieces() -> None:
     reader = measure.UsageReader()
     whole = MESSAGE_START + MESSAGE_DELTA
@@ -63,7 +51,6 @@ def test_usage_is_read_from_a_stream_arriving_in_pieces() -> None:
 
 
 def test_the_total_input_includes_what_the_cache_served() -> None:
-    """`input_tokens` alone reads as 2 on a warm session. It is not the cost."""
     reader = measure.UsageReader()
     reader.feed(MESSAGE_START)
 
@@ -96,9 +83,6 @@ def test_noise_in_the_stream_yields_no_usage(text: str) -> None:
     assert reader.usage == measure.Usage()
 
 
-# --- sections and attribution ---------------------------------------------
-
-
 def test_sections_are_measured_and_the_rest_is_summed() -> None:
     found = measure.sections(_request())
 
@@ -107,7 +91,6 @@ def test_sections_are_measured_and_the_rest_is_summed() -> None:
 
 
 def test_attribution_sums_to_the_provider_s_exact_total() -> None:
-    """The split is a guess; the total is not, and must survive the split."""
     by_bytes = {"tools": 139_648, "system": 28_823, "messages": 25_552, "other": 213}
 
     shares = measure.attribute(by_bytes, 109_657)
@@ -127,9 +110,6 @@ def test_attribution_declines_rather_than_dividing_by_zero() -> None:
     assert measure.attribute({}, 100) == {}
     assert measure.attribute({"tools": 0}, 100) == {}
     assert measure.attribute({"tools": 10}, 0) == {}
-
-
-# --- the coverage gap watch exists for ------------------------------------
 
 
 def test_an_at_referenced_file_is_counted() -> None:
@@ -160,7 +140,6 @@ def test_two_at_files_in_one_message_are_both_counted() -> None:
 
 
 def test_an_ordinary_system_reminder_is_not_an_at_file() -> None:
-    """Most reminders are not inlined files, and counting them would mislead."""
     document = _request(
         messages=[
             {"role": "user", "content": "<system-reminder>Be brief.</system-reminder>"}
@@ -178,11 +157,7 @@ def test_an_unterminated_reminder_does_not_hang_or_count() -> None:
     assert measure.at_files(document).count == 0
 
 
-# --- what is kept ---------------------------------------------------------
-
-
 def test_an_exchange_keeps_counts_and_sizes_but_no_traffic() -> None:
-    """An exchange retains only numeric counts and sizes, never traffic."""
     secret = "AKIAIOSFODNN7EXAMPLE"
     body = json.dumps(
         _request(messages=[{"role": "user", "content": f"deploy with {secret}"}])

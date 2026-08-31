@@ -1,17 +1,3 @@
-"""The hook path must not pull in third-party code beyond ``phonenumbers``.
-
-The hook path excludes presidio-analyzer and tldextract so a cold process stays
-inside the latency budget and the zipapp can run on a system interpreter.
-Nothing enforces that except this test: an accidental
-top-level ``import rich`` in a shared module would restore the old cost without
-failing anything else.
-
-``-X importtime`` cannot be used for this. ``hook._silence_dependencies``
-redirects file descriptor 2 while the detector runs, which is exactly the
-window the imports happen in, so the trace is incomplete. Inspecting
-``sys.modules`` afterwards is not defeated by the redirection.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -23,11 +9,7 @@ from pathlib import Path
 
 import pytest
 
-# `tomli` is the stdlib `tomllib` backported, imported only below Python 3.11
-# and only to read the user's own settings file. Above 3.11 the stdlib module
-# is used and nothing third-party is loaded at all.
 ALLOWED_THIRD_PARTY = frozenset({"phonenumbers", "tomli"})
-FORBIDDEN = ("presidio_analyzer", "tldextract", "spacy", "typer", "rich", "click")
 
 SOURCE_ROOT = Path(__file__).parents[2] / "src" / "shim_guard"
 TOP_LEVEL_OWNERS = frozenset(
@@ -103,7 +85,7 @@ if CLIENT == "copilot":
         {"prompt": PROMPT, "transformedPrompt": PROMPT}
     ).encode()
 
-output = hook._output(payload, CLIENT)
+hook._output(payload, CLIENT)
 
 third_party = []
 for name in sorted({module.split(".")[0] for module in sys.modules}):
@@ -118,7 +100,7 @@ for name in sorted({module.split(".")[0] for module in sys.modules}):
 
 shim_modules = sorted(m for m in sys.modules if m.startswith("shim_guard."))
 sys.stdout.write(json.dumps(
-    {"third_party": third_party, "bytes": len(output), "shim": shim_modules}
+    {"third_party": third_party, "shim": shim_modules}
 ))
 """
 
@@ -158,12 +140,13 @@ def _imported_modules(path: Path) -> set[tuple[str, bool]]:
                 imported.add((f"{name}.{alias.name}", under_type_checking))
 
         if isinstance(node, ast.If) and (
-            isinstance(node.test, ast.Name)
-            and node.test.id == "TYPE_CHECKING"
-            or isinstance(node.test, ast.Attribute)
-            and isinstance(node.test.value, ast.Name)
-            and node.test.value.id == "typing"
-            and node.test.attr == "TYPE_CHECKING"
+            (isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING")
+            or (
+                isinstance(node.test, ast.Attribute)
+                and isinstance(node.test.value, ast.Name)
+                and node.test.value.id == "typing"
+                and node.test.attr == "TYPE_CHECKING"
+            )
         ):
             for child in node.body:
                 collect(child, True)
@@ -237,53 +220,10 @@ def test_the_hook_path_imports_no_unexpected_third_party_module(
         f"Only {sorted(ALLOWED_THIRD_PARTY)} are permitted; "
         "move the import into the CLI."
     )
-    assert observed["bytes"] >= 0
-
-
-@pytest.mark.parametrize("module", FORBIDDEN)
-def test_named_heavy_dependencies_never_reach_the_hook_path(module: str) -> None:
-    observed = _probe("codex", "Contact alice@example.com")
-
-    assert module not in observed["third_party"]
-
-
-def test_the_detector_alone_imports_nothing_third_party() -> None:
-    """The packaged ``guard`` detector must use only the standard library."""
-    source = (
-        "import importlib.util, json, sys\n"
-        "from shim_guard.guard import evaluate\n"
-        "evaluate('Contact alice@example.com')\n"
-        "names = sorted({m.split('.')[0] for m in sys.modules})\n"
-        "third = []\n"
-        "for name in names:\n"
-        "    if name.startswith('_'):\n"
-        "        continue\n"
-        "    try:\n"
-        "        spec = importlib.util.find_spec(name)\n"
-        "    except (ImportError, ValueError):\n"
-        "        continue\n"
-        "    if spec and spec.origin and 'site-packages' in spec.origin:\n"
-        "        third.append(name)\n"
-        "sys.stdout.write(json.dumps(third))\n"
-    )
-    result = subprocess.run(
-        (sys.executable, "-I", "-B", "-c", source),
-        capture_output=True,
-        check=False,
-        timeout=120,
-    )
-    assert result.returncode == 0, result.stderr.decode()
-    assert set(json.loads(result.stdout)) <= ALLOWED_THIRD_PARTY
 
 
 @pytest.mark.parametrize("client", ("codex", "claude", "copilot"))
 def test_the_hook_path_never_imports_the_watch_proxy(client: str) -> None:
-    """`shim watch` runs once per session; the hook runs per tool call.
-
-    The proxy pulls in `http.server`, `http.client`, `ssl` and `socketserver`.
-    None of that is free, and the hook pays every import on every tool call, so
-    the two must not share a module. Nothing else enforces the boundary.
-    """
     observed = _probe(client, "Contact alice@example.com")
 
     watch = [name for name in observed["shim"] if name.startswith("shim_guard.watch")]

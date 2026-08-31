@@ -1,5 +1,3 @@
-"""Safe user-scoped settings-file changes."""
-
 from .files import InstallationError, apply, ensure_parent, inspect_file
 from .plan import Action, FileState, Plan, StateKind, plan_change
 

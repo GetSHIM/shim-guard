@@ -1,11 +1,3 @@
-"""The plugin launcher must resolve a hook, and must never block without one.
-
-`run-shim-guard` used to return a block decision when it could not find
-`shim-guard-hook` on PATH, so installing the plugin without separately installing
-the package produced an agent that refused every prompt. These tests pin the
-inversion: a guard that cannot run is a guard that is off.
-"""
-
 from __future__ import annotations
 
 import json
@@ -38,12 +30,13 @@ def _payload(client: str, prompt: str = SECRET_PROMPT) -> bytes:
 
 @pytest.fixture(scope="session")
 def archive(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Build the archive fresh, so the test never depends on a stale commit."""
     target = tmp_path_factory.mktemp("zipapp") / "shim.pyz"
     subprocess.run(
         (sys.executable, str(BUILDER), "--output", str(target)),
         capture_output=True,
         check=True,
+        env=os.environ | {"TZ": "UTC"},
+        preexec_fn=partial(os.umask, 0o022),
         timeout=300,
     )
     return target
@@ -58,9 +51,6 @@ def _run(client: str, environment: dict[str, str], prompt: str = SECRET_PROMPT):
         env=environment,
         timeout=120,
     )
-
-
-# --- an unavailable guard must not block ---------------------------------
 
 
 @pytest.mark.parametrize("client", CLIENTS)
@@ -91,9 +81,6 @@ def test_launcher_allows_the_prompt_when_no_interpreter_exists(
     assert SECRET_PROMPT.encode() not in result.stdout + result.stderr
 
 
-# --- hook resolution order -----------------------------------------------
-
-
 @pytest.mark.parametrize("client", CLIENTS)
 def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
     client: str, archive: Path, tmp_path: Path
@@ -115,11 +102,8 @@ def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
     assert result.stderr == b""
     document = json.loads(result.stdout)
     if client == "copilot":
-        # Copilot is the one client that can rewrite a submitted prompt, and
-        # doing so is invisible rather than disruptive, so it still masks.
         assert document["modifiedTransformedPrompt"] == "Contact <EMAIL_1>"
     else:
-        # The shipped default reports and lets the prompt through.
         assert "decision" not in document
         assert document["systemMessage"] == (
             "shim: found EMAIL (1) in your prompt. Not modified."
@@ -129,7 +113,6 @@ def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
 
 @pytest.mark.parametrize("client", CLIENTS)
 def test_launcher_prefers_the_package_on_path(client: str, tmp_path: Path) -> None:
-    """The PATH install wins over the bundled archive."""
     marker = tmp_path / "shim-guard-hook"
     marker.write_text("#!/bin/sh\nprintf '%s' \"PATH-HOOK:$1\"\n", encoding="utf-8")
     marker.chmod(0o755)
@@ -175,9 +158,6 @@ def test_launcher_is_executable_and_shell_free() -> None:
     assert "eval" not in source
 
 
-# --- bundled archive ------------------------------------------------------
-
-
 def test_archive_is_self_contained_and_within_budget(archive: Path) -> None:
     assert archive.stat().st_size < MAX_ARCHIVE_BYTES
     assert archive.read_bytes().startswith(b"#!/usr/bin/env python3\n")
@@ -188,15 +168,16 @@ def test_archive_is_self_contained_and_within_budget(archive: Path) -> None:
     assert packaged == {"__main__.py", "shim_guard", "phonenumbers", "tomli"}
     assert not any(name.startswith("shim_guard/cli/") for name in names)
     assert not any(name.endswith(".pyi") for name in names)
+    assert not any(name.endswith((".so", ".pyd", ".dylib")) for name in names)
     for excluded in ("geodata", "carrierdata", "tzdata"):
         assert not any(f"phonenumbers/{excluded}/" in name for name in names)
     assert "shim_guard/guard/suffixes.py" in names
+    assert "tomli/_parser.py" in names
 
 
 def test_archive_refuses_an_unsupported_interpreter_without_blocking(
     archive: Path,
 ) -> None:
-    """The floor check lives inside the archive, not in the launcher."""
     source = zipfile.ZipFile(archive).read("__main__.py").decode()
 
     assert "MINIMUM = (3, 9)" in source
@@ -228,42 +209,19 @@ def test_committed_archive_matches_a_fresh_build(archive: Path) -> None:
     )
 
 
-def test_archive_build_is_reproducible(tmp_path: Path) -> None:
-    archives = (tmp_path / "one.pyz", tmp_path / "two.pyz")
-    for target, mask, timezone in zip(
-        archives, (0o022, 0o077), ("UTC", "America/Los_Angeles")
-    ):
-        subprocess.run(
-            (sys.executable, str(BUILDER), "--output", str(target)),
-            check=True,
-            env=os.environ | {"TZ": timezone},
-            preexec_fn=partial(os.umask, mask),
-            timeout=300,
-        )
-    assert archives[0].read_bytes() == archives[1].read_bytes()
-
-
-def test_archive_carries_no_compiled_extension_modules(archive: Path) -> None:
-    """A compiled module cannot be imported from a zip and pins one platform.
-
-    `tomli` ships accelerated `.so` builds for some interpreters, so vendoring
-    naively produced an archive that differed depending on which Python built
-    it. The pure-Python sources beside them are what actually run.
-    """
-    names = zipfile.ZipFile(archive).namelist()
-
-    assert not [name for name in names if name.endswith((".so", ".pyd", ".dylib"))]
-    assert "tomli/_parser.py" in names
+def test_archive_build_is_reproducible(archive: Path, tmp_path: Path) -> None:
+    other = tmp_path / "other.pyz"
+    subprocess.run(
+        (sys.executable, str(BUILDER), "--output", str(other)),
+        check=True,
+        env=os.environ | {"TZ": "America/Los_Angeles"},
+        preexec_fn=partial(os.umask, 0o077),
+        timeout=300,
+    )
+    assert archive.read_bytes() == other.read_bytes()
 
 
 def test_archive_contains_every_module_the_hook_path_imports(archive: Path) -> None:
-    """A module missing from the archive fails closed, which looks like a bug.
-
-    The include list in `scripts/build_zipapp.py` is explicit so the CLI stays
-    out. That means adding a module to the hook path without adding it here
-    produces an archive that blocks every event, so the two are compared here
-    rather than trusted to stay in step.
-    """
     probe = (
         "import json, sys\n"
         "from shim_guard import hook\n"

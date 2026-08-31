@@ -1,5 +1,3 @@
-"""Codex 0.149.0 user hook settings owned by SHIM Guard."""
-
 from __future__ import annotations
 
 import os
@@ -7,9 +5,9 @@ import shlex
 import sys
 from pathlib import Path
 
-try:  # pragma: no cover - exercised by whichever interpreter runs the tests
+try:  # pragma: no cover
     import tomllib  # ty: ignore[unresolved-import]
-except ModuleNotFoundError:  # Python < 3.11; CLI-only, never on the hook path
+except ModuleNotFoundError:
     import tomli as tomllib
 
 from shim_guard.clients.hook_settings import (
@@ -39,17 +37,14 @@ def _codex_home(home: Path | None = None) -> Path:
 
 
 def target_path(home: Path | None = None) -> Path:
-    """Return the user-scoped Codex hook document path."""
     return _codex_home(home) / "hooks.json"
 
 
 def config_path(home: Path | None = None) -> Path:
-    """Return the same-layer Codex TOML configuration path."""
     return _codex_home(home) / "config.toml"
 
 
 def has_inline_hooks(path: Path | None = None) -> bool:
-    """Detect hooks in Codex TOML without following links or exposing content."""
     target = config_path() if path is None else Path(path)
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:
@@ -65,7 +60,6 @@ def has_inline_hooks(path: Path | None = None) -> bool:
 
 
 def hook_command(interpreter: str | Path = sys.executable) -> str:
-    """Return the isolated hook command with an absolute interpreter."""
     executable = Path(interpreter)
     if not executable.is_absolute() or not str(executable).isprintable():
         raise ValueError("hook interpreter must be an absolute safe path")
@@ -73,7 +67,6 @@ def hook_command(interpreter: str | Path = sys.executable) -> str:
 
 
 def hook_group(interpreter: str | Path = sys.executable) -> dict[str, object]:
-    """Return SHIM's exact Codex matcher group."""
     return {
         "hooks": [
             {
@@ -86,15 +79,12 @@ def hook_group(interpreter: str | Path = sys.executable) -> dict[str, object]:
 
 
 def hook_groups(interpreter: str | Path = sys.executable) -> tuple[Registration, ...]:
-    """Return the verified prompt event SHIM registers."""
     return ((PROMPT_EVENT, hook_group(interpreter)),)
 
 
 def add_hook(content: bytes | None, interpreter: str | Path = sys.executable) -> bytes:
-    """Append SHIM's groups while preserving existing hook ordering."""
     return add_groups(content, hook_groups(interpreter))
 
 
 def remove_hook(content: bytes, interpreter: str | Path = sys.executable) -> bytes:
-    """Remove exactly SHIM's groups and preserve every unrelated entry."""
     return remove_groups(content, hook_groups(interpreter))

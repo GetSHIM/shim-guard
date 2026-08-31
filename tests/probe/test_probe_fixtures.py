@@ -1,10 +1,3 @@
-"""Contracts the committed capability-probe fixtures must keep.
-
-These fixtures are evidence. The findings recorded in ``docs/probe-2026-08.md``
-are asserted here so a client-side change that invalidates them fails a test
-instead of quietly making the document wrong.
-"""
-
 from __future__ import annotations
 
 import json
@@ -82,7 +75,6 @@ def test_fixtures_carry_no_machine_identity(fixture: Path) -> None:
 
 
 def test_post_tool_use_carries_the_whole_read_result_the_model_saw() -> None:
-    """T1: inbound masking of file contents is possible on Claude Code."""
     payload = _load("PostToolUse-Read-read-large-1.json")
     result = payload["tool_response"]
     assert isinstance(result, dict)
@@ -98,7 +90,6 @@ def test_post_tool_use_carries_the_whole_read_result_the_model_saw() -> None:
 
 
 def test_read_results_use_two_different_shapes_across_events() -> None:
-    """Undocumented: PostToolBatch line-numbers what PostToolUse returns whole."""
     single = _load("PostToolUse-Read-batch-1.json")["tool_response"]
     batch = _load("PostToolBatch-none-batch-1.json")["tool_calls"]
 
@@ -110,7 +101,6 @@ def test_read_results_use_two_different_shapes_across_events() -> None:
 
 
 def test_web_fetch_results_never_reach_the_hook_as_html() -> None:
-    """The captured WebFetch result has no HTML for a transform to process."""
     result = _load("PostToolUse-WebFetch-webfetch-1.json")["tool_response"]
     assert isinstance(result, dict)
     assert set(result) == {"bytes", "code", "codeText", "result", "durationMs", "url"}
@@ -120,7 +110,6 @@ def test_web_fetch_results_never_reach_the_hook_as_html() -> None:
 
 
 def test_local_write_payloads_expose_their_content_before_the_write() -> None:
-    """A local-write payload must reach the file byte-for-byte unchanged."""
     payload = _load("PreToolUse-Write-write-1.json")
     tool_input = payload["tool_input"]
     assert isinstance(tool_input, dict)
@@ -128,7 +117,6 @@ def test_local_write_payloads_expose_their_content_before_the_write() -> None:
 
 
 def test_mcp_arguments_and_results_are_structured_not_flat_text() -> None:
-    """MCP arguments and results must be traversed without stringifying them."""
     before = _load("PreToolUse-mcp__probe__probe_echo-mcp-echo-1.json")
     after = _load("PostToolUse-mcp__probe__probe_echo-mcp-echo-1.json")
 
@@ -143,7 +131,6 @@ def test_mcp_arguments_and_results_are_structured_not_flat_text() -> None:
 
 
 def test_bash_input_is_free_form_command_text() -> None:
-    """A Bash payload carries free-form command text inside its input object."""
     tool_input = _load("PreToolUse-Bash-bash-connection-string-1.json")["tool_input"]
     assert isinstance(tool_input, dict)
     assert "postgresql://" in tool_input["command"]

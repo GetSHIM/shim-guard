@@ -1,24 +1,7 @@
-"""What a watched session cost, said once, at the end.
-
-Exact and approximate figures never share a column. The provider's token
-counts are printed plain; anything shim inferred carries a `~`, and the
-section split says so in words as well. The distinction matters because the two
-have completely different standing: one is what was billed, the other is a
-guess at how it divided.
-"""
-
 from __future__ import annotations
 
 from .measure import OTHER, SECTIONS, Usage
 
-#: Dollars per million tokens, by model prefix, taken from Anthropic's public
-#: pricing page on 30 Aug 2026. Order matters: the first prefix that matches
-#: wins, so longer names come first.
-#:
-#: A price table in a local tool goes stale and cannot be checked offline, and
-#: a stale dollar figure is worse than none — people quote it. So an unknown
-#: model prints no spend line at all rather than a number derived from a guess,
-#: and every figure this produces is marked approximate.
 PRICES = (
     ("claude-opus-4", (15.0, 75.0, 18.75, 1.5)),
     ("claude-opus-5", (15.0, 75.0, 18.75, 1.5)),
@@ -39,13 +22,6 @@ def _price(model: str):
 
 
 def spend(exchanges: list) -> tuple:
-    """Return (dollars, priced, unpriced) across every exchange.
-
-    Cache reads and cache writes are charged at their own rates, which is the
-    whole reason this is not `total_input * one_rate`: on a warm session the
-    cached share is the overwhelming majority of the tokens and a tenth of the
-    price.
-    """
     total = 0.0
     priced = 0
     unpriced = set()
@@ -85,7 +61,6 @@ def totals(exchanges: list) -> Usage:
 
 
 def section_totals(exchanges: list) -> dict:
-    """Return approximate input tokens per section, summed over the session."""
     combined: dict = {}
     for exchange in exchanges:
         for name, tokens in exchange.tokens_by_section().items():
@@ -120,14 +95,12 @@ def _thousands(value: int) -> str:
 
 
 def _order(names) -> list:
-    """Named sections first, in the order a reader expects, then the rest."""
     known = [name for name in SECTIONS if name in names]
     rest = sorted(name for name in names if name not in SECTIONS and name != OTHER)
     return known + rest + ([OTHER] if OTHER in names else [])
 
 
 def render(session, seconds: float) -> str:
-    """Return the end-of-session summary, or ``""`` when nothing was seen."""
     exchanges = [
         exchange for exchange in session.exchanges if exchange.path.endswith("messages")
     ]
@@ -157,7 +130,7 @@ def render(session, seconds: float) -> str:
         lines.append("  where the input went  (approximate — split by byte share)")
         for name in _order(by_section):
             tokens = by_section[name]
-            share = round(100 * tokens / total) if total else 0
+            share = round(100 * tokens / total)
             lines.append(f"    {name:<9} ~{_thousands(tokens):>12}  {share:>3}%")
 
     count, size = at_file_totals(exchanges)
@@ -197,7 +170,6 @@ def render(session, seconds: float) -> str:
 
 
 def as_json(session, seconds: float) -> dict:
-    """The same numbers as data. Exactness is marked, not implied."""
     exchanges = [
         exchange for exchange in session.exchanges if exchange.path.endswith("messages")
     ]

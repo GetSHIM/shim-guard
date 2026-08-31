@@ -68,9 +68,6 @@ def test_source_normalized_intermediate_and_finding_limits() -> None:
             generated["normalization-intermediate-oversize"]["value"]
             * generated["normalization-intermediate-oversize"]["count"]
         )
-    # Bound to the constant, not to a number frozen next to it. The corpus
-    # said 101 because the limit used to be 100; when the limit moved the case
-    # quietly stopped testing anything and the suite went green.
     assert generated["finding-count-oversize"]["count"] == MAX_FINDINGS + 1
     emails = " ".join(
         f"u{index}@e.co"
@@ -145,8 +142,6 @@ def test_overlap_tie_is_deterministic_and_covers_the_component() -> None:
 def test_email_validation_reads_neither_the_network_nor_the_filesystem(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The public suffix table is compiled in, so detection needs no I/O."""
-
     def forbidden(*_: object, **__: object) -> None:
         raise AssertionError("email validation attempted I/O")
 
@@ -160,7 +155,6 @@ def test_email_validation_reads_neither_the_network_nor_the_filesystem(
 
 
 def test_public_suffix_rules_match_the_behaviour_they_replaced() -> None:
-    """Cases that distinguish a real PSL from a naive last-label check."""
     from shim_guard.guard.suffixes import is_registrable
 
     assert is_registrable("example.com")
@@ -204,10 +198,6 @@ def test_results_are_independent_of_python_hash_seed() -> None:
     assert outputs[0] == outputs[1]
 
 
-#: Values a developer writes constantly that name no person and no network.
-#: Detection that fires where there is obviously nothing to find is how people
-#: learn to ignore it — and once both are `<IP_ADDRESS_n>`, the model can no
-#: longer tell "bind to every interface" apart from "loopback only".
 QUIET = (
     "127.0.0.1",
     "127.0.1.1",
@@ -222,8 +212,6 @@ QUIET = (
     "the server listens on 0.0.0.0:8080 in production",
 )
 
-#: The other side of the same line. A missed credential or a missed internal
-#: address is far worse than a noisy hit, so the exemption stops here.
 LOUD = (
     ("10.0.0.5", "IP_ADDRESS"),
     ("192.168.1.44", "IP_ADDRESS"),
@@ -250,7 +238,6 @@ def test_addresses_that_name_nobody_are_left_alone(text: str) -> None:
 
 @pytest.mark.parametrize(("text", "entity"), LOUD)
 def test_a_credential_or_a_real_host_is_still_caught(text: str, entity: str) -> None:
-    """The exemption must never become a way to smuggle one past."""
     decision = evaluate(text)
 
     assert entity in dict(decision.counts), decision.counts

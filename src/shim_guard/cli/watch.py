@@ -1,11 +1,4 @@
-"""`shim watch -- claude [args...]` — run a client with a proxy in front of it.
-
-The ordering here is the whole safety argument. The proxy binds *before* the
-client starts, so a proxy that cannot start means no client is launched rather
-than a client pointed at a dead port. The client then inherits a
-base URL in its own environment only — nothing is written to a shell profile,
-nothing is left behind, and the proxy dies with the command.
-"""
+"""Run a client only after its ephemeral loopback proxy is listening."""
 
 from __future__ import annotations
 
@@ -20,10 +13,7 @@ import typer
 
 from shim_guard.cli.output import emit, emit_json, terminal_text
 
-#: The environment variable each client reads for its API endpoint.
-#: Copilot is absent on purpose: it routes a custom endpoint only through
-#: bring-your-own-key, which removes GitHub authentication entirely, so there
-#: is no existing authenticated session to watch.
+# Copilot custom endpoints require BYOK, leaving no authenticated session to proxy.
 BASE_URL_VARIABLES = {
     "claude": "ANTHROPIC_BASE_URL",
     "codex": "OPENAI_BASE_URL",
@@ -32,14 +22,11 @@ UPSTREAMS = {
     "claude": "api.anthropic.com",
     "codex": "api.openai.com",
 }
-#: Codex is untested behind a proxy. A real ChatGPT sign-in must verify it
-#: before support is claimed, so it runs with a warning rather than being
-#: silently promised.
+# Codex proxy authentication lacks live verification.
 VERIFIED = frozenset({"claude"})
 
 
 def watch(*, command: tuple, as_json: bool) -> None:
-    """Start the proxy, run the command under it, then report."""
     if not command:
         _fail(as_json, "Nothing to run. Try: shim watch -- claude")
     client = os.path.basename(command[0])
@@ -59,7 +46,6 @@ def watch(*, command: tuple, as_json: bool) -> None:
     try:
         running = proxy.start(UPSTREAMS[client], evaluate)
     except OSError as error:
-        # Before the client starts, so there is nothing to leave broken.
         _fail(as_json, f"The proxy could not start ({error}); nothing was run.")
 
     if not as_json:
@@ -73,20 +59,14 @@ def watch(*, command: tuple, as_json: bool) -> None:
     environment = dict(os.environ)
     environment[variable] = running.base_url
     started = time.monotonic()
-    code = 0
     try:
-        # The client owns the terminal: its stdio is inherited untouched so it
-        # renders exactly as it would unwatched.
         process = subprocess.Popen(command, env=environment)
         try:
             code = process.wait()
         except KeyboardInterrupt:
-            # Ctrl-C belongs to the client. Pass it on and let it exit the way
-            # it normally would rather than killing it from underneath.
             process.send_signal(signal.SIGINT)
             code = process.wait()
     except OSError as error:
-        running.stop()
         _fail(as_json, f"{command[0]} could not be started ({error}).")
     finally:
         running.stop()
@@ -109,6 +89,3 @@ def _fail(as_json: bool, message: str):
     else:
         emit("FAIL", message, error=True)
     raise typer.Exit(2)
-
-
-__all__ = ["BASE_URL_VARIABLES", "UPSTREAMS", "VERIFIED", "watch"]

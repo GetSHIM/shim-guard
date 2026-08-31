@@ -1,11 +1,3 @@
-"""`Stop` and `SessionEnd` seen through the real hook process.
-
-`Stop` fires at the end of every assistant turn, so the interesting property is
-not that a summary appears — it is that it appears once per change and stays
-quiet otherwise. These run the shipped entry point rather than calling into it,
-because the emptiness of stdout is the contract.
-"""
-
 from __future__ import annotations
 
 import json
@@ -77,7 +69,6 @@ def test_a_tool_event_is_recorded_and_the_next_stop_reports_it() -> None:
 
 
 def test_a_second_stop_with_nothing_new_says_nothing() -> None:
-    """`Stop` fires every turn. Repeating an unchanged summary is noise."""
     _run(_read_event("/work/service/.env"))
     assert _run(_stop()) != b""
 
@@ -109,7 +100,6 @@ def test_a_session_where_shim_did_nothing_produces_no_summary() -> None:
 
 
 def test_a_stop_hook_that_is_already_active_does_not_re_emit() -> None:
-    """The client's own guard against a summary that retriggers itself."""
     _run(_read_event("/work/service/.env"))
 
     assert _run(_stop(stop_hook_active=True)) == b""
@@ -134,7 +124,6 @@ def test_session_end_deletes_the_record() -> None:
 def test_recording_failure_never_blocks_a_tool_event(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A guard that cannot take notes is still a guard."""
     unusable = tmp_path / "unusable"
     unusable.mkdir(mode=0o755)
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(unusable))
@@ -163,7 +152,6 @@ def test_the_prompt_path_is_recorded_too() -> None:
 
 
 def test_the_installed_session_events_are_the_ones_the_hook_dispatches() -> None:
-    """Registering one and handling the other would be a silent no-op."""
     from shim_guard import hook
 
     assert set(SESSION_EVENTS) == {hook._STOP_EVENT, hook._SESSION_END_EVENT}

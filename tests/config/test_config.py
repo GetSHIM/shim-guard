@@ -45,7 +45,6 @@ def test_invalid_entity_settings_fail_safely(tmp_path: Path, content: bytes) -> 
 
 
 def test_an_empty_settings_file_is_the_shipped_defaults(tmp_path: Path) -> None:
-    """Same as no file at all, which is what an empty one means."""
     target = tmp_path / "config.toml"
     target.write_bytes(b"")
 
@@ -73,7 +72,6 @@ def test_unsafe_or_relative_settings_paths_are_rejected(
 
 
 def test_a_version_one_file_is_a_valid_version_two_file() -> None:
-    """An old settings file must keep working untouched."""
     document = parse_settings('enabled_entities = ["EMAIL", "SECRET"]\n')
 
     assert document == {
@@ -101,7 +99,6 @@ def test_policy_resolves_the_most_specific_override(tmp_path: Path) -> None:
     policy = load_policy(target)
 
     assert policy.entities == ("EMAIL", "SECRET", "DB_URI")
-    # per-tool beats per-event beats per-direction beats default
     assert policy.mode_for("executable-text", "Bash", "PreToolUse") == "observe"
     assert policy.mode_for("outbound", "WebFetch", "PreToolUse") == "warn"
     assert policy.mode_for("inbound", "Read", "PostToolUse") == "enforce"
@@ -148,24 +145,12 @@ def test_invalid_policy_documents_fail_closed(document: str) -> None:
     ),
 )
 def test_a_file_without_an_entity_list_still_parses(document: str) -> None:
-    """Every key is optional, and this one used to be mandatory.
-
-    The README tells people to write `[mode]` by hand. A hand-written file with
-    no `enabled_entities` was rejected, and a settings file that will not parse
-    fails closed on *every prompt of the session* — so the documented way to
-    configure blocking bricked the client until the file was found and fixed.
-    """
     assert parse_settings(document)["enabled_entities"] == list(DEFAULT_ENTITIES)
 
 
 def test_a_missing_config_file_means_the_shipped_defaults_not_empty_ones(
     tmp_path: Path,
 ) -> None:
-    """Most users never write a config file, so this path is the common one.
-
-    `diet` ships on, and the dataclass default is off, so an early return that
-    skipped the shipped default turned the feature off for everybody.
-    """
     from shim_guard.events.diet import DEFAULT_TRANSFORMS
 
     policy = load_policy(tmp_path / "absent" / "config.toml")

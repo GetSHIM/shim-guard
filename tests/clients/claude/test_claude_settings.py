@@ -39,11 +39,6 @@ def test_claude_code_settings_use_shell_free_exec_form(tmp_path: Path) -> None:
 def test_claude_code_registers_the_prompt_tool_and_session_events(
     tmp_path: Path,
 ) -> None:
-    """`shim install` must cover exactly the verified Claude event list.
-
-    A tool adapter promoted to verified without reaching the settings file
-    would leave `shim doctor` claiming coverage the hook never receives.
-    """
     interpreter = tmp_path / "python"
     expected_tool_events = list(INSTALLED_EVENTS)
 
@@ -56,7 +51,6 @@ def test_claude_code_registers_the_prompt_tool_and_session_events(
         "hooks": {
             "UserPromptSubmit": [hook_group(interpreter)],
             **{event: [tool_hook_group(interpreter)] for event in expected_tool_events},
-            # Session events are not per-tool, so they carry no matcher.
             **{event: [hook_group(interpreter)] for event in SESSION_EVENTS},
         }
     }
@@ -101,7 +95,6 @@ def test_claude_code_settings_preserve_unrelated_values_and_hooks(
 def test_claude_code_settings_upgrade_a_prompt_only_install_in_place(
     tmp_path: Path,
 ) -> None:
-    """Installs made before tool events existed gain only the missing groups."""
     interpreter = tmp_path / "python"
     prompt_only = (
         json.dumps({"hooks": {"UserPromptSubmit": [hook_group(interpreter)]}}) + "\n"

@@ -1,5 +1,3 @@
-"""GitHub Copilot CLI 1.0.80 user hook file owned by SHIM Guard."""
-
 from __future__ import annotations
 
 import json
@@ -28,12 +26,10 @@ def _copilot_home(home: Path | None = None) -> Path:
 
 
 def target_path(home: Path | None = None) -> Path:
-    """Return SHIM's user-scoped Copilot hook file path."""
     return _copilot_home(home) / "hooks" / "shim-guard.json"
 
 
 def hook_command(interpreter: str | Path = sys.executable) -> str:
-    """Return the isolated Copilot hook command."""
     executable = Path(interpreter)
     if not executable.is_absolute() or not str(executable).isprintable():
         raise ValueError("hook interpreter must be an absolute safe path")
@@ -41,7 +37,6 @@ def hook_command(interpreter: str | Path = sys.executable) -> str:
 
 
 def hook_document(interpreter: str | Path = sys.executable) -> dict[str, object]:
-    """Return SHIM's complete Copilot user hook document."""
     return {
         "version": 1,
         "hooks": {
@@ -61,7 +56,6 @@ def _dump(document: dict[str, object]) -> bytes:
 
 
 def add_hook(content: bytes | None, interpreter: str | Path = sys.executable) -> bytes:
-    """Create or restore SHIM's dedicated Copilot hook file."""
     expected = _dump(hook_document(interpreter))
     empty = _dump({"version": 1, "hooks": {}})
     if content is None or content == empty:
@@ -72,7 +66,6 @@ def add_hook(content: bytes | None, interpreter: str | Path = sys.executable) ->
 
 
 def remove_hook(content: bytes, interpreter: str | Path = sys.executable) -> bytes:
-    """Remove SHIM's exact Copilot hook while retaining its hook file."""
     expected = _dump(hook_document(interpreter))
     empty = _dump({"version": 1, "hooks": {}})
     if content == expected:

@@ -1,5 +1,3 @@
-"""The summary is the product's only visible output when it succeeds."""
-
 from __future__ import annotations
 
 import json
@@ -24,7 +22,6 @@ def _record(**changes: object) -> dict:
 
 
 def test_a_session_where_nothing_happened_says_nothing() -> None:
-    """Silence is the correct output. A summary of zero findings is noise."""
     assert summary.render([]) == ""
     assert summary.render([_record(action="allow", entities={})]) == ""
 
@@ -59,7 +56,6 @@ def test_the_summary_groups_by_action_then_entity() -> None:
 
 
 def test_only_the_file_name_is_shown_not_the_path() -> None:
-    """A full path leaks directory layout for no benefit to the reader."""
     text = summary.render([_record(target="/home/someone/private/project/.env")])
 
     assert "(Read .env)" in text
@@ -94,7 +90,6 @@ def test_a_capped_session_says_the_count_is_short() -> None:
 
 @pytest.mark.parametrize("field", ["entities", "latency_ms", "action"])
 def test_a_record_missing_a_field_does_not_break_the_summary(field: str) -> None:
-    """The spool is read back from disk and may hold anything."""
     record = _record()
     del record[field]
 
@@ -118,13 +113,23 @@ def test_json_carries_the_same_facts_as_the_text() -> None:
     assert document["capped"] is False
 
 
-def test_a_record_with_unreadable_counts_produces_no_heading() -> None:
-    """A heading with no lines under it claims something it will not name.
+def test_even_latency_samples_use_the_actual_median() -> None:
+    document = summary.as_json([_record(latency_ms=2), _record(latency_ms=8)])
 
-    The spool is read back from disk, so a record can arrive with `entities`
-    in a shape the summary cannot total. That must read as silence, not as an
-    empty announcement.
-    """
+    assert document["overhead_ms"] == {"median": 5, "p95": 8}
+
+
+def test_malformed_latency_samples_are_ignored() -> None:
+    malformed = (float("nan"), float("inf"), -1, True, 10**1000)
+    records = [_record(latency_ms=value) for value in malformed]
+
+    assert summary.as_json([*records, _record()])["overhead_ms"] == {
+        "median": 6,
+        "p95": 6,
+    }
+
+
+def test_a_record_with_unreadable_counts_produces_no_heading() -> None:
     assert summary.render([_record(entities=["SECRET"])]) == ""
     assert summary.render([_record(entities=None)]) == ""
     assert summary.render([_record(entities={})]) == ""
@@ -169,19 +174,16 @@ def _flagged(**changes: object) -> dict:
 
 
 def test_a_marker_names_the_file_it_came_from() -> None:
-    """The only actionable half of "something tried to give orders" is where."""
     text = summary.render([_flagged()])
 
     assert "flagged   1 INSTRUCTION_OVERRIDE  (Read README.md)" in text
 
 
 def test_markers_alone_are_worth_a_summary() -> None:
-    """Nothing was masked and nothing shrank, and it still has to be said."""
     assert summary.render([_flagged()]) != ""
 
 
 def test_the_flagged_label_is_written_once_per_block() -> None:
-    """Every other block blanks the repeat; this one used to shout it."""
     text = summary.render(
         [_flagged(markers=["INSTRUCTION_OVERRIDE", "HIDDEN_TEXT", "SECRECY_REQUEST"])]
     )
@@ -213,7 +215,6 @@ def test_marker_sources_reach_the_json_report() -> None:
 
 
 def test_a_marker_never_carries_the_text_that_matched_it() -> None:
-    """Markers reach the terminal; the payload that produced them must not."""
     text = summary.render([_flagged(target="/work/notes.md")])
     document = summary.as_json([_flagged(target="/work/notes.md")])
 

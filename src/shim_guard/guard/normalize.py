@@ -1,5 +1,3 @@
-"""Bounded text normalization with normalized-to-source span mapping."""
-
 from __future__ import annotations
 
 import codecs
@@ -17,7 +15,7 @@ _SourceSpan = tuple[int, int]
 
 @dataclass(frozen=True)
 class NormalizedText:
-    __slots__ = ("text", "source_spans")
+    __slots__ = ("source_spans", "text")
 
     text: str
     source_spans: tuple[_SourceSpan, ...]

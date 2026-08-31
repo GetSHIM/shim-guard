@@ -1,5 +1,3 @@
-"""The one thing shim keeps past the end of a session, and only on request."""
-
 from __future__ import annotations
 
 import datetime
@@ -49,8 +47,6 @@ def test_the_ledger_is_private_to_its_owner() -> None:
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
-#: January's records expire ``RETENTION_DAYS`` after 1 February, not after the
-#: day each one was written. This is the exact promise `docs/privacy.md` makes.
 JANUARY_EXPIRES = datetime.datetime(
     2026, 2, 1, tzinfo=datetime.timezone.utc
 ) + datetime.timedelta(days=ledger.RETENTION_DAYS)
@@ -73,12 +69,11 @@ def test_retention_keeps_a_month_until_the_window_closes() -> None:
 
 
 def test_retention_does_not_depend_on_the_modification_time() -> None:
-    """A restore, a copy or a stray touch must not extend retention."""
     import os
 
     ledger.append(_entry(), JANUARY)
     aged = ledger.files()[0]
-    os.utime(aged, None)  # as if it had just been written
+    os.utime(aged, None)
 
     assert ledger.prune(JANUARY_EXPIRES + datetime.timedelta(seconds=1)) == 1
 
@@ -94,7 +89,6 @@ def test_a_file_whose_name_is_not_a_month_is_left_alone() -> None:
 
 
 def test_appending_prunes_without_being_asked() -> None:
-    """Nothing else runs on a schedule, so the write path has to do it."""
     ledger.append(_entry(), JANUARY)
 
     later = JANUARY_EXPIRES + datetime.timedelta(days=1)
@@ -128,7 +122,7 @@ def test_a_full_month_reports_rather_than_growing(
     for _ in range(10):
         if ledger.append(_entry(), JANUARY) is False:
             break
-    else:  # pragma: no cover - only reached if the cap is not enforced
+    else:
         raise AssertionError("the cap was never reached")
 
     assert ledger.files()[0].stat().st_size <= 200
@@ -165,6 +159,16 @@ def test_a_symlinked_month_is_not_followed(tmp_path: Path) -> None:
     with pytest.raises(ledger.LedgerError):
         ledger.append(_entry(), JANUARY)
     assert target.read_text() == ""
+
+
+def test_a_symlinked_month_is_not_read(tmp_path: Path) -> None:
+    root = tmp_path / "state"
+    root.mkdir(mode=0o700, parents=True)
+    target = tmp_path / "stolen.jsonl"
+    target.write_text(json.dumps(_entry()) + "\n", encoding="utf-8")
+    (root / "ledger-2026-01.jsonl").symlink_to(target)
+
+    assert ledger.entries() == []
 
 
 def test_remember_persists_only_a_session_key_and_keeps_storage_best_effort(

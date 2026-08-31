@@ -1,29 +1,18 @@
-"""Turn a session's records into the one thing the user reads.
-
-When shim works, it says nothing, and a tool that is invisible when it succeeds
-gets uninstalled in week two. This is the whole of the product's visible
-output, so it is worth being exact about: it names tools and files, counts
-entities, and never shows a value.
-"""
-
 from __future__ import annotations
+
+import math
+from statistics import median
 
 ACTION_LABELS = (
     ("mask", "masked"),
     ("deny", "blocked"),
     ("report", "warned"),
 )
-#: How many distinct places are named per line before the rest are counted.
 MAX_SOURCES = 3
-#: Bytes per token. A rough industry average for English and code, used only
-#: because no provider `usage` block is visible from a hook. Every figure it
-#: produces is labelled approximate; `shim watch` will replace it with real
-#: counts rather than a better guess.
 BYTES_PER_TOKEN = 4
 
 
 def _sources(records: list) -> list:
-    """Return the tools involved, most active first, without duplicates."""
     order: dict = {}
     for record in records:
         tool = record.get("tool_name")
@@ -41,7 +30,6 @@ def _sources(records: list) -> list:
 
 
 def _basename(target: str) -> str:
-    """Return the last path or URL segment, which is what identifies a file."""
     if "://" in target:
         return target
     return target.rsplit("/", 1)[-1] or target
@@ -66,20 +54,25 @@ def _totals(records: list) -> list:
 
 
 def _overhead(records: list) -> tuple:
-    latencies = sorted(
-        record["latency_ms"]
-        for record in records
-        if isinstance(record.get("latency_ms"), (int, float))
-    )
+    latencies = []
+    for record in records:
+        latency = record.get("latency_ms")
+        if isinstance(latency, bool) or not isinstance(latency, (int, float)):
+            continue
+        try:
+            if latency >= 0 and math.isfinite(latency):
+                latencies.append(latency)
+        except OverflowError:
+            continue
+    latencies.sort()
     if not latencies:
         return (0, 0)
-    median = latencies[len(latencies) // 2]
-    index = min(len(latencies) - 1, int(round(0.95 * (len(latencies) - 1))))
-    return (round(median), round(latencies[index]))
+    middle = median(latencies)
+    index = round(0.95 * (len(latencies) - 1))
+    return (round(middle), round(latencies[index]))
 
 
 def _saved(records: list) -> int:
-    """Return bytes removed from tool results by the diet transforms."""
     total = 0
     for record in records:
         if not record.get("transforms"):
@@ -104,7 +97,6 @@ def _marker_totals(records: list) -> list:
 
 
 def _where(records: list) -> str:
-    """Return the parenthesised list of places, or ``""``."""
     sources = _sources(records)
     if not sources:
         return ""
@@ -123,7 +115,6 @@ def _carrying(records: list, marker: str) -> list:
 
 
 def _uninspected(records: list) -> list:
-    """Return events shim let through without looking at them."""
     from .record import NOT_INSPECTED
 
     return [
@@ -135,18 +126,14 @@ def _uninspected(records: list) -> list:
 
 
 def _acted(records: list) -> list:
-    """Return only the records where shim did something worth reporting."""
     return [record for record in records if record.get("action") not in (None, "allow")]
 
 
 def render(records: list, capped: bool = False) -> str:
-    """Return the session summary, or ``""`` when there is nothing to say."""
     acted = _acted(records)
     saved = _saved(records)
     markers = _marker_totals(records)
     skipped = _uninspected(records)
-    if not acted and not saved and not markers and not skipped:
-        return ""
     lines: list = []
     for action, label in ACTION_LABELS:
         matching = [record for record in acted if record.get("action") == action]
@@ -165,30 +152,23 @@ def render(records: list, capped: bool = False) -> str:
             lines.append(f"  {column:<9} {count} {entity}{_where(relevant)}")
     first = True
     for marker, count in markers:
-        # "Something told your agent to ignore its instructions" is only
-        # actionable with the file name attached, so markers are sourced
-        # exactly like entities.
         column = "flagged" if first else " " * len("flagged")
         first = False
         lines.append(
             f"  {column:<9} {count} {marker}{_where(_carrying(records, marker))}"
         )
     if skipped:
-        # The one line here that is not good news. Saying nothing would let a
-        # clean-looking summary stand for a payload shim never examined.
+        # An uninspected pass-through must never look clean.
         lines.append(
             f"  {'skipped':<9} {len(skipped)} not inspected, passed through"
             f"{_where(skipped)}"
         )
     if saved:
-        tokens = saved // BYTES_PER_TOKEN
         lines.append(
-            f"  {'shrank':<9} {saved} bytes of tool results (~{tokens} tokens)"
+            f"  {'shrank':<9} {saved} bytes of tool results "
+            f"(~{saved // BYTES_PER_TOKEN} tokens)"
         )
     if not lines:
-        # Records claiming an action but carrying no readable entity counts. A
-        # heading over an empty list reads as "something happened but we will
-        # not say what", which is worse than saying nothing at all.
         return ""
     median, p95 = _overhead(records)
     lines.append(f"  {'overhead':<9} {median} ms median, {p95} ms p95")
@@ -200,7 +180,6 @@ def render(records: list, capped: bool = False) -> str:
 
 
 def as_json(records: list, capped: bool = False) -> dict:
-    """Return the same summary as data, for `shim report --json`."""
     acted = _acted(records)
     median, p95 = _overhead(records)
     actions: dict = {}

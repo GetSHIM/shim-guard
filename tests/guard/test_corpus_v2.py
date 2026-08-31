@@ -1,14 +1,3 @@
-"""The guard-v2 corpus: the detector's executable contract.
-
-Corpus v1 asserted the *set of categories* a case produced, so a finding at the
-wrong offset — masking `Contact ali` instead of `alice@example.com` — passed
-every case. v2 asserts the exact redacted output, and source spans wherever
-normalization is involved, which is the part v1 could not protect.
-
-`guard-tools-v1.json` extends the same idea to tool events, using payloads
-really captured from a client rather than shapes written from documentation.
-"""
-
 from __future__ import annotations
 
 import difflib
@@ -51,19 +40,11 @@ def _diff(expected: str, actual: str) -> str:
     )
 
 
-def _needs_spans(text: str) -> bool:
-    """The exact condition that bypasses the normalization fast path."""
-    return not text.isascii() or "%" in text
-
-
 def _at(payload: object, path: list) -> object:
     value = payload
     for key in path:
         value = value[key]  # type: ignore[index]
     return value
-
-
-# --- prompt corpus --------------------------------------------------------
 
 
 @pytest.mark.parametrize("case", PROMPTS["cases"], ids=lambda case: case["id"])
@@ -97,7 +78,8 @@ def test_prompt_corpus_schema_is_complete() -> None:
     assert len({case["id"] for case in cases}) == len(cases)
     for case in cases:
         assert "expected_output" in case, case["id"]
-        assert ("expected_spans" in case) is _needs_spans(case["text"]), case["id"]
+        needs_spans = not case["text"].isascii() or "%" in case["text"]
+        assert ("expected_spans" in case) is needs_spans, case["id"]
 
 
 def test_prompt_corpus_covers_every_category_and_the_assignment_rule() -> None:
@@ -151,9 +133,6 @@ def test_published_prompt_metrics_match_the_detector() -> None:
     assert METRICS["exact_source_spans"]["ratio"] == 1.0
 
 
-# --- tool-event corpus ----------------------------------------------------
-
-
 @pytest.mark.parametrize("case", TOOLS["cases"], ids=lambda case: case["id"])
 def test_tool_corpus_output_is_exact(case: dict) -> None:
     payload = json.loads((FIXTURES / case["fixture"]).read_text(encoding="utf-8"))
@@ -183,7 +162,6 @@ def test_tool_corpus_output_is_exact(case: dict) -> None:
 
 
 def test_tool_corpus_never_rewrites_disk_or_command_payloads() -> None:
-    """Disk and command payloads must be detected but never rewritten."""
     protected = [
         case
         for case in TOOLS["cases"]
@@ -198,7 +176,6 @@ def test_tool_corpus_never_rewrites_disk_or_command_payloads() -> None:
             value = _at(payload, scanned["path"])
             assert scanned["unchanged"] is True, case["id"]
             assert scanned["expected_output"] == value, case["id"]
-            # The value must still be detected, so a warning can be raised.
             assert scanned["categories"], f"{case['id']} should still detect"
 
 
@@ -233,7 +210,6 @@ def test_tool_corpus_schema_and_coverage() -> None:
 
 
 def test_tool_corpus_covers_the_five_required_payload_shapes() -> None:
-    """The corpus must cover Bash, MCP, Read, WebFetch, and Write payloads."""
     required = {
         "claude-pretooluse-bash-connection-string",
         "claude-pretooluse-mcp-argument-email",

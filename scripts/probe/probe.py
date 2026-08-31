@@ -1,16 +1,4 @@
-"""Drive and process the client hook capability probe.
-
-Three subcommands, all deterministic apart from ``run`` itself, which talks to
-a real client:
-
-``run``       build an isolated workspace, install recording hooks, and drive
-              one client through a fixed list of tool exercises.
-``fixtures``  sanitise raw captures into committed fixtures.
-``summary``   report, per event, which fields were present and how large the
-              result payload was.
-
-Not product code. Nothing here is imported by the shipped hook path.
-"""
+"""Capture, sanitize, and summarize client hook capability probes."""
 
 from __future__ import annotations
 
@@ -40,8 +28,7 @@ _OPAQUE_ID = re.compile(
 )
 _RESULT_FIELDS = ("tool_response", "toolResponse", "tool_result", "result", "output")
 
-# Synthetic values only. Every one of these is either an upstream-published
-# example credential or invented for this repository; none is real.
+# All credentials below are synthetic or vendor-published examples.
 LARGE_FILE_FILLER = (
     "The quick brown fox jumps over the lazy dog while the build log scrolls. "
 )
@@ -71,8 +58,6 @@ WORKSPACE_FILES = {
 
 @dataclass(frozen=True)
 class Step:
-    """One probe exercise: a prompt plus the tools it is allowed to use."""
-
     name: str
     prompt: str
     tools: tuple[str, ...]
@@ -145,7 +130,6 @@ STEPS = (
 
 
 def build_workspace(root: Path, large_bytes: int = 60_000) -> Path:
-    """Create the synthetic files the probe steps operate on."""
     workspace = root / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     for name, content in WORKSPACE_FILES.items():
@@ -161,7 +145,6 @@ def build_workspace(root: Path, large_bytes: int = 60_000) -> Path:
 
 
 def hook_settings(command: list[str], timeout_seconds: int = 20) -> dict[str, object]:
-    """Return a Claude Code settings document recording every probe event."""
     entry = {
         "hooks": [
             {
@@ -178,7 +161,6 @@ def hook_settings(command: list[str], timeout_seconds: int = 20) -> dict[str, ob
 
 
 def mcp_settings(command: list[str]) -> dict[str, object]:
-    """Return an MCP configuration exposing only the probe echo server."""
     return {
         "mcpServers": {"probe": {"command": command[0], "args": command[1:], "env": {}}}
     }
@@ -187,7 +169,6 @@ def mcp_settings(command: list[str]) -> dict[str, object]:
 def child_environment(
     capture_directory: str, system_message: str = ""
 ) -> dict[str, str]:
-    """Return an environment free of the parent session's own client state."""
     environment = {
         key: value for key, value in os.environ.items() if not key.startswith("CLAUDE")
     }
@@ -204,8 +185,7 @@ def run(
     model: str,
     only: tuple[str, ...] = (),
     system_message: str = "",
-) -> list[tuple[str, int]]:
-    """Drive the client through every step and return per-step capture counts."""
+) -> None:
     scripts = Path(__file__).resolve().parent
     workspace = build_workspace(root)
     settings_path = root / "probe-settings.json"
@@ -215,7 +195,6 @@ def run(
     _write_json(settings_path, hook_settings(capture_command))
     _write_json(mcp_path, mcp_settings(server_command))
 
-    results: list[tuple[str, int]] = []
     for step in STEPS:
         if only and step.name not in only:
             continue
@@ -258,24 +237,15 @@ def run(
         (captures / "exit-code.txt").write_text(
             str(completed.returncode), encoding="utf-8"
         )
-        found = len(sorted(captures.glob("*-*-*.json")))
-        results.append((step.name, found))
+        found = sum(1 for _ in captures.glob("*-*-*.json"))
         print(f"{step.name}: exit {completed.returncode}, {found} captures")
-    return results
 
 
 def mangle(path: str) -> str:
-    """Return a path in the slug form clients use for per-project directories."""
     return re.sub(r"[^A-Za-z0-9]", "-", path)
 
 
 def replacements(root: Path) -> list[tuple[str, str]]:
-    """Return machine-specific substrings to erase, longest first.
-
-    Both the literal path and its slug form are erased: Claude Code embeds the
-    working directory into ``transcript_path`` with every separator replaced by
-    a hyphen, so a literal-only scrub leaves the real path readable.
-    """
     pairs = [
         (str(root.resolve()), "/probe"),
         (str(Path.home()), "/home/probe"),
@@ -288,7 +258,6 @@ def replacements(root: Path) -> list[tuple[str, str]]:
 def sanitize(
     value: object, pairs: list[tuple[str, str]], seen: dict[str, str]
 ) -> object:
-    """Return ``value`` with machine-specific strings and UUIDs neutralised."""
     if isinstance(value, str):
         return _sanitize_text(value, pairs, seen)
     if isinstance(value, dict):
@@ -324,7 +293,6 @@ def _sanitize_text(
 
 
 def build_fixtures(root: Path, destination: Path) -> list[Path]:
-    """Sanitise every raw capture into a stable, committed fixture file."""
     destination.mkdir(parents=True, exist_ok=True)
     pairs = replacements(root)
     seen: dict[str, str] = {}
@@ -357,7 +325,6 @@ def build_fixtures(root: Path, destination: Path) -> list[Path]:
 
 
 def measure(payload: dict[str, object]) -> dict[str, object]:
-    """Return the field inventory and result size for one captured payload."""
     result_field = ""
     result_bytes = 0
     for name in _RESULT_FIELDS:
@@ -376,7 +343,6 @@ def measure(payload: dict[str, object]) -> dict[str, object]:
 
 
 def summarize(directory: Path) -> list[dict[str, object]]:
-    """Return one measurement row per fixture, sorted by file name."""
     rows: list[dict[str, object]] = []
     for path in sorted(directory.glob("*.json")):
         payload = json.loads(path.read_text(encoding="utf-8"))

@@ -27,12 +27,6 @@ ENFORCE_PROMPT = (
 
 
 def _enforcing(tmp_path: Path, **extra: str) -> dict:
-    """Return an environment that blocks prompts.
-
-    Blocking a submitted prompt is opt-in: the shipped default reports and lets
-    it through. These contract tests still have to cover the blocking path, so
-    they ask for it explicitly.
-    """
     target = tmp_path / "enforce.toml"
     target.write_text(ENFORCE_PROMPT, encoding="utf-8")
     environment = os.environ.copy()
@@ -58,12 +52,6 @@ def _payload(prompt: str, **changes: object) -> bytes:
 
 
 def _redaction_files(root):
-    """Return only the redacted-prompt files, not the session spool.
-
-    The spool is a separate promise with its own tests: it holds entity names
-    and counts and is checked for payload content in
-    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
-    """
     return [
         item
         for item in root.rglob("*")
@@ -173,14 +161,11 @@ def test_block_reason_excludes_terminal_controls_from_the_prompt(
         b'{"hook_event_name":"UserPromptSubmit","prompt":7}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":"a"} {}',
         b'{"hook_event_name":"UserPromptSubmit","prompt":"a","prompt":"b"}',
+        b'{"hook_event_name":"UserPromptSubmit","hook_event_name":"PostToolUse",'
+        b'"prompt":"hello"}',
     ],
 )
 def test_hostile_input_fails_closed(raw: bytes) -> None:
-    """Prompt payloads only.
-
-    An unrecognised *event* must not block — that denies the tool call —
-    and is covered by `tests/session/test_failure_modes.py`.
-    """
     _assert_output(_run(raw), GENERIC_BLOCK)
 
 
@@ -217,6 +202,7 @@ import types
 import warnings
 import shim_guard.guard as guard
 from shim_guard import hook as runner
+from shim_guard.clients import user_prompt_hook
 
 clients = types.ModuleType("shim_guard.clients")
 clients.__path__ = []
@@ -251,6 +237,7 @@ adapter.error_output = lambda: b"unreachable"
 guard.evaluate = evaluate
 sys.modules.update({
     "shim_guard.clients": clients,
+    "shim_guard.clients.user_prompt_hook": user_prompt_hook,
     "shim_guard.clients.codex": codex,
     "shim_guard.clients.codex.hook": adapter,
 })
@@ -281,6 +268,7 @@ import os
 import sys
 import types
 from shim_guard import hook as runner
+from shim_guard.clients import user_prompt_hook
 
 clients = types.ModuleType("shim_guard.clients")
 clients.__path__ = []
@@ -307,6 +295,7 @@ adapter.block_output = block_output
 guard.evaluate = evaluate
 sys.modules.update({
     "shim_guard.clients": clients,
+    "shim_guard.clients.user_prompt_hook": user_prompt_hook,
     "shim_guard.clients.codex": codex,
     "shim_guard.clients.codex.hook": adapter,
     "shim_guard.guard": guard,
@@ -373,6 +362,7 @@ import sys
 import time
 import types
 from shim_guard import hook as runner
+from shim_guard.clients import user_prompt_hook
 
 clients = types.ModuleType("shim_guard.clients")
 clients.__path__ = []
@@ -386,6 +376,7 @@ adapter.error_output = lambda: runner._ERROR_OUTPUT
 guard.evaluate = lambda prompt, enabled_entities: time.sleep(1)
 sys.modules.update({
     "shim_guard.clients": clients,
+    "shim_guard.clients.user_prompt_hook": user_prompt_hook,
     "shim_guard.clients.codex": codex,
     "shim_guard.clients.codex.hook": adapter,
     "shim_guard.guard": guard,
@@ -473,9 +464,6 @@ def test_hook_persists_only_the_redacted_prompt_in_os_temp(tmp_path: Path) -> No
     assert written == {path} | spools
     assert path.read_text() == "Contact <EMAIL_1>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    # The session record carries entity names and counts, never the value that
-    # produced them. Assert this against a real hook run rather than a
-    # constructed record.
     assert spools, "the decision was not recorded"
     for spool in spools:
         assert stat.S_IMODE(spool.stat().st_mode) == 0o600

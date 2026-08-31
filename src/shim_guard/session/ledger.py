@@ -1,17 +1,3 @@
-"""Opt-in persistence: the same records, kept past the end of the session.
-
-Off by default, and the default matters more than the feature. The session
-spool is deleted when the client closes; this is the only thing in shim that
-survives that, so it exists only because the user asked for it by name.
-
-Files are one per month and retention deletes whole files. So the exact promise
-is: **a month's records are deleted
-``RETENTION_DAYS`` days after the end of that month**, which means an entry
-written on the first of a month outlives one written on the last by up to the
-length of the month. `docs/privacy.md` says this in the same words rather than
-rounding it to "30 days".
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -21,7 +7,6 @@ import os
 import stat
 from pathlib import Path
 
-#: Resolved 29 Aug 2026. Minimal data at rest is the defensible default.
 RETENTION_DAYS = 30
 MAX_LEDGER_BYTES = 5_000_000
 _DIR_MODE = 0o700
@@ -31,11 +16,10 @@ _SUFFIX = ".jsonl"
 
 
 class LedgerError(RuntimeError):
-    """The ledger could not be used safely. Callers record nothing."""
+    pass
 
 
 def root_path() -> Path:
-    """Return the directory the ledger lives in."""
     configured = os.environ.get("SHIM_GUARD_STATE_DIR")
     if configured:
         root = Path(configured).expanduser()
@@ -75,33 +59,28 @@ def _open_root() -> int:
 
 
 def files() -> list:
-    """Return the ledger files, oldest month first."""
     try:
         return sorted(
-            path for path in root_path().glob(f"{_PREFIX}*{_SUFFIX}") if path.is_file()
+            path
+            for path in root_path().glob(f"{_PREFIX}*{_SUFFIX}")
+            if not path.is_symlink() and path.is_file()
         )
     except OSError as error:
         raise LedgerError("ledger could not be listed") from error
 
 
 def _month_end(path: Path) -> datetime.datetime | None:
-    """Return the first instant after the month a file is named for."""
     stem = path.name[len(_PREFIX) : -len(_SUFFIX)]
     try:
         year, month = (int(part) for part in stem.split("-", 1))
         start = datetime.datetime(year, month, 1, tzinfo=datetime.timezone.utc)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
     return (start + datetime.timedelta(days=31)).replace(day=1)
 
 
 def prune(now: datetime.datetime | None = None) -> int:
-    """Delete months past the retention window. Returns how many went.
-
-    Age comes from the file's own name, not its modification time: the name is
-    what says which records are inside, and an mtime is reset by a restore, a
-    copy or a stray `touch`, any of which would silently extend retention.
-    """
+    """Prune from the named month end; mtimes must not extend retention."""
     moment = now or datetime.datetime.now(datetime.timezone.utc)
     removed = 0
     for path in files():
@@ -115,7 +94,6 @@ def prune(now: datetime.datetime | None = None) -> int:
 
 
 def append(entry: dict, now: datetime.datetime | None = None) -> bool:
-    """Append one record and prune expired months. False when at the cap."""
     moment = now or datetime.datetime.now(datetime.timezone.utc)
     line = json.dumps(entry, ensure_ascii=False, sort_keys=True).encode() + b"\n"
     prune(moment)
@@ -141,7 +119,6 @@ def append(entry: dict, now: datetime.datetime | None = None) -> bool:
 
 
 def entries(since: datetime.datetime | None = None) -> list:
-    """Return every retained record, oldest first, optionally bounded."""
     found = []
     boundary = since.isoformat().replace("+00:00", "Z") if since else ""
     for path in files():
@@ -165,7 +142,6 @@ def entries(since: datetime.datetime | None = None) -> list:
 
 
 def purge() -> int:
-    """Delete every ledger file. Returns how many went."""
     removed = 0
     for path in files():
         with contextlib.suppress(OSError):

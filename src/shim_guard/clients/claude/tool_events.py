@@ -1,5 +1,3 @@
-"""Verified Claude Code tool-event capabilities and native responses."""
-
 from __future__ import annotations
 
 import json
@@ -12,10 +10,9 @@ MAX_INPUT_BYTES = 1_000_000
 MAX_OUTPUT_BYTES = 1_000_000
 _DENY_REASON = "SHIM Guard: sensitive data detected; this call was not allowed."
 _ERROR_MESSAGE = "shim: this tool event could not be inspected and was not modified."
-#: Native input keys naming what a tool acted on. A command is payload, not a
-#: safe target to persist: the probe corpus contains one with a live credential.
+# Commands may contain credentials and must never become persisted targets.
 _TARGET_KEYS = ("file_path", "notebook_path", "path", "url")
-#: File results must remain byte-identical so a later Edit can quote them back.
+# A later Edit must be able to quote file bytes exactly.
 _FILE_VIEW_KEYS = ("file_path", "notebook_path", "path")
 
 
@@ -94,7 +91,7 @@ def post_tool_use(action: str, payload: object, message: str) -> bytes:
 
 
 def error_output() -> bytes:
-    """Report a failed inspection without denying the tool call."""
+    """Report inspection failure without denying the tool call."""
     return _dump({"systemMessage": _ERROR_MESSAGE})
 
 
@@ -118,7 +115,6 @@ INSTALLED_EVENTS = tuple(sorted(TOOL_EVENTS))
 
 
 def coverage() -> tuple:
-    """Return verified tool-event facts for ``shim doctor``."""
     return tuple(
         {
             "event": event,

@@ -1,10 +1,4 @@
-"""The flat ``shim`` command registration layer.
-
-This module deliberately does not use ``from __future__ import annotations``.
-Typer reads its ``Annotated[...]`` metadata out of ``inspect.signature``, and
-below Python 3.10 that returns unevaluated strings, so deferred annotations
-silently drop every ``case_sensitive``, ``metavar`` and help string here.
-"""
+"""Command registration; deferred annotations break Typer metadata on Python 3.9."""
 
 import subprocess
 from enum import Enum
@@ -18,13 +12,7 @@ from shim_guard.guard import ENTITY_TYPES
 
 
 class _StringEnum(str, Enum):
-    """``StrEnum`` semantics on every supported version.
-
-    ``enum.StrEnum`` only exists from 3.11, and a plain ``(str, Enum)`` mixin
-    formats differently before and after 3.11 — 3.9 renders the value, 3.13
-    renders ``Class.MEMBER``. Pinning both dunders keeps rendering identical
-    on the floor and on the newest supported version.
-    """
+    """Stable ``StrEnum`` rendering before Python 3.11."""
 
     def __str__(self) -> str:
         return str.__str__(self)
@@ -56,7 +44,6 @@ def root(
         False, "--version", help="Show the version and exit.", is_eager=True
     ),
 ) -> None:
-    """Show the next action when no command is provided."""
     if version:
         typer.echo(f"shim-guard {__version__}")
         raise typer.Exit
@@ -68,13 +55,13 @@ def root(
 
 @app.command()
 def help(context: typer.Context) -> None:
-    """Show command usage and descriptions."""
+    """Show help."""
     typer.echo(context.find_root().get_help())
 
 
 @app.command()
 def update() -> None:
-    """Update SHIM Guard with its installation tool."""
+    """Update SHIM Guard."""
     installer = (
         metadata.distribution("shim-guard").read_text("INSTALLER") or ""
     ).strip()
@@ -100,7 +87,7 @@ def demo(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run the local synthetic detector proof."""
+    """Run a synthetic detector check."""
     from shim_guard.cli.privacy import demo as run_demo
 
     run_demo(client=client.value, as_json=json_output)
@@ -110,7 +97,7 @@ def demo(
 def scan(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Scan bounded UTF-8 text from standard input."""
+    """Scan UTF-8 stdin."""
     from shim_guard.cli.privacy import scan as run_scan
 
     run_scan(as_json=json_output)
@@ -120,7 +107,7 @@ def scan(
 def redact(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Redact bounded UTF-8 text from standard input."""
+    """Redact UTF-8 stdin."""
     from shim_guard.cli.privacy import redact as run_redact
 
     run_redact(as_json=json_output)
@@ -174,7 +161,7 @@ def config_command(
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show or change locally enabled sensitive-data entities."""
+    """Show or change detection settings."""
     from shim_guard.cli.configuration import configure
 
     configure(
@@ -198,7 +185,7 @@ def ledger_purge(
     yes: bool = typer.Option(False, "--yes", help="Delete without confirmation."),
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Delete every retained session record."""
+    """Delete retained session records."""
     from shim_guard.cli.report import purge as run_purge
 
     run_purge(yes=yes, as_json=json_output)
@@ -208,7 +195,7 @@ def ledger_purge(
 def report(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show what SHIM Guard did in the most recent client session."""
+    """Show the latest session report."""
     from shim_guard.cli.report import report as run_report
 
     run_report(as_json=json_output)
@@ -221,7 +208,7 @@ def watch(
     context: typer.Context,
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run a client through a local measuring proxy. Try: shim watch -- claude"""
+    """Run a client through the measuring proxy."""
     from shim_guard.cli.watch import watch as run_watch
 
     run_watch(command=tuple(context.args), as_json=json_output)
@@ -233,7 +220,7 @@ def install(
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Preview or install a client prompt hook."""
+    """Preview or install a client hook."""
     from shim_guard.cli.integrations import install as run_install
 
     run_install(client=client.value, dry_run=dry_run, yes=yes)
@@ -244,7 +231,7 @@ def status(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show the prompt-hook installation state."""
+    """Show hook status."""
     from shim_guard.cli.integrations import status as run_status
 
     run_status(client=client.value, as_json=json_output)
@@ -255,7 +242,7 @@ def doctor(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run client compatibility and hook health checks."""
+    """Check client and hook health."""
     from shim_guard.cli.diagnostics import doctor as run_doctor
 
     run_doctor(client=client.value, as_json=json_output)
@@ -266,7 +253,7 @@ def revert(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Remove only SHIM Guard's client prompt hook."""
+    """Remove SHIM Guard's client hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
     run_revert(client=client.value, yes=yes)

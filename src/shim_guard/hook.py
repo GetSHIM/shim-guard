@@ -1,5 +1,3 @@
-"""Isolated client-native prompt-hook runner."""
-
 from __future__ import annotations
 
 import contextlib
@@ -15,18 +13,11 @@ from pathlib import Path
 MAX_INPUT_BYTES = 1_000_000
 _PROMPT_EVENT = "UserPromptSubmit"
 _PROMPT_EVENTS = frozenset({_PROMPT_EVENT, "userPromptTransformed"})
-#: Live capability probing found that `Stop` renders its output while
-#: `SessionEnd` does not. So the summary goes at `Stop` and `SessionEnd` only
-#: cleans up after itself.
+# Stop renders output; SessionEnd only cleans up.
 _STOP_EVENT = "Stop"
 _SESSION_END_EVENT = "SessionEnd"
 _STARTED = time.perf_counter()
 HOOK_DEADLINE_SECONDS = 25
-#: The reason has to name something that can explain the failure. The most
-#: common cause is a settings file that will not parse, which blocks every
-#: prompt in the session — and `shim scan` reads standard input, so it
-#: reproduces nothing and says nothing about the config. `shim doctor` reports
-#: exactly this, so it is what the message points at.
 _ERROR_OUTPUT = (
     b'{"decision":"block","reason":"SHIM Guard could not inspect this prompt, '
     b'so it was withheld. Run `shim doctor codex` for the reason."}'
@@ -52,7 +43,7 @@ def _error_output(client: str) -> bytes:
 
 
 def _tool_error_output(client: str, event: str) -> bytes:
-    """Report a verified Claude tool failure without denying the call."""
+    """Report tool failures without denying calls."""
     if client != "claude":
         return b""
     try:
@@ -65,11 +56,6 @@ def _tool_error_output(client: str, event: str) -> bytes:
         return b""
 
 
-#: Quoted event names, searched for in a payload that will not parse. `main`
-#: stops reading at the cap, so an over-cap payload is a truncated prefix — but
-#: `hook_event_name` appears near the front of every real payload while a large
-#: `tool_response` is what pushed it over, so the name survives the truncation
-#: and the bulky field does not.
 _TOOL_EVENT_NAMES = (
     "PreToolUse",
     "PostToolUse",
@@ -80,43 +66,38 @@ _TOOL_EVENT_NAMES = (
     "preToolUse",
     "postToolUse",
 )
-_TOOL_EVENT_MARKERS = tuple(f'"{event}"'.encode() for event in _TOOL_EVENT_NAMES)
+_PREFIX_EVENT_NAMES = (_PROMPT_EVENT, "userPromptTransformed", *_TOOL_EVENT_NAMES)
+_PREFIX_EVENT_MARKERS = tuple(f'"{event}"'.encode() for event in _PREFIX_EVENT_NAMES)
+_EVENT_KEY = b'"hook_event_name"'
+
+
+def _prefix_event(raw: bytes) -> str:
+    head = raw[:4096]
+    start = 0
+    while (start := head.find(_EVENT_KEY, start)) >= 0:
+        value = head[start + len(_EVENT_KEY) :].lstrip()
+        if value.startswith(b":"):
+            value = value[1:].lstrip()
+            for event, marker in zip(_PREFIX_EVENT_NAMES, _PREFIX_EVENT_MARKERS):
+                if value.startswith(marker):
+                    return event
+        start += len(_EVENT_KEY)
+    return ""
 
 
 def _refusal_output(raw: bytes, client: str) -> bytes:
-    """Choose which shape of refusal an unhandled payload gets.
-
-    Only the shape is decided here, never whether to protect: the payload is
-    refused either way. Getting it wrong towards "prompt" answers a tool event
-    with `{"decision": "block"}`, which on `PreToolUse` denies the call — the
-    one thing the fail-closed rule above says must never happen, because the
-    user loses work and nothing is protected by taking it.
-
-    Every path that gives up outside the pipeline comes through here: an
-    over-cap payload, the hook deadline, and a dependency that would not
-    import. The event name settles it when the payload parses; when it does
-    not — which is what an over-cap payload always is — the tool markers are
-    searched for in the head, where a real client puts the event name.
-    """
+    """Prompt failures block; tool failures pass through."""
     try:
         event, _session, _stop = _envelope(raw)
     except Exception:
-        event = ""
-    if event:
-        return (
-            _error_output(client)
-            if event in _PROMPT_EVENTS
-            else _tool_error_output(client, event)
-        )
-    for event, marker in zip(_TOOL_EVENT_NAMES, _TOOL_EVENT_MARKERS):
-        if marker in raw[:4096]:
-            return _tool_error_output(client, event)
-    return _error_output(client)
+        event = _prefix_event(raw)
+    if not event or event in _PROMPT_EVENTS:
+        return _error_output(client)
+    return _tool_error_output(client, event)
 
 
 @contextlib.contextmanager
 def _silence_dependencies() -> Iterator[None]:
-    """Discard Python and file-descriptor output from imported dependencies."""
     with open(os.devnull, "w", encoding="utf-8") as sink:
         stdout_fd = sys.stdout.fileno()
         stderr_fd = sys.stderr.fileno()
@@ -157,26 +138,13 @@ def _deadline() -> Iterator[None]:
         signal.signal(signal.SIGALRM, previous)
 
 
-#: How long a redacted-prompt suggestion is kept before `SessionEnd` sweeps it.
-#: The file has to outlive the turn that produced it — the user is told to read
-#: it as their next prompt — so this is generous. Past a day it is litter.
+# Suggestions must outlive the turn; sweep only files older than one day.
 SUGGESTION_MAX_AGE_SECONDS = 24 * 60 * 60
 _SUGGESTION_PREFIX = "shim-guard-redacted-"
 _SUGGESTION_SUFFIX = ".txt"
 
 
 def _sweep_suggestions() -> None:
-    """Delete stale redacted-prompt files. Never raises.
-
-    `_write_redacted_prompt` cannot clean up after itself: the path it returns
-    is handed to the client so the user can read it as their next prompt, so it
-    has to outlive the process that wrote it. Nothing else deleted it, which
-    left a file in the temporary directory for every prompt ever blocked.
-
-    The age bound is what makes this safe to run from one session: another
-    client blocking a prompt right now has a file here too, and its user has
-    not read it yet.
-    """
     now = time.time()
     with contextlib.suppress(OSError):
         root = Path(tempfile.gettempdir())
@@ -209,26 +177,11 @@ def _write_redacted_prompt(text: str) -> str:
 
 
 def _envelope(raw: bytes) -> tuple:
-    """Return ``(event, session_id, stop_active)`` from an untrusted payload.
+    from shim_guard.clients.user_prompt_hook import parse_object
 
-    Cheap and defensive: a payload that does not name an event is the prompt
-    event, which is what every already-installed hook fragment sends. This is
-    the only parse outside the pipeline's own, so nothing here re-reads the
-    payload just to learn which session it belongs to.
-    """
-    import json
-
-    try:
-        document = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
-        return ("", "", False)
-    if not isinstance(document, dict):
-        return ("", "", False)
+    document = parse_object(raw)
     event = document.get("hook_event_name")
-    # Claude Code and Codex send `session_id`. GitHub's hooks reference
-    # describes `sessionId` for Copilot, which has not been confirmed against a
-    # running client — accepting both costs nothing and records nothing extra
-    # if neither is present, which is what Copilot does today.
+    # Copilot uses sessionId; Claude and Codex use session_id.
     session = document.get("session_id")
     if not isinstance(session, str):
         session = document.get("sessionId")
@@ -240,17 +193,11 @@ def _envelope(raw: bytes) -> tuple:
 
 
 def _elapsed_ms() -> int:
-    """Return how long this hook process has been running.
-
-    Measured from the moment this module was imported, which is the closest
-    honest proxy for what the client waited: it includes the detector import,
-    which dominates, but not the interpreter's own start-up.
-    """
     return max(0, round((time.perf_counter() - _STARTED) * 1000))
 
 
 def _prompt_record(client, event, mode, action, decision, prompt):
-    """Return the record for a prompt decision, carrying no prompt text."""
+    """Build metadata only; never retain prompt text."""
     from shim_guard.session.record import Record
 
     return Record(
@@ -268,12 +215,6 @@ def _prompt_record(client, event, mode, action, decision, prompt):
 
 
 def _summary_output(session_id: str, stop_active: bool) -> bytes:
-    """Return the session summary at `Stop`, or nothing when it is unchanged.
-
-    `Stop` fires at the end of every assistant turn, so the summary is emitted
-    only when there are records the user has not been shown yet. The body is
-    the session total, not the turn's.
-    """
     if not session_id or stop_active:
         return b""
     try:
@@ -294,12 +235,6 @@ def _summary_output(session_id: str, stop_active: bool) -> bytes:
 
 
 def _forget(session_id: str) -> bytes:
-    """Delete what this session left on disk, at `SessionEnd`.
-
-    The probe showed `SessionEnd` output is never rendered, so this event is
-    good for exactly one thing: cleaning up. That is the spool, and the
-    redacted-prompt files no other path could delete.
-    """
     _sweep_suggestions()
     try:
         from shim_guard.session import spool
@@ -311,15 +246,7 @@ def _forget(session_id: str) -> bytes:
 
 
 def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
-    """Record a tool event that could not be inspected. Never raises.
-
-    Failing open here is deliberate — blocking a tool event destroys the user's
-    work while protecting nothing, because the result already exists. Failing
-    open *silently* is not: nothing was written down, so `shim report` and the
-    end-of-turn summary said the session was clean while an unmasked payload
-    had just gone to the model. Observed live on a customer CSV dense enough to
-    exceed the finding limit.
-    """
+    """Fail tool events open, but record that inspection was skipped."""
     try:
         import json
 
@@ -382,7 +309,6 @@ def _policy_ledger() -> bool:
 
 
 def _tool_output(raw: bytes, entry, event: str, session_id: str) -> bytes:
-    """Handle one tool event through its client-owned adapter."""
     from shim_guard.config import load_policy
     from shim_guard.events.pipeline import process
     from shim_guard.guard import evaluate
@@ -436,7 +362,10 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                 return _error_output(client)
 
             try:
-                event, session_id, stop_active = _envelope(raw)
+                try:
+                    event, session_id, stop_active = _envelope(raw)
+                except ValueError:
+                    return _refusal_output(raw, client)
                 if event == _STOP_EVENT:
                     return _summary_output(session_id, stop_active)
                 if event == _SESSION_END_EVENT:
@@ -463,9 +392,6 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                 mode = policy.mode_for("user-prompt", event=event or _PROMPT_EVENT)
 
                 def keep(action: str) -> None:
-                    # Building the record is part of recording, so a decision
-                    # object that does not carry what the record wants must not
-                    # turn a working guard into a failure.
                     try:
                         record = _prompt_record(
                             client, event, mode, action, decision, prompt
@@ -481,14 +407,11 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                     keep("allow")
                     return b""
                 if client == "copilot":
-                    # Copilot can rewrite the model-facing prompt, so its
-                    # default warning is a mask rather than a silent report.
+                    # Copilot warns through a model-facing rewrite.
                     keep("mask")
                     return warn_output(decision)
                 if mode != "enforce":
-                    # The shipped default. Refusing a sentence someone just
-                    # typed is the most disruptive thing this product can do,
-                    # and no client offers a prompt-rewrite field.
+                    # Generic prompt hooks can report or deny, never rewrite.
                     keep("report")
                     return warn_output(decision)
                 suggestion_path = _write_redacted_prompt(decision.redacted_text)
@@ -507,13 +430,11 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
 
 
 def main() -> None:
-    """Read one hook event and write the selected client's native decision."""
     arguments = sys.argv[1:]
     client = "codex" if not arguments else arguments[0]
     if len(arguments) > 1:
         client = ""
-    # Bound before the read, because the deadline can expire while waiting for
-    # standard input and the refusal below still has to pick a shape.
+    # The deadline includes stdin; prefix bytes select fail-open/closed output.
     raw = b""
     try:
         with _deadline():
@@ -521,10 +442,8 @@ def main() -> None:
             output = _output(raw, client)
         sys.stdout.buffer.write(output)
     except Exception:
-        try:
+        with contextlib.suppress(Exception):
             sys.stdout.buffer.write(_refusal_output(raw, client))
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

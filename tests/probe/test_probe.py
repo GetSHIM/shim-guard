@@ -1,5 +1,3 @@
-"""Tests for the capability-probe harness."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -59,12 +57,9 @@ def test_capture_hook_stores_the_payload_verbatim_and_stays_silent(
     assert written[0].name.startswith("PostToolUse-Read-")
 
 
-def test_capture_hook_allows_the_event_when_no_capture_directory_is_set(
-    tmp_path: Path,
-) -> None:
+def test_capture_hook_allows_the_event_when_no_capture_directory_is_set() -> None:
     result = _run_capture(b'{"hook_event_name":"PreToolUse"}', None)
     assert (result.returncode, result.stdout, result.stderr) == (0, b"", b"")
-    assert not list(tmp_path.iterdir())
 
 
 def test_capture_hook_records_unparsable_input_without_failing(tmp_path: Path) -> None:

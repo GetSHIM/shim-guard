@@ -1,11 +1,3 @@
-"""How the hook fails, per event kind.
-
-Failing closed means opposite things on a prompt and on a tool event, and
-getting that backwards was a real bug: a malformed or over-cap tool payload
-answered with the prompt's `decision: "block"`, which on `PreToolUse` denies
-the tool call outright.
-"""
-
 from __future__ import annotations
 
 import json
@@ -69,18 +61,12 @@ def test_an_unsupported_tool_event_does_not_guess_a_native_shape() -> None:
 
 
 def test_a_malformed_prompt_event_still_fails_closed() -> None:
-    """The prompt is the one place where refusing is the protection."""
     document = json.loads(_run(b'{"hook_event_name":"UserPromptSubmit","prompt":7}'))
 
     assert document["decision"] == "block"
 
 
 def test_an_over_cap_tool_payload_does_not_deny_the_tool_call() -> None:
-    """A one-megabyte file read is ordinary, not hostile.
-
-    The payload is truncated at the cap and so cannot be parsed; only the
-    shape of the refusal is decided, from the event name near its front.
-    """
     head = b'{"hook_event_name":"PostToolUse","session_id":"s","tool_name":"Read",'
     raw = head + b'"tool_response":{"content":"' + b"A" * 1_100_000
 
@@ -99,7 +85,6 @@ def test_an_over_cap_prompt_payload_still_fails_closed() -> None:
 
 
 def test_a_file_name_cannot_carry_terminal_escapes_into_the_summary() -> None:
-    """Checking out a repository is enough to choose a file name."""
     from shim_guard.session import spool, summary
 
     hostile = "/work/" + chr(27) + "[31mred" + chr(7) + "/config.env"
@@ -158,14 +143,6 @@ def test_tool_labels_are_safe_in_the_spool_and_summary(tool: str) -> None:
 
 
 def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) -> None:
-    """Failing open must not mean failing silently.
-
-    Blocking a tool event destroys the user's work and protects nothing — the
-    result already exists — so passing it through is right. But nothing was
-    written down, so `shim report` and the end-of-turn summary called the
-    session clean while an unmasked payload had just gone to the model.
-    Observed live on a customer CSV dense enough to exceed the finding limit.
-    """
     monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
     from shim_guard import hook
     from shim_guard.session import spool
@@ -187,7 +164,6 @@ def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) ->
 
     output = hook._output(payload, "claude")
 
-    # The payload still goes through untouched, and the client is told.
     assert b"could not be inspected" in output
     records = spool.entries("dense")
     assert len(records) == 1
@@ -278,8 +254,6 @@ def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:
     assert summary.as_json(spool.entries("dense"))["not_inspected"] == 1
 
 
-#: Every payload shape the refusal has to choose between, and whether it names
-#: a tool event. A tool event may never be answered with `decision: "block"`.
 REFUSAL_CASES = (
     ("a parseable tool event", b'{"hook_event_name":"PreToolUse"}', True),
     ("a parseable prompt event", b'{"hook_event_name":"UserPromptSubmit"}', False),
@@ -296,7 +270,6 @@ REFUSAL_CASES = (
     ids=[case[0] for case in REFUSAL_CASES],
 )
 def test_the_refusal_shape_follows_the_event(payload: bytes, is_tool: bool) -> None:
-    """The shape is chosen by what the payload is, parseable or not."""
     from shim_guard import hook
 
     for client in ("claude", "codex"):
@@ -308,13 +281,6 @@ def test_the_refusal_shape_follows_the_event(payload: bytes, is_tool: bool) -> N
 
 
 def test_the_deadline_on_a_tool_event_does_not_deny_the_call() -> None:
-    """A slow detector must cost the inspection, never the user's tool call.
-
-    The deadline is the one failure that reaches `main` rather than the
-    pipeline's own handler, so it used to answer a `PreToolUse` with the
-    prompt's block — denying an ordinary `Read` and telling the user their
-    *prompt* had been withheld.
-    """
     code = (
         "import sys, time\n"
         "from shim_guard import hook as runner\n"
@@ -348,12 +314,6 @@ def test_the_deadline_on_a_tool_event_does_not_deny_the_call() -> None:
 
 
 def test_session_end_sweeps_stale_redacted_prompts(tmp_path, monkeypatch) -> None:
-    """The one path that can delete them, since the writer must not.
-
-    A blocked prompt leaves its redaction in the temporary directory for the
-    user to read as their next prompt. Nothing collected them, so an enforcing
-    install grew one file per blocked prompt forever.
-    """
     import time
 
     from shim_guard import hook
@@ -371,7 +331,5 @@ def test_session_end_sweeps_stale_redacted_prompts(tmp_path, monkeypatch) -> Non
     hook._forget("any-session")
 
     assert not stale.exists()
-    # Another client may have blocked a prompt seconds ago and its user has not
-    # read the file yet, and nothing outside our own prefix is ours to delete.
     assert fresh.exists()
     assert other.exists()

@@ -16,12 +16,6 @@ GENERIC_REWRITE = (
 
 
 def _redaction_files(root):
-    """Return only the redacted-prompt files, not the session spool.
-
-    The spool is a separate promise with its own tests: it holds entity names
-    and counts and is checked for payload content in
-    `test_hook_persists_only_the_redacted_prompt_in_os_temp`.
-    """
     return [
         item
         for item in root.rglob("*")

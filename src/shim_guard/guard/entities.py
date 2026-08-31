@@ -1,5 +1,3 @@
-"""Public SHIM Guard entity vocabulary."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -21,7 +19,6 @@ DEFAULT_ENTITIES = ENTITY_TYPES
 
 
 def normalize_entities(entities: Iterable[object]) -> tuple[str, ...]:
-    """Validate and return entities in the public display order."""
     values = tuple(entities)
     if any(not isinstance(value, str) for value in values):
         raise ValueError("entity names must be strings")

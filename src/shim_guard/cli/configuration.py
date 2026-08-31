@@ -1,5 +1,3 @@
-"""User-facing entity policy workflow."""
-
 from __future__ import annotations
 
 from typing import NoReturn
@@ -55,9 +53,6 @@ def _show(
             )
             table.add_row(entity, status)
         output.print(table)
-    # The two settings that are not entities still have to be visible. The
-    # ledger writes decisions to disk for 30 days, and "is this tool keeping a
-    # record of me?" must be answerable without opening the config file.
     output.print(
         Text(
             f"Ledger: {'on' if ledger else 'off'}    "
@@ -101,7 +96,6 @@ def configure(
     yes: bool,
     as_json: bool,
 ) -> None:
-    """Show or safely update the enabled entity types."""
     try:
         target = config_path()
     except ValueError:
@@ -116,10 +110,7 @@ def configure(
     if set(enable).intersection(disable):
         _fail(as_json, "The same entity cannot be enabled and disabled.")
 
-    # The whole policy is read, not only the entity list, so that saving an
-    # entity change cannot drop a mode override the user set deliberately.
-    # A file too broken to read is not fatal for the two operations that
-    # replace it outright; everything else has to merge and so must refuse.
+    # Preserve mode/tool overrides. Only reset/only may replace malformed content.
     try:
         policy = load_policy(target)
     except (OSError, ValueError):
@@ -132,7 +123,6 @@ def configure(
 
     try:
         if reset:
-            # "Restore all defaults" means the whole document, not one key.
             enabled, modes, tool_entities = DEFAULT_ENTITIES, {}, {}
             keep_ledger, keep_diet = False, DEFAULT_TRANSFORMS
         else:

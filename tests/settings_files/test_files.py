@@ -186,9 +186,6 @@ def test_absent_parent_and_symlinked_ancestor_are_handled_safely(
     assert inspect_file(missing).kind is StateKind.ABSENT
     assert inspect_file(Path("relative")).kind is StateKind.UNSAFE
 
-    # A symlinked ancestor resolves. `~/.config` linked into a dotfiles
-    # repository is the ordinary case, and refusing it reported "unsafe" for a
-    # user who had no config file at all — which fails closed on every prompt.
     real = tmp_path / "real"
     real.mkdir()
     linked = tmp_path / "linked"
@@ -197,8 +194,6 @@ def test_absent_parent_and_symlinked_ancestor_are_handled_safely(
     ensure_parent(linked / "nested" / "file")
     assert (real / "nested").is_dir()
 
-    # What the ancestor walk gave up, the checks after it still hold: the
-    # directory a link resolves to is judged on its own permissions...
     exposed = tmp_path / "exposed"
     exposed.mkdir()
     exposed.chmod(0o770)
@@ -206,7 +201,6 @@ def test_absent_parent_and_symlinked_ancestor_are_handled_safely(
     to_exposed.symlink_to(exposed, target_is_directory=True)
     assert inspect_file(to_exposed / "file").kind is StateKind.UNSAFE
 
-    # ...and the target itself is still never followed.
     victim = real / "victim"
     victim.write_bytes(b"data")
     trap = real / "trap"

@@ -1,5 +1,3 @@
-"""Client hook installation, inspection, and revert workflows."""
-
 from __future__ import annotations
 
 import json
@@ -70,7 +68,6 @@ def client_plan(client: str, operation: Literal["install", "revert"]) -> Plan:
 
 
 def _hook_fragment(client: str) -> dict[str, object]:
-    """Return exactly what `--dry-run` would merge into the client's file."""
     if client == "copilot":
         return copilot_settings.hook_document()
     if client == "claude":
@@ -105,10 +102,7 @@ def _inline_hooks_notice(client: str) -> None:
 def plan_status(plan: Plan) -> tuple[str, str]:
     if plan.action is Action.NOOP:
         return "PASS", "installed"
-    if plan.state.kind is StateKind.ABSENT or plan.action in {
-        Action.CREATE,
-        Action.UPDATE,
-    }:
+    if plan.state.kind is StateKind.ABSENT or plan.action is Action.UPDATE:
         return "WARN", "not_installed"
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
@@ -134,12 +128,6 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     except (OSError, ValueError):
         _plan_error(client, "install")
 
-    # A config directory that does not exist yet is the first-run case, not an
-    # unsafe one, and it is the same for every client: someone who installs
-    # shim before ever launching the client has no `~/.claude`, `~/.codex` or
-    # `~/.copilot`. This used to be recognised for Copilot alone, so the other
-    # two refused with "cannot be changed safely — review malformed, ambiguous,
-    # or unsafe settings" about settings that did not exist.
     missing_parent = (
         plan.action is Action.REFUSE
         and plan.state.kind is StateKind.ABSENT

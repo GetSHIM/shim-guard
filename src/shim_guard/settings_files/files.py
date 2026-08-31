@@ -1,5 +1,3 @@
-"""Single safe filesystem boundary for shared-file changes."""
-
 from __future__ import annotations
 
 import fcntl
@@ -11,27 +9,13 @@ from pathlib import Path
 from .plan import Action, FileState, Plan, StateKind
 
 MAX_PATH_BYTES = 4_096
-#: Ancestor directories are resolved, symlinks included. Refusing to follow one
-#: broke the most ordinary setup there is: `~/.config` linked into a dotfiles
-#: repository (stow, yadm, chezmoi, a plain `ln -s`) made opening `.config`
-#: fail with ENOTDIR, which is an `OSError` but not `FileNotFoundError`, so a
-#: user with *no config file at all* got UNSAFE instead of ABSENT — and an
-#: unreadable policy fails closed, so every prompt of every session was blocked.
-#: macOS `/tmp` and `/var` are symlinks too, which broke the same way.
-#:
-#: Nothing is given up by resolving them. What protects this path is applied
-#: *after* resolution and is unchanged: the parent that a walk lands on is
-#: checked for ownership and for group- or world-writability, and the target
-#: component itself is always opened or stat-ed with `O_NOFOLLOW` /
-#: `follow_symlinks=False`. Redirecting the walk into a directory the attacker
-#: controls therefore still fails, and planting a symlink at `~/.config`
-#: requires write access to the home directory in the first place.
+# Resolve ancestor links, then validate the parent and never follow the target.
 _ANCESTOR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
 _UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
 
 class InstallationError(RuntimeError):
-    """A file change was unsafe or no longer matched its plan."""
+    pass
 
 
 def _validate_target(target: Path) -> None:
@@ -70,7 +54,6 @@ def _unsafe_reason(info: os.stat_result, label: str) -> str:
 
 
 def _open_parent(target: Path) -> int:
-    """Open the target's parent, resolving ancestor links along the way."""
     descriptor = os.open("/", _ANCESTOR_FLAGS)
     try:
         for component in target.parent.parts[1:]:
@@ -85,7 +68,6 @@ def _open_parent(target: Path) -> int:
 
 def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
     parent = os.fstat(parent_fd)
-    parent_identity = (parent.st_dev, parent.st_ino)
     reason = _unsafe_reason(parent, "target parent")
     if reason:
         return FileState(
@@ -115,14 +97,15 @@ def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
             max_bytes=max_bytes,
             reason=f"cannot inspect target: {error.strerror}",
         )
+    fingerprint = _fingerprint(info)
 
     def unsafe(message: str) -> FileState:
         return FileState(
             StateKind.UNSAFE,
             path=target,
-            parent_device=parent_identity[0],
-            parent_inode=parent_identity[1],
-            fingerprint=_fingerprint(info),
+            parent_device=parent.st_dev,
+            parent_inode=parent.st_ino,
+            fingerprint=fingerprint,
             mode=stat.S_IMODE(info.st_mode),
             max_bytes=max_bytes,
             reason=message,
@@ -157,9 +140,8 @@ def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
         return unsafe(f"cannot safely read target: {error.strerror}")
     if len(content) > max_bytes:
         return unsafe("target exceeds the inspection limit")
-    if _fingerprint(info) != _fingerprint(opened) or _fingerprint(
-        opened
-    ) != _fingerprint(closed):
+    opened_fingerprint = _fingerprint(opened)
+    if fingerprint != opened_fingerprint or opened_fingerprint != _fingerprint(closed):
         return unsafe("target changed during inspection")
     return FileState(
         StateKind.FILE,
@@ -167,14 +149,14 @@ def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
         content=bytes(content),
         parent_device=parent.st_dev,
         parent_inode=parent.st_ino,
-        fingerprint=_fingerprint(info),
+        fingerprint=fingerprint,
         mode=stat.S_IMODE(info.st_mode),
         max_bytes=max_bytes,
     )
 
 
 def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
-    """Inspect a file without writing, following no path symlinks."""
+    """Inspect without following the final component."""
     target = Path(path)
     try:
         _validate_target(target)
@@ -203,7 +185,7 @@ def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
 
 
 def ensure_parent(path: Path) -> None:
-    """Create missing target parents without following symlinks."""
+    """Create parents after validating resolved ownership and permissions."""
     target = Path(path)
     _validate_target(target)
     descriptor = -1
@@ -322,8 +304,7 @@ def _publish(plan: Plan, parent_fd: int) -> None:
         ):
             raise InstallationError("temporary file changed before publication")
         _require_planned_state(plan, parent_fd)
-        # ponytail: portable POSIX has no conditional replace; add platform CAS
-        # only if same-UID adversaries enter the documented threat boundary.
+        # ponytail: POSIX lacks conditional replace; add CAS for same-UID threats.
         if plan.action is Action.CREATE:
             try:
                 os.link(
@@ -362,7 +343,7 @@ def _publish(plan: Plan, parent_fd: int) -> None:
 
 
 def apply(plan: Plan) -> bool:
-    """Apply a plan after locked, exact revalidation; never delete a target."""
+    """Apply after locked exact-state revalidation; never delete."""
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
         raise InstallationError(plan.message)
     parent_fd = _open_locked_parent(plan)
@@ -370,8 +351,6 @@ def apply(plan: Plan) -> bool:
         _require_planned_state(plan, parent_fd)
         if plan.action is Action.NOOP:
             return False
-        if plan.action not in {Action.CREATE, Action.UPDATE}:
-            raise InstallationError("unsupported file action")
         _publish(plan, parent_fd)
         return True
     finally:

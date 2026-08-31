@@ -1,15 +1,3 @@
-"""Report which hook the plugin launcher would actually run.
-
-`plugins/shim-guard/hooks/run-shim-guard` resolves in a fixed order — the
-package on PATH, then the archive bundled in the plugin, then nothing — and the
-three cases behave very differently. `shim doctor` has to be able to say which
-one is live, because "installed" and "running" are not the same thing once a
-plugin can carry its own copy.
-
-Everything here is read-only and offline: the archive's version is read out of
-the zip rather than by executing it.
-"""
-
 from __future__ import annotations
 
 import json
@@ -28,9 +16,7 @@ _VERSION = re.compile(r'^__version__ = "(?P<version>[0-9][0-9A-Za-z.+-]*)"', re.
 
 @dataclass(frozen=True)
 class Resolution:
-    """Which hook would run, and anything worth warning about."""
-
-    __slots__ = ("source", "detail", "path_version", "archive_version")
+    __slots__ = ("archive_version", "detail", "path_version", "source")
 
     source: str
     detail: str
@@ -39,7 +25,6 @@ class Resolution:
 
     @property
     def skewed(self) -> bool:
-        """True when both paths exist and disagree about the version."""
         return (
             self.path_version is not None
             and self.archive_version is not None
@@ -48,7 +33,6 @@ class Resolution:
 
 
 def archive_version(archive: Path) -> str | None:
-    """Return the version recorded inside a bundled archive, without running it."""
     try:
         with zipfile.ZipFile(archive) as bundle:
             source = bundle.read("shim_guard/__init__.py").decode("utf-8")
@@ -59,11 +43,6 @@ def archive_version(archive: Path) -> str | None:
 
 
 def installed_plugin(home: Path | None = None) -> dict | None:
-    """Return Claude Code's record of an installed SHIM plugin, if any.
-
-    The record lives in an undocumented client file, so every failure mode here
-    means "cannot tell", never "not installed".
-    """
     root = Path(home) if home is not None else Path.home()
     manifest = root / ".claude" / "plugins" / "installed_plugins.json"
     try:
@@ -85,7 +64,6 @@ def installed_plugin(home: Path | None = None) -> dict | None:
 
 
 def resolve(plugin_root: Path | None = None, which=shutil.which) -> Resolution:
-    """Return the hook the launcher would run, mirroring its resolution order."""
     on_path = which("shim-guard-hook")
     root = plugin_root
     if root is None:

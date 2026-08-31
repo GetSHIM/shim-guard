@@ -1,5 +1,3 @@
-"""Pure planning for safe shared-file changes."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,8 +19,6 @@ class Action(str, Enum):
     REFUSE = "refuse"
 
 
-# No __slots__: both dataclasses below carry field defaults, and a manual
-# __slots__ entry conflicts with the class attribute a default creates.
 @dataclass(frozen=True)
 class FileState:
     kind: StateKind
@@ -51,7 +47,6 @@ def plan_change(
     expected: bytes | None,
     conflict: str = "",
 ) -> Plan:
-    """Plan a write from an already-inspected filesystem state."""
     target = Path(target)
     if state.path != target:
         action, message = Action.REFUSE, "state was inspected for a different path"

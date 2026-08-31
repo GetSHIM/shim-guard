@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        # The supported floor and newest supported interpreter.
         python-version: ['3.9', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
@@ -36,10 +35,8 @@ jobs:
           uv run --locked python scripts/build_zipapp.py \
             --output plugins/shim-guard/bin/shim.pyz
           test -x plugins/shim-guard/bin/shim.pyz
-          # The launcher must allow the prompt when no hook is runnable.
           test -z "$(printf '%s' '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}' \
             | env -i PATH=/nonexistent plugins/shim-guard/hooks/run-shim-guard claude 2>/dev/null)"
-          # The bundled archive must detect on its own, with no package installed.
           test "$(env -i PATH=/usr/bin:/bin HOME="$HOME" \
             CLAUDE_PLUGIN_ROOT="$PWD/plugins/shim-guard" \
             plugins/shim-guard/hooks/run-shim-guard claude \

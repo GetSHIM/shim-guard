@@ -1,11 +1,3 @@
-"""Record raw client hook payloads for the client capability probe.
-
-This is not product code. It never ships in the package, never writes to
-stdout, and always exits 0 so a probe session behaves exactly like a session
-with no hook installed. Captures land in ``$SHIM_PROBE_DIR`` verbatim: the
-whole point of the probe is to see the bytes the client actually sends.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,7 +11,6 @@ _UNPARSED = "unparsed"
 
 
 def safe_name(value: str) -> str:
-    """Return a file-name-safe fragment of at most 64 characters."""
     cleaned = "".join(
         character if character.isalnum() or character in "-_" else "_"
         for character in value
@@ -28,7 +19,6 @@ def safe_name(value: str) -> str:
 
 
 def describe(raw: bytes) -> tuple[str, str]:
-    """Return the ``(event, tool)`` pair a payload names, best effort."""
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
@@ -48,21 +38,14 @@ def _first_string(payload: dict[str, object], keys: tuple[str, ...]) -> str:
     return ""
 
 
-def capture(raw: bytes, directory: Path) -> Path:
-    """Write one payload under ``directory`` and return the path used."""
+def capture(raw: bytes, directory: Path) -> None:
     event, tool = describe(raw)
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / f"{event}-{tool}-{time.time_ns()}.json"
     target.write_bytes(raw)
-    return target
 
 
 def _rewrite_for(raw: bytes, specification: str) -> str:
-    """Return the configured hook output when this event matches, else "".
-
-    Used to establish empirically whether a client honours a mutation field,
-    rather than trusting a documented shape.
-    """
     try:
         rule = json.loads(specification)
         payload = json.loads(raw.decode("utf-8"))
@@ -78,11 +61,6 @@ def _rewrite_for(raw: bytes, specification: str) -> str:
 
 
 def main() -> int:
-    """Never fail: read one payload, store it, allow the event.
-
-    Stdout stays empty unless ``SHIM_PROBE_SYSTEM_MESSAGE`` is set, which is how
-    the probe answers whether a client renders hook ``systemMessage`` output.
-    """
     try:
         raw = sys.stdin.buffer.read(MAX_CAPTURE_BYTES)
         directory = os.environ.get("SHIM_PROBE_DIR")

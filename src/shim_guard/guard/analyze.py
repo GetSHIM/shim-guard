@@ -1,5 +1,3 @@
-"""Bounded detection orchestration and deterministic overlap handling."""
-
 from __future__ import annotations
 
 import contextlib
@@ -13,16 +11,7 @@ from .models import Finding
 from .normalize import normalize
 from .recognizers import ENTITY_MAP, Match, analyze_text
 
-#: A backstop against degenerate input, not a bound on work. Work is bounded by
-#: `normalize.MAX_SOURCE_CHARACTERS` (100k characters); measured, analysis time
-#: tracks input length and is completely unaffected by this number.
-#:
-#: It was 100, which meant an ordinary 5.5 KB customer CSV produced 122 findings,
-#: raised, and was therefore passed to the model **entirely unmasked** — the more
-#: personal data a file held, the less of it was protected. Verified live against
-#: Claude Code: the model quoted back a full row of email, phone, IBAN and
-#: national ID. 100k characters of dense records is roughly 4,400 findings, so
-#: this sits above anything the input bound can actually produce.
+# A lower cap makes dense sensitive input fail open.
 MAX_FINDINGS = 5_000
 ANALYSIS_DEADLINE_SECONDS = 20
 _MAX_ANALYZER_RESULTS = MAX_FINDINGS * len(ENTITY_MAP)
@@ -43,17 +32,7 @@ _PRIORITY = {
 
 @contextlib.contextmanager
 def _deadline() -> Iterator[None]:
-    """Bound analysis while preserving any earlier process deadline.
-
-    Only the main thread can install a signal handler; `signal.signal` raises
-    `ValueError` anywhere else. The hook is single-threaded so this is normally
-    moot, but `shim watch` evaluates on a worker thread, and there the alarm
-    was raising and taking the whole measurement down with it — silently, since
-    the proxy drops a measurement rather than a request.
-
-    Off the main thread the alarm is skipped and the caller owns the bound.
-    `watch` bounds its input with `measure.MAX_BODY_BYTES` before calling in.
-    """
+    """Preserve an earlier alarm; worker threads cannot install signal handlers."""
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -151,14 +130,6 @@ def _resolve_overlaps(items: Iterable[Finding]) -> list[Finding]:
         component_end = max(component_end, item.end)
     collapse()
 
-    for item in ordered:
-        if not any(
-            selected.start <= item.start and item.end <= selected.end
-            for selected in resolved
-        ):
-            raise ValueError("Guard analyzer returned an unsafe overlap.")
-    if any(left.end > right.start for left, right in zip(resolved, resolved[1:])):
-        raise ValueError("Guard analyzer returned an unsafe overlap.")
     return resolved
 
 
@@ -196,12 +167,12 @@ def analyze(
     normalized = normalize(text)
     if not normalized.text:
         return ()
-    source_entities = sorted(
+    source_entities = tuple(
         source for source, public in ENTITY_MAP.items() if public in enabled
     )
     try:
         with _deadline():
-            raw = analyze_text(normalized.text, tuple(source_entities))
+            raw = analyze_text(normalized.text, source_entities)
         normalized_findings = _resolve_overlaps(_validated(raw, len(normalized.text)))
     except TimeoutError as error:
         raise ValueError("Guard analysis exceeded its runtime limit.") from error

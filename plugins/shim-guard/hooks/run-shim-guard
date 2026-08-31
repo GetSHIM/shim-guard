@@ -1,14 +1,5 @@
 #!/bin/sh
-# Resolve a runnable SHIM Guard hook and hand it this event.
-#
-# Order, stopping at the first that works:
-#   1. shim-guard-hook on PATH        - the package install, newest and most featureful
-#   2. ${CLAUDE_PLUGIN_ROOT}/bin/shim.pyz - the archive shipped inside this plugin
-#   3. nothing runnable               - allow the event and say so once on stderr
-#
-# Case 3 must never block. A guard that cannot run is a guard that is off, not a
-# reason to refuse the user's prompt: an empty stdout is the allow response for
-# every supported client.
+# Prefer the installed hook, then the archive; a missing runtime must fail open.
 
 set -u
 
@@ -20,8 +11,6 @@ fi
 
 archive="${CLAUDE_PLUGIN_ROOT:-}/bin/shim.pyz"
 if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "$archive" ]; then
-    # The archive checks the interpreter version itself and allows the event if
-    # it is too old, so no separate probe process is spawned per hook event.
     for interpreter in python3 python3.13 python3.12 python3.11 python3.10 python3.9 python; do
         if command -v "$interpreter" >/dev/null 2>&1; then
             exec "$interpreter" "$archive" "$client"

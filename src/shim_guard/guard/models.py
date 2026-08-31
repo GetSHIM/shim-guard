@@ -1,5 +1,3 @@
-"""Immutable public values returned by SHIM Guard."""
-
 from __future__ import annotations
 
 import math
@@ -12,7 +10,7 @@ _ENTITY_TYPES = frozenset(ENTITY_TYPES)
 
 @dataclass(frozen=True)
 class Finding:
-    __slots__ = ("entity_type", "start", "end", "score")
+    __slots__ = ("end", "entity_type", "score", "start")
 
     entity_type: str
     start: int

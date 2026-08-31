@@ -1,10 +1,3 @@
-"""One tool event: parse, classify, scan, decide, encode.
-
-The detector stays pure and unaware of events. This module decides *what text*
-to hand it and *what to do* with the answer, which is the whole difference
-between a prompt scanner and a tool-level guard.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,8 +17,6 @@ from .payload import PayloadTooLarge, inspect
 
 @dataclass(frozen=True)
 class Event:
-    """One client-native event reduced to the facts shared policy uses."""
-
     __slots__ = ("tool", "payload", "target", "views_file")
 
     tool: str
@@ -36,8 +27,6 @@ class Event:
 
 @dataclass(frozen=True)
 class Adapter:
-    """The client-owned facts the shared pipeline needs for one event."""
-
     __slots__ = ("client", "event", "root", "decode", "encode")
 
     client: str
@@ -49,8 +38,6 @@ class Adapter:
 
 @dataclass(frozen=True)
 class Outcome:
-    """The bytes to write, and the record to remember."""
-
     __slots__ = ("output", "record")
 
     output: bytes
@@ -66,27 +53,15 @@ def _counts(findings) -> tuple:
 
 
 def _summary(counts) -> str:
-    """Render entity counts without ever including a detected value."""
     return ", ".join(f"{entity} ({count})" for entity, count in counts)
 
 
 MAX_TARGET_CHARS = 120
-#: Bound on what the detector is asked to scan for a target. A path this long
-#: is already pathological; the cost is bounded rather than the value trusted.
 MAX_TARGET_SCAN_CHARS = 512
 
 
 def _target(value: str, evaluate) -> str:
-    """Return the scrubbed file or URL a tool acted on, or ``""``.
-
-    A path can itself carry a secret, so it goes through the detector like any
-    other text before it is remembered.
-
-    Long values keep their *end*. The identifying part of a path is the file
-    name, and a deep enough working directory pushes it past any left-hand
-    truncation — which is how every file in one project came to be reported
-    under the name of the directory above it.
-    """
+    """Scrub targets before storage; retain the filename-bearing suffix."""
     if not value:
         return ""
     scanned = value[-MAX_TARGET_SCAN_CHARS:]
@@ -98,16 +73,14 @@ def _target(value: str, evaluate) -> str:
 
 
 def _printable(text: str) -> str:
-    """Drop control characters from a target that will be displayed."""
     return "".join(character for character in text if character.isprintable())
 
 
 def _size(value) -> int:
-    """Return the byte size of a payload as the client would serialise it."""
     return len(json.dumps(value, ensure_ascii=False).encode())
 
 
-def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
+def _message(tool: str, counts: tuple, action: str) -> str:
     what = _summary(counts)
     where = f" in {tool}" if tool else ""
     if action == MASK:
@@ -125,14 +98,6 @@ def process(
     diet: tuple = (),
     entities_for=None,
 ) -> Outcome:
-    """Handle one tool event and return its native response.
-
-    ``mode_for(direction, tool)`` supplies the configured mode and ``diet`` the
-    enabled transforms, so policy stays injectable and this function stays pure.
-    ``entities_for(tool, event)`` narrows what is looked for on this one tool;
-    without it every enabled entity is scanned, which is the default. The
-    adapter owns validation and reduction of the native event shape.
-    """
     event = entry.decode(raw)
     tool = event.tool
 
@@ -148,7 +113,7 @@ def process(
         scoped = entities_for(tool, entry.event)
         original = evaluate
 
-        def evaluate(text, _entities=scoped):  # noqa: F811 - scoped rebind
+        def evaluate(text, _entities=scoped):
             return original(text, _entities)
 
     body = event.payload
@@ -183,19 +148,14 @@ def process(
     if body is None:
         return Outcome(b"", record(ALLOW, note="no payload at this key"))
 
-    # Diet and injection markers are inbound-only. Rewriting an outbound tool
-    # argument to make it smaller changes what the model asked a tool to do,
-    # and `observe` means look without touching, so neither applies there.
-    # Diet additionally stops at anything that shows the model a file, because
-    # the model has to be able to quote those bytes back to edit them.
+    # Never reshape outbound arguments or file views used by later edits.
     inbound = direction == INBOUND
     shrinkable = inbound and mode != OBSERVE and not event.views_file
     transforms = diet if shrinkable else ()
     try:
         result = inspect(body, evaluate, transforms, scan_markers=inbound)
     except PayloadTooLarge as error:
-        # Over a bound the payload is not partially scanned; the event is
-        # observed instead, and the reason is recorded rather than swallowed.
+        # Tool inspection fails open, recorded explicitly rather than partially.
         return Outcome(b"", record(ALLOW, note=f"{NOT_INSPECTED}: {error}"))
 
     rewritten, findings, changed = result.value, result.findings, result.changed
@@ -203,9 +163,6 @@ def process(
     if not findings:
         if not changed:
             return Outcome(b"", record(ALLOW, fields=0, markers=result.markers))
-        # Nothing sensitive, but the result got smaller. The policy action is
-        # still `allow` — diet is not a decision about sensitive data — while
-        # the wire needs the shape that carries a replacement payload.
         return Outcome(
             entry.encode(MASK, rewritten, ""),
             record(
@@ -221,7 +178,7 @@ def process(
     if action == ALLOW:
         return Outcome(b"", record(ALLOW, counts, fields=len(findings)))
 
-    message = _message(direction, tool_label, counts, action)
+    message = _message(tool_label, counts, action)
     emitted = rewritten if action == MASK and changed else body
     output = entry.encode(action, emitted, message)
     out_bytes = _size(emitted) if action == MASK else in_bytes

@@ -1,5 +1,3 @@
-"""Client compatibility and local prompt-hook health checks."""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +25,7 @@ from shim_guard.clients.copilot import settings as copilot_settings
 
 @dataclass(frozen=True)
 class Check:
-    __slots__ = ("name", "status", "detail")
+    __slots__ = ("detail", "name", "status")
 
     name: str
     status: str
@@ -118,8 +116,8 @@ def _codex_hooks_feature() -> Check:
             "hooks_feature", "FAIL", "Codex hook support could not be checked."
         )
     enabled = any(
-        line.split()[:1] == ["hooks"] and line.split()[-1:] == ["true"]
-        for line in result.stdout.splitlines()
+        fields and fields[0] == "hooks" and fields[-1] == "true"
+        for fields in map(str.split, result.stdout.splitlines())
     )
     if result.returncode or not enabled:
         return Check("hooks_feature", "FAIL", "Codex hook support is not enabled.")
@@ -236,8 +234,6 @@ def _runner_check(client: str) -> Check:
             "FAIL",
             "The local hook runner did not allow the safe fixture silently.",
         )
-    # The shipped default reports a finding in a submitted prompt and lets it
-    # through; only Copilot, which can rewrite one invisibly, masks.
     if client == "copilot":
         expected, field = "email <EMAIL_1>", "modifiedTransformedPrompt"
     else:
@@ -264,7 +260,6 @@ def _runner_check(client: str) -> Check:
 
 
 def _resolution_check() -> Check:
-    """Report which of the launcher's three resolution paths is live."""
     resolution = resolve()
     if resolution.source == "none":
         return Check("hook_resolution", "FAIL", resolution.detail)
@@ -280,7 +275,6 @@ def _resolution_check() -> Check:
 
 
 def _duplicate_check(client: str) -> Check:
-    """Warn when a client would run both the plugin hook and the settings hook."""
     if client != "claude":
         return Check(
             "duplicate_hooks",
@@ -307,12 +301,6 @@ def _duplicate_check(client: str) -> Check:
 
 
 def _session_record_check() -> Check:
-    """Report whether the session record can be written at all.
-
-    Recording deliberately never breaks the guard, which means a spool
-    directory that cannot be used fails silently: masking keeps working and no
-    summary ever appears. This is the one place that says so out loud.
-    """
     from shim_guard.session import spool
 
     try:
@@ -340,7 +328,6 @@ def _session_record_check() -> Check:
 
 
 def _coverage_rows(client: str) -> list:
-    """Return what SHIM can see and change at each event for this client."""
     rows = [
         {
             "event": "UserPromptSubmit",
@@ -353,8 +340,6 @@ def _coverage_rows(client: str) -> list:
     ]
     if client == "claude":
         rows.extend(dict(row) for row in claude_coverage())
-        # These carry no payload. They exist so the session summary can be
-        # shown and then deleted, which is why "sees" is not a payload key.
         rows.append(
             {
                 "event": "Stop",
@@ -380,8 +365,8 @@ def _coverage_rows(client: str) -> list:
 
 def _coverage_check(client: str) -> Check:
     rows = _coverage_rows(client)
-    live = [row for row in rows if row["installed"]]
-    detail = f"Coverage: {len(live)} of {len(rows)} events installed."
+    installed = sum(bool(row["installed"]) for row in rows)
+    detail = f"Coverage: {installed} of {len(rows)} events installed."
     return Check("coverage", "PASS", detail)
 
 
@@ -394,11 +379,6 @@ def _activation_check(client: str) -> Check:
 
 
 def _print_coverage(client: str) -> None:
-    """Print the per-event coverage table.
-
-    This is a diagnostic and the most honest description of the product there
-    is: it says what SHIM cannot see as plainly as what it can.
-    """
     table = Table(
         box=box.SIMPLE, pad_edge=False, title=f"{client_name(client)} coverage"
     )
@@ -417,7 +397,6 @@ def _print_coverage(client: str) -> None:
 
 
 def doctor(*, client: str, as_json: bool) -> None:
-    """Run compatibility, configuration, and direct runner checks."""
     checks = [_version_check(client)]
     if client == "codex":
         checks.append(_codex_hooks_feature())

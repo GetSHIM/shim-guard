@@ -1,5 +1,3 @@
-"""Public SHIM Guard decision API."""
-
 from .analyze import MAX_FINDINGS, analyze
 from .entities import DEFAULT_ENTITIES, ENTITY_TYPES, normalize_entities
 from .evaluate import evaluate

@@ -1,16 +1,4 @@
-"""Walk a tool payload, mask its string leaves, and re-emit the same shape.
-
-Tool inputs and results are nested JSON, not flat strings, and the clients are
-explicit that a replacement "must match the tool's output shape". So the
-traversal never stringifies an object to scan it and never changes a type: a
-string leaf is replaced by a string, and every list, dict and scalar around it
-comes back as it went in.
-
-Two bounds matter more here than on the prompt path. A single `Read` result can
-carry tens of thousands of characters, and a deeply nested MCP result could
-recurse without limit, so both are capped. Over the cap the caller is told to
-fall back to observing rather than being handed a partial scan.
-"""
+"""Bounded, shape-preserving traversal of tool payload string leaves."""
 
 from __future__ import annotations
 
@@ -21,17 +9,15 @@ MAX_TEXT_CHARACTERS = 200_000
 MAX_DEPTH = 24
 MAX_LEAVES = 2_000
 
-Path = tuple  # tuple[str | int, ...]
+Path = tuple
 
 
 class PayloadTooLarge(ValueError):
-    """The payload is past a bound, so it must not be partially scanned."""
+    pass
 
 
 @dataclass
 class Traversal:
-    """String leaves found in one payload, in deterministic document order."""
-
     leaves: list = field(default_factory=list)
     characters: int = 0
 
@@ -45,7 +31,6 @@ class Traversal:
 
 
 def walk(value: Any, root: Path = ()) -> Traversal:
-    """Return every string leaf under ``value`` with its path."""
     found = Traversal()
     _walk(value, root, found, 0)
     return found
@@ -61,26 +46,14 @@ def _walk(value: Any, path: Path, found: Traversal, depth: int) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
             if isinstance(key, str):
-                _walk(item, path + (key,), found, depth + 1)
+                _walk(item, (*path, key), found, depth + 1)
         return
     if isinstance(value, list):
         for index, item in enumerate(value):
-            _walk(item, path + (index,), found, depth + 1)
-
-
-def read_at(value: Any, path: Path) -> Any:
-    """Return the value at ``path``, raising KeyError/IndexError if absent."""
-    for key in path:
-        value = value[key]
-    return value
+            _walk(item, (*path, index), found, depth + 1)
 
 
 def replace(value: Any, replacements: dict) -> Any:
-    """Return a copy of ``value`` with the given paths replaced.
-
-    The copy is structural: containers are rebuilt, scalars are shared, and no
-    type ever changes. ``replacements`` maps a path to its new string.
-    """
     return _replace(value, (), replacements)
 
 
@@ -95,7 +68,7 @@ def _replace(value: Any, path: Path, replacements: dict) -> Any:
     if isinstance(value, dict):
         return {
             key: (
-                _replace(item, path + (key,), replacements)
+                _replace(item, (*path, key), replacements)
                 if isinstance(key, str)
                 else item
             )
@@ -103,7 +76,7 @@ def _replace(value: Any, path: Path, replacements: dict) -> Any:
         }
     if isinstance(value, list):
         return [
-            _replace(item, path + (index,), replacements)
+            _replace(item, (*path, index), replacements)
             for index, item in enumerate(value)
         ]
     return value
@@ -111,13 +84,10 @@ def _replace(value: Any, path: Path, replacements: dict) -> Any:
 
 @dataclass(frozen=True)
 class Inspection:
-    """Everything one pass over a payload learned, and what it produced."""
-
     __slots__ = ("value", "findings", "changed", "transforms", "markers")
 
     value: Any
     findings: list
-    #: True when ``value`` differs from the input, by masking or by diet.
     changed: bool
     transforms: tuple
     markers: tuple
@@ -129,18 +99,21 @@ def inspect(
     transforms: tuple = (),
     scan_markers: bool = False,
 ) -> Inspection:
-    """Walk once, and offer every string leaf to each concern in turn.
-
-    ``evaluate`` is the pure detector. Ordinal placeholders restart per leaf,
-    because each leaf is an independent piece of text the model reads on its
-    own; a single counter across a whole payload would produce `<EMAIL_7>` in a
-    field whose text contains one address.
-
-    The three concerns stay separate because masking rewrites, diet rewrites,
-    and injection markers only report. Sharing the walk costs nothing and
-    keeps a marker from ever reaching a replacement.
-    """
     found = walk(value)
+    transform_order = ()
+    apply_diet = None
+    if transforms:
+        from .diet import TRANSFORMS, shrink
+
+        transform_order = TRANSFORMS
+        apply_diet = shrink
+    marker_order = ()
+    scan_injection = None
+    if scan_markers:
+        from .injection import MARKERS, scan
+
+        marker_order = MARKERS
+        scan_injection = scan
     replacements = {}
     findings = []
     applied: set = set()
@@ -151,19 +124,15 @@ def inspect(
         if decision.findings:
             findings.append((path, decision))
             current = decision.redacted_text
-        if scan_markers:
-            from . import injection
-
-            markers.update(injection.scan(current))
-        if transforms:
-            from . import diet
-
-            current, names = diet.shrink(current, transforms)
+        if scan_injection is not None:
+            markers.update(scan_injection(current))
+        if apply_diet is not None:
+            current, names = apply_diet(current, transforms)
             applied.update(names)
         if current != text:
             replacements[path] = current
-    ordered_transforms = _ordered(applied)
-    ordered_markers = _markers(markers)
+    ordered_transforms = tuple(name for name in transform_order if name in applied)
+    ordered_markers = tuple(name for name in marker_order if name in markers)
     if not replacements:
         return Inspection(value, findings, False, ordered_transforms, ordered_markers)
     return Inspection(
@@ -175,19 +144,6 @@ def inspect(
     )
 
 
-def _ordered(applied: set) -> tuple:
-    from . import diet
-
-    return tuple(name for name in diet.TRANSFORMS if name in applied)
-
-
-def _markers(markers: set) -> tuple:
-    from . import injection
-
-    return tuple(name for name in injection.MARKERS if name in markers)
-
-
 def mask(value: Any, evaluate: Callable[[str], Any]) -> tuple:
-    """Mask only, as ``(rewritten, findings, changed)``."""
     result = inspect(value, evaluate)
     return result.value, result.findings, result.changed
