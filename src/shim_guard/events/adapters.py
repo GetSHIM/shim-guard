@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from .policy import ALLOW, DENY, MASK, REPORT
+from shim_guard.policy import ALLOW, DENY, MASK, REPORT
 
 MAX_OUTPUT_BYTES = 1_000_000
 _DENY_REASON = "SHIM Guard: sensitive data detected; this call was not allowed."

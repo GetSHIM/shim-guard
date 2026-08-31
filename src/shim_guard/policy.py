@@ -47,11 +47,14 @@ ALLOW = "allow"
 REPORT = "report"
 MASK = "mask"
 DENY = "deny"
-ACTIONS = (ALLOW, REPORT, MASK, DENY)
 
-Direction = str
-Mode = str
-Action = str
+DEFAULT_MODES = {
+    USER_PROMPT: WARN,
+    OUTBOUND: ENFORCE,
+    INBOUND: ENFORCE,
+    LOCAL_WRITE: WARN,
+    EXECUTABLE_TEXT: WARN,
+}
 
 #: Directions whose payload may be rewritten in place at all.
 REWRITABLE = {
@@ -68,7 +71,6 @@ LOCAL_WRITE_TOOLS = frozenset(
 )
 #: Tools whose input is a command string rather than a structured argument set.
 COMMAND_TOOLS = frozenset({"Bash", "BashOutput", "Shell", "PowerShell", "shell"})
-MCP_PREFIX = "mcp__"
 
 _PROMPT_EVENTS = frozenset({"UserPromptSubmit", "userPromptTransformed"})
 _INPUT_EVENTS = frozenset({"PreToolUse", "preToolUse"})
@@ -78,14 +80,46 @@ _RESULT_EVENTS = frozenset(
 
 
 @dataclass(frozen=True)
+class Policy:
+    """Enabled entities plus the mode to apply, by direction, event or tool."""
+
+    entities: tuple
+    modes: dict
+    tool_entities: dict
+    #: Whether decisions outlive the session. Off unless the user turns it on.
+    ledger: bool = False
+    #: Enabled context-diet transforms, by name. Empty means diet is off.
+    diet: tuple = ()
+
+    def mode_for(self, direction: str, tool: str = "", event: str = "") -> str:
+        """Return the mode for one payload, most specific override winning.
+
+        Order: per-tool, then per-event, then per-direction, then the file's
+        own default, then the shipped default for that direction.
+        """
+        for key in (tool, event, direction):
+            if key and key in self.modes:
+                return self.modes[key]
+        if "default" in self.modes:
+            return self.modes["default"]
+        return DEFAULT_MODES.get(direction, WARN)
+
+    def entities_for(self, tool: str = "", event: str = "") -> tuple:
+        for key in (tool, event):
+            if key and key in self.tool_entities:
+                return self.tool_entities[key]
+        return self.entities
+
+
+@dataclass(frozen=True)
 class Decision:
     """What policy permits for one payload, and why it was weakened."""
 
     __slots__ = ("direction", "mode", "action", "degraded_from", "reason")
 
-    direction: Direction
-    mode: Mode
-    action: Action
+    direction: str
+    mode: str
+    action: str
     degraded_from: str
     reason: str
 
@@ -94,7 +128,7 @@ class Decision:
         return bool(self.degraded_from)
 
 
-def direction_for(event: str, tool: str) -> Direction:
+def direction_for(event: str, tool: str) -> str:
     """Classify one payload before anything is allowed to rewrite it."""
     if event in _PROMPT_EVENTS:
         return USER_PROMPT
@@ -110,8 +144,8 @@ def direction_for(event: str, tool: str) -> Direction:
 
 
 def decide(
-    direction: Direction,
-    mode: Mode,
+    direction: str,
+    mode: str,
     *,
     can_rewrite: bool = True,
     can_report: bool = True,

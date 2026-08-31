@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 
+from shim_guard import policy
 from shim_guard.guard import entities as entity_catalog
 
 try:  # pragma: no cover - exercised by whichever interpreter runs the tests
@@ -87,47 +87,7 @@ def render_entities(entities: Iterable[str]) -> bytes:
     return render_settings(entities)
 
 
-DEFAULT_MODES = {
-    "user-prompt": "warn",
-    "outbound": "enforce",
-    "inbound": "enforce",
-    "local-write": "warn",
-    "executable-text": "warn",
-}
-MODES = ("observe", "warn", "enforce")
 _TOP_LEVEL = {"enabled_entities", "mode", "entities", "ledger", "diet"}
-
-
-@dataclass(frozen=True)
-class Policy:
-    """Enabled entities plus the mode to apply, by direction, event or tool."""
-
-    entities: tuple
-    modes: dict
-    tool_entities: dict
-    #: Whether decisions outlive the session. Off unless the user turns it on.
-    ledger: bool = False
-    #: Enabled context-diet transforms, by name. Empty means diet is off.
-    diet: tuple = ()
-
-    def mode_for(self, direction: str, tool: str = "", event: str = "") -> str:
-        """Return the mode for one payload, most specific override winning.
-
-        Order: per-tool, then per-event, then per-direction, then the file's
-        own default, then the shipped default for that direction.
-        """
-        for key in (tool, event, direction):
-            if key and key in self.modes:
-                return self.modes[key]
-        if "default" in self.modes:
-            return self.modes["default"]
-        return DEFAULT_MODES.get(direction, "warn")
-
-    def entities_for(self, tool: str = "", event: str = "") -> tuple:
-        for key in (tool, event):
-            if key and key in self.tool_entities:
-                return self.tool_entities[key]
-        return self.entities
 
 
 def _modes(document: dict) -> dict:
@@ -136,7 +96,7 @@ def _modes(document: dict) -> dict:
         raise ValueError("SHIM Guard settings are invalid")
     modes = {}
     for key, value in section.items():
-        if not isinstance(value, str) or value not in MODES:
+        if not isinstance(value, str) or value not in policy.MODES:
             raise ValueError("SHIM Guard settings are invalid")
         modes[key] = value
     return modes
@@ -203,7 +163,7 @@ def parse_settings(text: str) -> dict:
     }
 
 
-def load_policy(path: Path | None = None) -> Policy:
+def load_policy(path: Path | None = None) -> policy.Policy:
     """Load the full policy, falling back to the shipped defaults."""
     target = config_path() if path is None else _validated_path(path)
     from shim_guard.installation import StateKind, inspect_file
@@ -215,7 +175,7 @@ def load_policy(path: Path | None = None) -> Policy:
         # config file at all.
         from shim_guard.events.diet import DEFAULT_TRANSFORMS
 
-        return Policy(
+        return policy.Policy(
             entity_catalog.DEFAULT_ENTITIES, {}, {}, False, DEFAULT_TRANSFORMS
         )
     if state.kind is not StateKind.FILE or state.content is None:
@@ -225,7 +185,7 @@ def load_policy(path: Path | None = None) -> Policy:
     except (UnicodeDecodeError, RecursionError) as error:
         raise ValueError("SHIM Guard settings are invalid") from error
     try:
-        return Policy(
+        return policy.Policy(
             entity_catalog.normalize_entities(document["enabled_entities"]),
             document["mode"],
             document["entities"],

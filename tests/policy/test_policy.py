@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from shim_guard.events import policy
-from shim_guard.events.policy import (
+from shim_guard import policy
+from shim_guard.policy import (
     ALLOW,
     DENY,
     ENFORCE,
