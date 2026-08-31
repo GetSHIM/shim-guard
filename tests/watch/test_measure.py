@@ -206,6 +206,15 @@ def test_an_exchange_keeps_counts_and_sizes_but_no_traffic() -> None:
     assert "merge sort" not in blob
 
 
+@pytest.mark.parametrize(
+    "model", ("claude\nforged-report", "x" * (measure.MAX_MODEL_CHARS + 1))
+)
+def test_untrusted_model_labels_are_normalized_at_ingress(model: str) -> None:
+    exchange = measure.inspect_request(json.dumps(_request(model=model)).encode())
+
+    assert exchange.model == measure.UNKNOWN_MODEL
+
+
 def test_a_body_past_the_bound_is_counted_but_not_broken_down() -> None:
     body = b"x" * (measure.MAX_BODY_BYTES + 1)
 

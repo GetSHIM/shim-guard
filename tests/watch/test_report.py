@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from shim_guard.watch import measure, proxy, report
 
 
@@ -109,6 +111,21 @@ def test_an_unknown_model_is_named_rather_than_guessed() -> None:
     text = report.render(_session(_exchange(model="some-future-model")), 5.0)
     assert "not priced for some-future-model" in text
     assert "$" not in text
+
+
+@pytest.mark.parametrize(
+    "model", ("claude\nforged-report", "x" * (measure.MAX_MODEL_CHARS + 1))
+)
+def test_invalid_model_labels_reach_neither_report(model: str) -> None:
+    exchange = measure.inspect_request(json.dumps({"model": model}).encode())
+    exchange.path = "/v1/messages"
+    session = _session(exchange)
+
+    assert model not in report.render(session, 5.0)
+    assert model not in json.dumps(report.as_json(session, 5.0))
+    assert report.as_json(session, 5.0)["approximate"]["unpriced_models"] == [
+        measure.UNKNOWN_MODEL
+    ]
 
 
 def test_findings_in_traffic_are_counted_by_type() -> None:

@@ -32,6 +32,10 @@ OTHER = "other"
 #: trust the input.
 MAX_BODY_BYTES = 8_000_000
 
+#: A provider-controlled model name reaches terminal and JSON reports.
+MAX_MODEL_CHARS = 120
+UNKNOWN_MODEL = "unknown"
+
 #: How Claude Code delivers a file referenced with `@`. It never reaches a
 #: hook: the client resolves it while building the prompt and inlines it as a
 #: synthetic tool result. Captured verbatim from a live session — the wrapper
@@ -268,7 +272,12 @@ def inspect_request(body: bytes, evaluate=None) -> Exchange:
         exchange.measured = False
         return exchange
     if isinstance(document, dict) and isinstance(document.get("model"), str):
-        exchange.model = document["model"]
+        model = document["model"]
+        exchange.model = (
+            model
+            if model and len(model) <= MAX_MODEL_CHARS and model.isprintable()
+            else UNKNOWN_MODEL
+        )
     exchange.sections = sections(document)
     exchange.at_files = at_files(document)
     if evaluate is not None and isinstance(document, dict):
@@ -286,10 +295,12 @@ __all__ = [
     "AtFiles",
     "Exchange",
     "MAX_BODY_BYTES",
+    "MAX_MODEL_CHARS",
     "OTHER",
     "SECTIONS",
     "Usage",
     "UsageReader",
+    "UNKNOWN_MODEL",
     "at_files",
     "attribute",
     "inspect_request",
