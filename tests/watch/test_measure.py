@@ -182,7 +182,7 @@ def test_an_unterminated_reminder_does_not_hang_or_count() -> None:
 
 
 def test_an_exchange_keeps_counts_and_sizes_but_no_traffic() -> None:
-    """R5. Everything retained has to be a number."""
+    """An exchange retains only numeric counts and sizes, never traffic."""
     secret = "AKIAIOSFODNN7EXAMPLE"
     body = json.dumps(
         _request(messages=[{"role": "user", "content": f"deploy with {secret}"}])

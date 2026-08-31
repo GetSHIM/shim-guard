@@ -1,4 +1,4 @@
-"""Tests for the PRD-01 capability probe harness."""
+"""Tests for the capability-probe harness."""
 
 from __future__ import annotations
 

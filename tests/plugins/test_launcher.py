@@ -1,9 +1,9 @@
 """The plugin launcher must resolve a hook, and must never block without one.
 
-Before PRD-04, `run-shim-guard` returned a block decision when it could not
-find `shim-guard-hook` on PATH, so installing the plugin without separately
-installing the package produced an agent that refused every prompt. These tests
-pin the inversion: a guard that cannot run is a guard that is off.
+`run-shim-guard` used to return a block decision when it could not find
+`shim-guard-hook` on PATH, so installing the plugin without separately installing
+the package produced an agent that refused every prompt. These tests pin the
+inversion: a guard that cannot run is a guard that is off.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def _run(client: str, environment: dict[str, str], prompt: str = SECRET_PROMPT):
     )
 
 
-# --- R3: the inversion ----------------------------------------------------
+# --- an unavailable guard must not block ---------------------------------
 
 
 @pytest.mark.parametrize("client", CLIENTS)
@@ -90,7 +90,7 @@ def test_launcher_allows_the_prompt_when_no_interpreter_exists(
     assert SECRET_PROMPT.encode() not in result.stdout + result.stderr
 
 
-# --- R2: resolution order -------------------------------------------------
+# --- hook resolution order -----------------------------------------------
 
 
 @pytest.mark.parametrize("client", CLIENTS)
@@ -118,7 +118,7 @@ def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
         # doing so is invisible rather than disruptive, so it still masks.
         assert document["modifiedTransformedPrompt"] == "Contact <EMAIL_1>"
     else:
-        # Since PRD-05 the shipped default reports and lets the prompt through.
+        # The shipped default reports and lets the prompt through.
         assert "decision" not in document
         assert document["systemMessage"] == (
             "shim: found EMAIL (1) in your prompt. Not modified."
@@ -128,7 +128,7 @@ def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
 
 @pytest.mark.parametrize("client", CLIENTS)
 def test_launcher_prefers_the_package_on_path(client: str, tmp_path: Path) -> None:
-    """R4: the PATH install wins over the bundled archive."""
+    """The PATH install wins over the bundled archive."""
     marker = tmp_path / "shim-guard-hook"
     marker.write_text("#!/bin/sh\nprintf '%s' \"PATH-HOOK:$1\"\n", encoding="utf-8")
     marker.chmod(0o755)
@@ -174,7 +174,7 @@ def test_launcher_is_executable_and_shell_free() -> None:
     assert "eval" not in source
 
 
-# --- R1: the archive ------------------------------------------------------
+# --- bundled archive ------------------------------------------------------
 
 
 def test_archive_is_self_contained_and_within_budget(archive: Path) -> None:

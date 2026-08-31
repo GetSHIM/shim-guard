@@ -152,7 +152,7 @@ def test_the_request_reaches_the_provider_byte_identical(watched) -> None:
 
 
 def test_the_headers_that_carry_the_sign_in_are_forwarded_verbatim(watched) -> None:
-    """R3. Stripping `anthropic-beta` fails a subscription request with 401."""
+    """Stripping `anthropic-beta` fails a subscription request with 401."""
     running, upstream = watched
 
     _post(running, BODY, HEADERS)
@@ -225,7 +225,7 @@ def test_the_request_is_measured_without_being_kept(watched) -> None:
 
 
 def test_an_unreachable_provider_is_reported_not_invented(monkeypatch) -> None:
-    """R7. shim must never answer on the provider's behalf."""
+    """An unreachable provider must surface as an error, never a shim response."""
 
     class Refused(http.client.HTTPConnection):
         def __init__(self, host, timeout=None, context=None):  # noqa: ARG002
@@ -256,7 +256,7 @@ def test_the_proxy_binds_to_loopback_only() -> None:
 def test_the_stream_is_relayed_in_pieces_rather_than_at_the_end(
     monkeypatch,
 ) -> None:
-    """R3. A buffered proxy would return everything only once upstream closed."""
+    """A buffered proxy would return everything only once upstream closed."""
     upstream = _Upstream(delay=0.35)
     port = upstream.port
 
@@ -320,7 +320,7 @@ def test_an_uncompressed_stream_is_read_too(monkeypatch) -> None:
 
 
 def test_no_request_body_is_written_anywhere_on_disk(watched, tmp_path) -> None:
-    """R5, asserted rather than asserted-about.
+    """Request bodies must never be persisted, verified with a unique marker.
 
     A unique marker goes through the proxy in a request body; afterwards every
     file anywhere under the temporary roots is searched for it.

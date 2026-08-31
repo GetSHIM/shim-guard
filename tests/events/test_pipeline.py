@@ -1,8 +1,8 @@
 """End-to-end policy over the payloads a client really sent.
 
-The two tests PRD-05 R2 requires — a `Write` payload passed through
-byte-identical and a `Bash` command never modified — are the reason this module
-exists. Everything else here guards the machinery that makes them true.
+The two core policy tests — a `Write` payload passed through byte-identical and a
+`Bash` command never modified — are the reason this module exists. Everything
+else here guards the machinery that makes them true.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def _run(name: str, mode: str):
     return _process(_raw(name), mode)
 
 
-# --- R2: the payloads that are never rewritten ----------------------------
+# --- payloads that are never rewritten -----------------------------------
 
 
 @pytest.mark.parametrize("mode", (OBSERVE, WARN, ENFORCE))
@@ -200,7 +200,7 @@ def test_a_payload_past_a_bound_is_observed_and_says_why(name: str, body) -> Non
 
 
 def test_the_record_never_carries_payload_text() -> None:
-    """PRD-06 depends on this being true from the start."""
+    """Records must never contain the payload text they summarize."""
     for name in sorted(path.name for path in FIXTURES.glob("P*ToolUse-*.json")):
         payload = json.loads(_raw(name))
         if payload["hook_event_name"] not in ("PreToolUse", "PostToolUse"):
@@ -245,7 +245,7 @@ def test_claude_coverage_matches_its_verified_tool_events() -> None:
     ids=lambda case: case["id"],
 )
 def test_the_tool_corpus_agrees_with_the_pipeline(case: dict) -> None:
-    """PRD-03 declares the policy; PRD-05 implements it. They must match."""
+    """The tool corpus and processing pipeline must enforce the same policy."""
     outcome = process(
         TOOL_EVENTS[case["event"]],
         (FIXTURES / case["fixture"].split("/", 1)[1]).read_bytes(),
@@ -269,7 +269,7 @@ def test_the_tool_corpus_agrees_with_the_pipeline(case: dict) -> None:
 
 
 def test_the_record_names_the_file_a_tool_acted_on() -> None:
-    """PRD-06 needs a place name in the summary; PRD-05 owns where it comes from."""
+    """A tool record names the file it acted on without retaining its contents."""
     outcome = _process(
         json.dumps(
             {
@@ -347,8 +347,8 @@ def test_tool_display_labels_are_safe_without_skipping_inspection(
 def test_a_shell_command_is_never_recorded_as_a_target() -> None:
     """A command is the payload of an executable-text event, not a place.
 
-    The probe corpus has one carrying a live credential, which is exactly what
-    PRD-06's "no payload content, ever" rule exists to keep out of the record.
+    The probe corpus has one carrying a live credential, which is exactly why
+    command text must stay out of the record.
     """
     command = "psql postgresql://alice:s3cr3tpw@db.example.com/app -c 'select 1'"
     outcome = _process(

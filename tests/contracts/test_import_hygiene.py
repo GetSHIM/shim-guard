@@ -218,7 +218,7 @@ def test_named_heavy_dependencies_never_reach_the_hook_path(module: str) -> None
 
 
 def test_the_detector_alone_imports_nothing_third_party() -> None:
-    """``guard`` is the piece PRD-04 packages; it must be standard library."""
+    """The packaged ``guard`` detector must use only the standard library."""
     source = (
         "import importlib.util, json, sys\n"
         "from shim_guard.guard import evaluate\n"

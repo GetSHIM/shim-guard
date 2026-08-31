@@ -4,8 +4,8 @@ Off by default, and the default matters more than the feature. The session
 spool is deleted when the client closes; this is the only thing in shim that
 survives that, so it exists only because the user asked for it by name.
 
-Files are one per month, as PRD-06 R5 specifies, and retention deletes whole
-files. So the exact promise is: **a month's records are deleted
+Files are one per month and retention deletes whole files. So the exact promise
+is: **a month's records are deleted
 ``RETENTION_DAYS`` days after the end of that month**, which means an entry
 written on the first of a month outlives one written on the last by up to the
 length of the month. `docs/privacy.md` says this in the same words rather than

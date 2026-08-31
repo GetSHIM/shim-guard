@@ -236,8 +236,8 @@ def _runner_check(client: str) -> Check:
             "FAIL",
             "The local hook runner did not allow the safe fixture silently.",
         )
-    # Since PRD-05 the shipped default reports a finding in a submitted prompt
-    # and lets it through; only Copilot, which can rewrite one invisibly, masks.
+    # The shipped default reports a finding in a submitted prompt and lets it
+    # through; only Copilot, which can rewrite one invisibly, masks.
     if client == "copilot":
         expected, field = "email <EMAIL_1>", "modifiedTransformedPrompt"
     else:

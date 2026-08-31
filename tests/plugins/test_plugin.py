@@ -60,7 +60,7 @@ def test_the_plugin_and_the_installer_register_the_same_events(
 
 @pytest.mark.parametrize("client", ["codex", "claude", "copilot"])
 def test_missing_cli_allows_the_prompt(client: str) -> None:
-    """PRD-04 R3 inverted this case.
+    """A missing hook must leave the prompt unblocked.
 
     The launcher used to return a block decision when it could not find a hook,
     so installing the plugin alone produced an agent that refused every prompt.

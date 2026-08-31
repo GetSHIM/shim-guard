@@ -183,7 +183,7 @@ def test_tool_corpus_output_is_exact(case: dict) -> None:
 
 
 def test_tool_corpus_never_rewrites_disk_or_command_payloads() -> None:
-    """PRD-05 R2: the single most important rule in the tool policy."""
+    """Disk and command payloads must be detected but never rewritten."""
     protected = [
         case
         for case in TOOLS["cases"]
@@ -233,7 +233,7 @@ def test_tool_corpus_schema_and_coverage() -> None:
 
 
 def test_tool_corpus_covers_the_five_required_payload_shapes() -> None:
-    """PRD-03 R4 names five shapes explicitly; each must be present."""
+    """The corpus must cover Bash, MCP, Read, WebFetch, and Write payloads."""
     required = {
         "claude-pretooluse-bash-connection-string",
         "claude-pretooluse-mcp-argument-email",

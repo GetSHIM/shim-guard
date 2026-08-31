@@ -4,14 +4,15 @@ The whole risk of this feature is in one sentence: a hook that breaks fails
 open and the agent keeps working, but a proxy that breaks fails closed and the
 agent cannot reach the model at all. So the forwarding path has no opinions.
 It does not retry, does not rewrite, does not decide, and does not invent a
-response — an upstream error is relayed as the provider sent it (PRD-09 R7).
+response — an upstream error is relayed as the provider sent it.
 
 Measurement runs beside the copy, never in front of it. Every call into
 `measure` is guarded, and a measurement that raises loses its numbers rather
 than the request.
 
-Standard library only, per R9: `http.server` and `http.client` are already
-present everywhere the package installs, and the zipapp has nothing to vendor.
+`http.server` and `http.client` are already present everywhere the package
+installs, so the proxy stays standard-library-only and the zipapp vendors
+nothing.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from dataclasses import dataclass, field
 from .measure import Exchange, UsageReader, inspect_request
 
 #: Headers that describe one hop and must not be copied to the next.
-#: Everything else is forwarded verbatim — R3 turns on this, because
+#: Everything else is forwarded verbatim because
 #: `anthropic-beta` and `anthropic-version` carry an OAuth capability for
 #: subscription sign-ins and a request without them fails with 401.
 HOP_BY_HOP = frozenset(
@@ -145,7 +146,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self._measure(body, exchange)
             upstream = connection.getresponse()
         except Exception:
-            # R7: the provider's own failure shape is not ours to imitate, but
+            # The provider's own failure shape is not ours to imitate, but
             # something has to be said or the client hangs. A 502 is the honest
             # answer to "the hop after me did not answer".
             self.session.failed()
@@ -295,7 +296,7 @@ def start(upstream: str = "api.anthropic.com", evaluate=None) -> Watch:
     for a free one, so two sessions never collide.
 
     Raises `OSError` if it cannot bind. `shim watch` must fail here, before the
-    client starts, rather than leave a client pointed at a dead proxy (R7).
+    client starts, rather than leave a client pointed at a dead proxy.
     """
     session = Session()
     handler = type(

@@ -2,7 +2,7 @@
 
 The ordering here is the whole safety argument. The proxy binds *before* the
 client starts, so a proxy that cannot start means no client is launched rather
-than a client pointed at a dead port (PRD-09 R7). The client then inherits a
+than a client pointed at a dead port. The client then inherits a
 base URL in its own environment only — nothing is written to a shell profile,
 nothing is left behind, and the proxy dies with the command.
 """
@@ -23,7 +23,7 @@ from shim_guard.cli.output import emit, emit_json, terminal_text
 #: The environment variable each client reads for its API endpoint.
 #: Copilot is absent on purpose: it routes a custom endpoint only through
 #: bring-your-own-key, which removes GitHub authentication entirely, so there
-#: is nothing to watch (R8).
+#: is no existing authenticated session to watch.
 BASE_URL_VARIABLES = {
     "claude": "ANTHROPIC_BASE_URL",
     "codex": "OPENAI_BASE_URL",
@@ -32,9 +32,9 @@ UPSTREAMS = {
     "claude": "api.anthropic.com",
     "codex": "api.openai.com",
 }
-#: Codex is untested behind a proxy. R8 requires a real ChatGPT sign-in to
-#: verify it before support is claimed, and Q9.1 is still open, so it runs with
-#: a warning rather than being silently promised.
+#: Codex is untested behind a proxy. A real ChatGPT sign-in must verify it
+#: before support is claimed, so it runs with a warning rather than being
+#: silently promised.
 VERIFIED = frozenset({"claude"})
 
 

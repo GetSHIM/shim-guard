@@ -29,9 +29,9 @@ ENFORCE_PROMPT = (
 def _enforcing(tmp_path: Path, **extra: str) -> dict:
     """Return an environment that blocks prompts.
 
-    Blocking a submitted prompt is opt-in since PRD-05: the shipped default
-    reports and lets it through. These contract tests still have to cover the
-    blocking path, so they ask for it explicitly.
+    Blocking a submitted prompt is opt-in: the shipped default reports and lets
+    it through. These contract tests still have to cover the blocking path, so
+    they ask for it explicitly.
     """
     target = tmp_path / "enforce.toml"
     target.write_text(ENFORCE_PROMPT, encoding="utf-8")
@@ -473,9 +473,9 @@ def test_hook_persists_only_the_redacted_prompt_in_os_temp(tmp_path: Path) -> No
     assert written == {path} | spools
     assert path.read_text() == "Contact <EMAIL_1>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    # PRD-06: the session record carries entity names and counts, never the
-    # value that produced them. This is the acceptance criterion, asserted
-    # against a real hook run rather than a constructed record.
+    # The session record carries entity names and counts, never the value that
+    # produced them. Assert this against a real hook run rather than a
+    # constructed record.
     assert spools, "the decision was not recorded"
     for spool in spools:
         assert stat.S_IMODE(spool.stat().st_mode) == 0o600

@@ -78,7 +78,7 @@ ENFORCE_PROMPT = (
 def test_claude_code_runner_reports_a_finding_and_lets_the_prompt_through(
     tmp_path: Path,
 ) -> None:
-    """The shipped default since PRD-05: report, do not refuse the sentence."""
+    """The shipped default reports the finding and lets the prompt through."""
     result = _run(_payload("Contact alice@example.com"), tmp_path)
     document = json.loads(result.stdout)
 

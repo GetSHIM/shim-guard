@@ -15,8 +15,9 @@ from pathlib import Path
 MAX_INPUT_BYTES = 1_000_000
 _PROMPT_EVENT = "UserPromptSubmit"
 _PROMPT_EVENTS = frozenset({_PROMPT_EVENT, "userPromptTransformed"})
-#: `Stop` renders its output; `SessionEnd` does not (PRD-01, surprise 3). So
-#: the summary goes at `Stop` and `SessionEnd` only cleans up after itself.
+#: Live capability probing found that `Stop` renders its output while
+#: `SessionEnd` does not. So the summary goes at `Stop` and `SessionEnd` only
+#: cleans up after itself.
 _STOP_EVENT = "Stop"
 _SESSION_END_EVENT = "SessionEnd"
 _STARTED = time.perf_counter()

@@ -1,9 +1,9 @@
 """A store listing is the first thing anyone reads, and it makes a promise.
 
-PRD-10 R5: the boundary that applies to the README applies here. shim measures
-and detects; with the shipped policy it does not stop a secret a person typed
-from reaching the model, it reports it afterwards. A listing that claims
-otherwise is the one place a user cannot check before trusting it.
+The boundary that applies to the README applies here. shim measures and
+detects; with the shipped policy it does not stop a secret a person typed from
+reaching the model, it reports it afterwards. A listing that claims otherwise
+is the one place a user cannot check before trusting it.
 
 The listing said "Block sensitive prompt data before it reaches coding-agent
 models", which is exactly the claim the README's own warning contradicts.
@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CLAUDE = ROOT / ".claude-plugin" / "marketplace.json"
 CODEX = ROOT / ".agents" / "plugins" / "marketplace.json"
 
-#: Words that promise protection rather than detection. `prevent` is named in
-#: R5; the rest are the same claim wearing a different verb.
+#: Words that promise protection rather than detection. The variants below are
+#: the same misleading claim wearing different verbs.
 FORBIDDEN = (
     "prevent",
     "guarantee",

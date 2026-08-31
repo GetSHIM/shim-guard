@@ -1,7 +1,7 @@
 """Freeze the current detector's exact output as a refactoring oracle.
 
-PRD-02 requires the replacement detector to produce identical results, and the
-27-case `guard-v1` corpus is far too small to prove that: it asserts category
+The replacement detector must produce identical results, and the 27-case
+`guard-v1` corpus is far too small to prove that: it asserts category
 sets, so a finding at the wrong offset or with a drifted score passes. This
 generator builds a deterministic, adversarial case set and records the exact
 `(entity_type, start, end, score)` tuples and redacted text the detector

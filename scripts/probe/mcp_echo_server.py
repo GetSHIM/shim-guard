@@ -1,8 +1,8 @@
-"""A one-tool stdio MCP server used only by the PRD-01 capability probe.
+"""A one-tool stdio MCP server used only by the client capability probe.
 
 It exists so the probe can capture a real ``mcp__*`` tool call: the argument
-object and the tool result are the fixtures PRD-03 and PRD-05 need, and a
-local echo server keeps them synthetic and reproducible. Not product code.
+object and tool result become synthetic, reproducible payload and hook fixtures.
+A local echo server keeps real client traffic out of them. Not product code.
 """
 
 from __future__ import annotations

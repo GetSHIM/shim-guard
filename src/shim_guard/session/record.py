@@ -1,9 +1,9 @@
 """What one session decision is worth remembering, and nothing more.
 
-PRD-06 turns these into a session summary and PRD-07 adds byte deltas for the
-context diet, so the shape is fixed here and used by both. There is exactly one
-rule about its contents: no field ever carries payload text. Entity names and
-counts, yes; the value that produced them, never.
+Session summaries consume these records, including the context diet's byte
+deltas, so the shape is fixed here and used by both. There is exactly one rule
+about its contents: no field ever carries payload text. Entity names and counts,
+yes; the value that produced them, never.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class Record:
     out_bytes: int = 0
     degraded_from: str = ""
     fields: int = 0
-    #: Diet transforms applied (PRD-07 R5) and injection markers seen (R7).
+    #: Diet transforms applied and injection markers seen.
     #: Markers only ever report: nothing here can cause a rewrite.
     transforms: tuple = ()
     markers: tuple = ()

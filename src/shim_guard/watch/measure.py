@@ -5,8 +5,8 @@ response text, so it can be tested without a socket and cannot be the reason a
 request fails. The proxy calls it inside a guard: a measurement that raises is
 dropped, never forwarded as an error.
 
-Two numbers with very different standing come out of this module and PRD-09 R4
-requires them to stay visually distinguishable everywhere:
+Two numbers with very different standing come out of this module and must stay
+visually distinguishable everywhere:
 
 * **Exact** — the provider's own `usage` block, read off the wire verbatim.
 * **Approximate** — how that exact total divides across `tools`, `system` and
@@ -113,8 +113,7 @@ class UsageReader:
 
     The stream is forwarded to the client byte for byte; this only ever sees a
     copy. It holds at most one partial event, so a response of any length costs
-    the same memory — PRD-09 R3 forbids buffering the body and R5 forbids
-    keeping it.
+    the same memory: the body is neither buffered nor kept.
     """
 
     #: One SSE event that never completes must not grow without bound.
@@ -243,7 +242,7 @@ class Exchange:
 
     No field here can hold traffic. `entities` is a count per type and
     `sections` a size per name; the bodies they were derived from are gone by
-    the time this exists, which is what PRD-09 R5 requires.
+    the time this exists, so retained measurements never contain traffic.
     """
 
     path: str = ""

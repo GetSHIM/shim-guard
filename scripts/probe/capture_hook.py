@@ -1,4 +1,4 @@
-"""Record raw client hook payloads for the PRD-01 capability probe.
+"""Record raw client hook payloads for the client capability probe.
 
 This is not product code. It never ships in the package, never writes to
 stdout, and always exits 0 so a probe session behaves exactly like a session

@@ -6,9 +6,8 @@ hitting and the change costs money instead of saving it. A transform that
 sometimes produces a different answer for the same input is worse than no
 transform at all.
 
-The harder rule is R4: never lose meaning. That is what decides the design of
-each transform below, and what keeps two of the ones PRD-07 lists from shipping
-at all — see `Q7.3` in the PRD.
+The harder rule is never to lose meaning. That decides the design of each
+transform below and keeps truncation and summarisation from shipping at all.
 """
 
 from __future__ import annotations

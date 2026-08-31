@@ -692,7 +692,7 @@ def test_diet_ships_on_and_can_be_turned_off(monkeypatch, tmp_path: Path) -> Non
 def test_a_single_transform_can_be_named_in_the_config_file(
     monkeypatch, tmp_path: Path
 ) -> None:
-    """R6's per-transform switch lives in the file, not behind a flag each."""
+    """A per-transform selection lives in the config file, not separate flags."""
     target = _guard_config(monkeypatch, tmp_path)
     target.parent.mkdir()
     target.write_text(

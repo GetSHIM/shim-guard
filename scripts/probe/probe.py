@@ -1,4 +1,4 @@
-"""Drive and process the PRD-01 hook capability probe.
+"""Drive and process the client hook capability probe.
 
 Three subcommands, all deterministic apart from ``run`` itself, which talks to
 a real client:

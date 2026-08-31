@@ -2,8 +2,8 @@
 
 The first two are cache requirements: the history sent to the provider has to
 be byte-identical on every request or prompt caching stops hitting, and a
-change that misses the cache costs more than it saves. The third is R4, and it
-is what rules out the two transforms PRD-07 lists that are not here.
+change that misses the cache costs more than it saves. Losslessness rules out
+transforms that would alter content rather than remove redundant bytes.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ SAMPLES = (
 
 @pytest.mark.parametrize("text", SAMPLES)
 def test_every_transform_is_idempotent(text: str) -> None:
-    """R2. A transform that drifts would invalidate the cached prefix."""
+    """A transform that drifts would invalidate the cached prefix."""
     for name in diet.TRANSFORMS:
         once, _ = diet.shrink(text, (name,))
         twice, _ = diet.shrink(once, (name,))
@@ -64,7 +64,7 @@ def test_every_transform_is_deterministic_within_a_process(text: str) -> None:
 
 
 def test_transforms_are_deterministic_across_processes() -> None:
-    """R3. Hash randomisation differs per process; output must not."""
+    """Hash randomisation differs per process; transform output must not."""
     source = (
         "import json,sys\n"
         "from shim_guard.events import diet\n"
@@ -118,7 +118,7 @@ def test_json_compaction_preserves_the_parsed_value() -> None:
     ],
 )
 def test_json_compaction_keeps_number_literals_verbatim(literal: str) -> None:
-    """R4. A parse-and-re-emit would rewrite these; a lexer does not.
+    """A parse-and-re-emit would rewrite these; a lexer does not.
 
     `json.dumps(json.loads("1.10"))` is `1.1`, and a long decimal loses digits
     to a float. Those are different bytes for the model to read, and for a
@@ -169,7 +169,7 @@ def test_text_that_is_not_json_passes_through_untouched(text: str) -> None:
 
 
 def test_trailing_whitespace_never_changes_the_line_count() -> None:
-    """R4. `Read` results are line-numbered and the model edits by line.
+    """`Read` results are line-numbered and the model edits by line.
 
     This is why repeated-blank-line collapsing is not implemented: removing a
     blank line shifts every line after it.
@@ -202,7 +202,7 @@ def test_shrink_reports_only_the_transforms_that_helped() -> None:
 
 
 def test_disabling_a_transform_disables_exactly_that_transform() -> None:
-    """R6's per-transform switch."""
+    """Selecting one transform must leave every other transform disabled."""
     shrunk, applied = diet.shrink(PRETTY_JSON, (diet.TRAILING_WHITESPACE,))
 
     assert applied == ()

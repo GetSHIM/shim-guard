@@ -2,9 +2,9 @@
 
 Exact and approximate figures never share a column. The provider's token
 counts are printed plain; anything shim inferred carries a `~`, and the
-section split says so in words as well. PRD-09 R4 asks for that distinction
-because the two have completely different standing: one is what was billed,
-the other is a guess at how it divided.
+section split says so in words as well. The distinction matters because the two
+have completely different standing: one is what was billed, the other is a
+guess at how it divided.
 """
 
 from __future__ import annotations

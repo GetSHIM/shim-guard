@@ -109,7 +109,7 @@ def test_too_many_leaves_are_refused() -> None:
 
 
 def test_a_real_read_result_is_masked_in_place() -> None:
-    """The shape a client actually sends, from the PRD-01 captures."""
+    """Mask a captured client `Read` result without changing its structure."""
     document = {
         "type": "text",
         "file": {

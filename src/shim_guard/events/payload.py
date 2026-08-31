@@ -136,9 +136,9 @@ def inspect(
     own; a single counter across a whole payload would produce `<EMAIL_7>` in a
     field whose text contains one address.
 
-    The three concerns stay separate on purpose (PRD-07 Q7.1): masking
-    rewrites, diet rewrites, and injection markers only report. Sharing the
-    walk costs nothing and keeps a marker from ever reaching a replacement.
+    The three concerns stay separate because masking rewrites, diet rewrites,
+    and injection markers only report. Sharing the walk costs nothing and
+    keeps a marker from ever reaching a replacement.
     """
     found = walk(value)
     replacements = {}

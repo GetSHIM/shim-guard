@@ -14,8 +14,8 @@ Two consequences follow and both are deliberate:
 * **Markers are not entities.** They stay out of `enabled_entities` and out of
   the masking path entirely, so no configuration can turn one into a rewrite.
 
-Detection only, per PRD-07 R7. What to do about a marker is a later decision
-that needs data this produces.
+Detection is deliberately reporting-only. Acting on a marker is a later
+decision that needs the data this produces.
 """
 
 from __future__ import annotations

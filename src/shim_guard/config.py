@@ -118,8 +118,7 @@ def _diet(document: dict) -> tuple:
     """Return the enabled diet transforms.
 
     Absent means the shipped default. ``false`` turns diet off completely and
-    a list names exactly which transforms run, which is R6's per-transform
-    switch.
+    a list names exactly which transforms run, providing a per-transform switch.
     """
     from shim_guard.events.diet import DEFAULT_TRANSFORMS, TRANSFORMS
 

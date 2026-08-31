@@ -75,7 +75,7 @@ def test_the_section_split_totals_the_exact_input() -> None:
 
 
 def test_the_tools_array_is_reported_as_the_largest_contributor() -> None:
-    """It measured 72% of a real request; naming it is the point of R4."""
+    """The report must name the section measured as the largest contributor."""
     text = report.render(_session(_exchange()), 62.0)
 
     assert "tools" in text
