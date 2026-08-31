@@ -42,19 +42,6 @@ _COPILOT_ERROR_OUTPUT = (
 )
 
 
-#: Failing closed means something different on a tool event than on a prompt.
-#: Refusing a prompt withholds a secret the user typed. Refusing a tool event
-#: does not: on `PreToolUse` a block denies the call outright, and on
-#: `PostToolUse` the result has already been produced, so a block breaks the
-#: user's work while protecting nothing. The event is therefore passed through
-#: unchanged and the failure is said out loud, which the probe confirmed is
-#: rendered at both tool events.
-_TOOL_ERROR_OUTPUT = (
-    b'{"systemMessage":"shim: this tool event could not be inspected and was '
-    b'not modified."}'
-)
-
-
 def _error_output(client: str) -> bytes:
     if client == "claude":
         return _CLAUDE_ERROR_OUTPUT
@@ -63,13 +50,18 @@ def _error_output(client: str) -> bytes:
     return _ERROR_OUTPUT
 
 
-def _tool_error_output(client: str) -> bytes:
-    """Return the fail-closed response for a tool event, which never blocks."""
-    if client == "copilot":
-        # Copilot's tool responses have their own shape and no confirmed
-        # message channel, so the only safe answer is to say nothing.
+def _tool_error_output(client: str, event: str) -> bytes:
+    """Report a verified Claude tool failure without denying the call."""
+    if client != "claude":
         return b""
-    return _TOOL_ERROR_OUTPUT
+    try:
+        from shim_guard.clients.claude import tool_events
+
+        if event not in tool_events.TOOL_EVENTS:
+            return b""
+        return tool_events.error_output()
+    except Exception:
+        return b""
 
 
 #: Quoted event names, searched for in a payload that will not parse. `main`
@@ -113,10 +105,11 @@ def _refusal_output(raw: bytes, client: str) -> bytes:
         return (
             _error_output(client)
             if event in _PROMPT_EVENTS
-            else _tool_error_output(client)
+            else _tool_error_output(client, event)
         )
-    if any(marker in raw[:4096] for marker in _TOOL_EVENT_MARKERS):
-        return _tool_error_output(client)
+    for event, marker in zip(_TOOL_EVENT_NAMES, _TOOL_EVENT_MARKERS):
+        if marker in raw[:4096]:
+            return _tool_error_output(client, event)
     return _error_output(client)
 
 
@@ -375,8 +368,8 @@ def _policy_ledger() -> bool:
         return False
 
 
-def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
-    """Handle one tool event through the client-by-event matrix."""
+def _tool_output(raw: bytes, entry, event: str, session_id: str) -> bytes:
+    """Handle one tool event through its client-owned adapter."""
     from shim_guard.config import load_policy
     from shim_guard.events.pipeline import process
     from shim_guard.guard import evaluate
@@ -390,7 +383,7 @@ def _tool_output(raw: bytes, client: str, event: str, session_id: str) -> bytes:
     def entities_for(tool: str, _event: str = "") -> tuple:
         return policy.entities_for(tool, event)
 
-    outcome = process(client, raw, mode_for, evaluate, policy.diet, entities_for)
+    outcome = process(entry, raw, mode_for, evaluate, policy.diet, entities_for)
     remember(session_id, outcome.record, _elapsed_ms(), policy.ledger)
     return outcome.output
 
@@ -401,6 +394,7 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
 
     try:
         with _silence_dependencies():
+            tool_event_adapters = None
             if client == "codex":
                 from shim_guard.clients.codex.hook import (
                     block_output,
@@ -415,6 +409,9 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                     parse_input,
                     warn_output,
                 )
+                from shim_guard.clients.claude.tool_events import TOOL_EVENTS
+
+                tool_event_adapters = TOOL_EVENTS
             elif client == "copilot":
                 from shim_guard.clients.copilot.hook import (
                     block_output,
@@ -432,11 +429,16 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                 if event == _SESSION_END_EVENT:
                     return _forget(session_id)
                 if event and event not in _PROMPT_EVENTS:
+                    if tool_event_adapters is None:
+                        return b""
+                    entry = tool_event_adapters.get(event)
+                    if entry is None:
+                        return b""
                     try:
-                        return _tool_output(raw, client, event, session_id)
+                        return _tool_output(raw, entry, event, session_id)
                     except Exception:
-                        _uninspected(raw, client, event, session_id)
-                        return _tool_error_output(client)
+                        _uninspected(raw, client, entry.event, session_id)
+                        return _tool_error_output(client, entry.event)
 
                 prompt = parse_input(raw)
                 from shim_guard.config import load_policy

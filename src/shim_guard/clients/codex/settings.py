@@ -18,7 +18,6 @@ from shim_guard.clients.hook_settings import (
     add_groups,
     remove_groups,
 )
-from shim_guard.events.registry import INSTALLED
 from shim_guard.settings_files import StateKind, inspect_file
 
 TESTED_CODEX_VERSION = "0.149.0"
@@ -87,19 +86,8 @@ def hook_group(interpreter: str | Path = sys.executable) -> dict[str, object]:
 
 
 def hook_groups(interpreter: str | Path = sys.executable) -> tuple[Registration, ...]:
-    """Return every event SHIM registers, prompt first then tool events.
-
-    Codex's tool adapters are report-only until a probe confirms their mutation
-    shape, so today this is the prompt event alone. Promoting them in the
-    registry installs them here with no further edit.
-    """
-    groups: list[Registration] = [(PROMPT_EVENT, hook_group(interpreter))]
-    groups.extend(
-        (event, hook_group(interpreter))
-        for client, event in INSTALLED
-        if client == "codex"
-    )
-    return tuple(groups)
+    """Return the verified prompt event SHIM registers."""
+    return ((PROMPT_EVENT, hook_group(interpreter)),)
 
 
 def add_hook(content: bytes | None, interpreter: str | Path = sys.executable) -> bytes:

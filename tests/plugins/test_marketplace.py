@@ -71,15 +71,7 @@ def test_the_claude_listing_claims_masking_because_claude_can_mask() -> None:
 
 
 def test_the_codex_listing_does_not_claim_masking_because_codex_cannot() -> None:
-    """Codex has no surgical tool-result rewrite — only whole-result replacement.
-
-    The same sentence is true on one store and false on the other, so the two
-    listings are deliberately not copies of each other. Claiming masking here
-    would promise a capability the adapter reports it does not have.
-    """
-    from shim_guard.events.registry import ADAPTERS
-
-    assert not ADAPTERS[("codex", "PostToolUse")].capabilities.can_rewrite
+    """Codex has no verified surgical tool-result rewrite."""
 
     description = json.loads(CODEX.read_text())["plugins"][0]["description"].lower()
 

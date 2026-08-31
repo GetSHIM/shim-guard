@@ -16,7 +16,7 @@ from shim_guard.clients.claude.settings import (
     target_path,
     tool_hook_group,
 )
-from shim_guard.events.registry import INSTALLED
+from shim_guard.clients.claude.tool_events import INSTALLED_EVENTS
 from shim_guard.session import SESSION_EVENTS
 
 
@@ -45,7 +45,7 @@ def test_claude_code_registers_the_prompt_tool_and_session_events(
     would leave `shim doctor` claiming coverage the hook never receives.
     """
     interpreter = tmp_path / "python"
-    expected_tool_events = [event for client, event in INSTALLED if client == "claude"]
+    expected_tool_events = list(INSTALLED_EVENTS)
 
     events = [event for event, _group in hook_groups(interpreter)]
     assert events == ["UserPromptSubmit", *expected_tool_events, *SESSION_EVENTS]

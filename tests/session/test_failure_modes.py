@@ -42,7 +42,6 @@ MALFORMED_TOOL_EVENTS = (
     b'{"hook_event_name":"PreToolUse","tool_name":123,"tool_input":{"a":"b"}}',
     b'{"hook_event_name":"PostToolUse","tool_name":123,"tool_response":{"a":"b"}}',
     b'{"hook_event_name":"PreToolUse","tool_name":{"a":1},"tool_input":{}}',
-    b'{"hook_event_name":"NotARealEvent","tool_name":"Read","tool_input":{}}',
 )
 
 
@@ -60,6 +59,13 @@ def test_a_malformed_tool_event_is_never_answered_with_a_block(raw: bytes) -> No
 @pytest.mark.parametrize("raw", MALFORMED_TOOL_EVENTS)
 def test_copilot_says_nothing_rather_than_guessing_a_shape(raw: bytes) -> None:
     assert _run(raw, "copilot") == b""
+
+
+def test_an_unsupported_tool_event_does_not_guess_a_native_shape() -> None:
+    raw = b'{"hook_event_name":"NotARealEvent","tool_name":"Read","tool_input":{}}'
+
+    for client in ("claude", "codex", "copilot"):
+        assert _run(raw, client) == b""
 
 
 def test_a_malformed_prompt_event_still_fails_closed() -> None:
@@ -167,11 +173,6 @@ def test_uninspected_records_never_keep_raw_event_or_tool_labels(
     from shim_guard import hook
     from shim_guard.session import spool
 
-    def explode(*_args, **_kwargs):
-        raise ValueError("synthetic analysis failure")
-
-    monkeypatch.setattr(hook, "_tool_output", explode)
-    monkeypatch.setitem(sys.modules, "shim_guard.events.pipeline", None)
     event = f"Unexpected{chr(27)}Event" + "X" * 256
     tool = f"Read{chr(7)}Tool"
     payload = json.dumps(
@@ -183,7 +184,7 @@ def test_uninspected_records_never_keep_raw_event_or_tool_labels(
         }
     ).encode()
 
-    hook._output(payload, "claude")
+    hook._uninspected(payload, "claude", event, "unsafe-labels")
 
     records = spool.entries("unsafe-labels")
     assert len(records) == 1

@@ -20,9 +20,9 @@ from shim_guard.cli.integrations import client_name, client_plan, plan_status
 from shim_guard.cli.output import console, emit, emit_json
 from shim_guard.cli.resolution import installed_plugin, resolve
 from shim_guard.clients.claude import settings as claude_settings
+from shim_guard.clients.claude.tool_events import coverage as claude_coverage
 from shim_guard.clients.codex import settings as codex_settings
 from shim_guard.clients.copilot import settings as copilot_settings
-from shim_guard.events.registry import coverage
 
 
 @dataclass(frozen=True)
@@ -351,8 +351,8 @@ def _coverage_rows(client: str) -> list:
             "installed": True,
         }
     ]
-    rows.extend(dict(row) for row in coverage(client))
     if client == "claude":
+        rows.extend(dict(row) for row in claude_coverage())
         # These carry no payload. They exist so the session summary can be
         # shown and then deleted, which is why "sees" is not a payload key.
         rows.append(
@@ -381,14 +381,7 @@ def _coverage_rows(client: str) -> list:
 def _coverage_check(client: str) -> Check:
     rows = _coverage_rows(client)
     live = [row for row in rows if row["installed"]]
-    pending = [row["event"] for row in rows if not row["installed"]]
     detail = f"Coverage: {len(live)} of {len(rows)} events installed."
-    if pending:
-        detail += (
-            " Not installed because the mutation shape is unconfirmed for this"
-            f" client: {', '.join(pending)}."
-        )
-        return Check("coverage", "WARN", detail)
     return Check("coverage", "PASS", detail)
 
 

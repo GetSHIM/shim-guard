@@ -6,13 +6,13 @@ import os
 import sys
 from pathlib import Path
 
+from shim_guard.clients.claude.tool_events import INSTALLED_EVENTS
 from shim_guard.clients.hook_settings import (
     MAX_SETTINGS_BYTES,
     Registration,
     add_groups,
     remove_groups,
 )
-from shim_guard.events.registry import INSTALLED
 from shim_guard.session import SESSION_EVENTS
 
 #: The newest release the hooks were driven against end to end. Tool events
@@ -68,17 +68,11 @@ def tool_hook_group(interpreter: str | Path = sys.executable) -> dict[str, objec
 def hook_groups(interpreter: str | Path = sys.executable) -> tuple[Registration, ...]:
     """Return every event SHIM registers: prompt, tool, then session.
 
-    The tool events come from the adapter registry rather than a list here, so
-    an adapter that is promoted to verified is installed by the next `shim
-    install` without a second edit in this module. The session events carry no
-    matcher because they are not per-tool.
+    The verified tool events live beside their Claude-native codecs. Session
+    events carry no matcher because they are not per-tool.
     """
     groups: list[Registration] = [(PROMPT_EVENT, hook_group(interpreter))]
-    groups.extend(
-        (event, tool_hook_group(interpreter))
-        for client, event in INSTALLED
-        if client == "claude"
-    )
+    groups.extend((event, tool_hook_group(interpreter)) for event in INSTALLED_EVENTS)
     groups.extend((event, hook_group(interpreter)) for event in SESSION_EVENTS)
     return tuple(groups)
 

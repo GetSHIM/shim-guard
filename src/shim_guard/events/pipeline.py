@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Callable
 
 from shim_guard.policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
 from shim_guard.session.record import (
@@ -18,9 +19,32 @@ from shim_guard.session.record import (
     display_label,
 )
 
-from .adapters import summary
 from .payload import PayloadTooLarge, inspect
-from .registry import TOOL_KEY, adapter
+
+TOOL_KEY = "tool_name"
+
+
+@dataclass(frozen=True)
+class Capabilities:
+    """What a client can do at one native event."""
+
+    __slots__ = ("can_rewrite", "can_report")
+
+    can_rewrite: bool
+    can_report: bool
+
+
+@dataclass(frozen=True)
+class Adapter:
+    """The client-owned facts the shared pipeline needs for one event."""
+
+    __slots__ = ("client", "event", "root", "capabilities", "encode")
+
+    client: str
+    event: str
+    root: str
+    capabilities: Capabilities
+    encode: Callable[[str, dict, str], bytes]
 
 
 @dataclass(frozen=True)
@@ -39,6 +63,11 @@ def _counts(findings) -> tuple:
         for entity, count in decision.counts:
             totals[entity] = totals.get(entity, 0) + count
     return tuple(sorted(totals.items()))
+
+
+def _summary(counts) -> str:
+    """Render entity counts without ever including a detected value."""
+    return ", ".join(f"{entity} ({count})" for entity, count in counts)
 
 
 #: Input keys naming *what* a tool acted on. `command` is deliberately absent:
@@ -105,7 +134,7 @@ def _size(value) -> int:
 
 
 def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
-    what = summary(counts)
+    what = _summary(counts)
     where = f" in {tool}" if tool else ""
     if action == MASK:
         return f"shim: masked {what}{where}."
@@ -115,7 +144,7 @@ def _message(direction: str, tool: str, counts: tuple, action: str) -> str:
 
 
 def process(
-    client: str,
+    entry: Adapter,
     raw: bytes,
     mode_for,
     evaluate,
@@ -135,11 +164,12 @@ def process(
     event = document.get("hook_event_name")
     if not isinstance(event, str):
         raise ValueError("hook payload has no event name")
+    if event != entry.event:
+        raise ValueError("adapter does not match hook event")
     tool = document.get(TOOL_KEY) or ""
     if not isinstance(tool, str):
         raise ValueError("tool name must be text")
 
-    entry = adapter(client, event)
     direction = direction_for(event, tool)
     mode = mode_for(direction, tool)
     target = _target(document, evaluate)
@@ -166,7 +196,7 @@ def process(
         markers=(),
     ) -> Record:
         return Record(
-            client=client,
+            client=entry.client,
             event=entry.event,
             tool_name=tool_label,
             target=target,
@@ -248,4 +278,4 @@ def process(
     )
 
 
-__all__ = ["Outcome", "process"]
+__all__ = ["Adapter", "Capabilities", "Outcome", "process"]
