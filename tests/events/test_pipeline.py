@@ -28,6 +28,7 @@ from shim_guard.events.policy import (
     REPORT,
     WARN,
 )
+from shim_guard.events.record import MAX_DISPLAY_LABEL_CHARS
 from shim_guard.events.registry import ADAPTERS, INSTALLED, coverage
 from shim_guard.guard import evaluate
 
@@ -361,6 +362,52 @@ def test_a_secret_inside_a_file_path_is_scrubbed_before_it_is_recorded() -> None
 
     assert outcome.record.target == "/work/<SECRET_1>/notes.txt"
     assert "AKIAIOSFODNN7EXAMPLE" not in json.dumps(outcome.record.as_dict())
+
+
+def test_a_target_always_uses_the_full_entity_scope() -> None:
+    address = "synthetic.user@example.com"
+    outcome = process(
+        "claude",
+        _read_result(f"/work/{address}/notes.txt", "nothing sensitive here"),
+        lambda direction, tool: ENFORCE,
+        evaluate,
+        entities_for=lambda tool, event: ("SECRET",),
+    )
+
+    assert "<EMAIL_1>" in outcome.record.target
+    assert outcome.record.target.endswith("/notes.txt")
+    assert address not in repr(outcome.record)
+    assert address not in json.dumps(outcome.record.as_dict())
+
+
+@pytest.mark.parametrize(
+    ("tool", "expected"),
+    (
+        (f"Read{chr(27)}[31m", "unknown tool"),
+        ("T" * (MAX_DISPLAY_LABEL_CHARS + 1), "unknown tool"),
+    ),
+)
+def test_tool_display_labels_are_safe_without_skipping_inspection(
+    tool: str, expected: str
+) -> None:
+    outcome = process(
+        "claude",
+        _payload(
+            "PostToolUse",
+            tool,
+            "tool_response",
+            {"text": "contact synthetic.user@example.com"},
+        ),
+        lambda direction, raw_tool: WARN,
+        evaluate,
+    )
+
+    rendered = outcome.output.decode()
+    assert outcome.record.entities == (("EMAIL", 1),)
+    assert outcome.record.tool_name == expected
+    assert expected in rendered
+    assert tool not in rendered
+    assert tool not in json.dumps(outcome.record.as_dict())
 
 
 def test_a_shell_command_is_never_recorded_as_a_target() -> None:

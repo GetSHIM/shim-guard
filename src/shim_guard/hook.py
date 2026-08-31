@@ -77,16 +77,17 @@ def _tool_error_output(client: str) -> bytes:
 #: `hook_event_name` appears near the front of every real payload while a large
 #: `tool_response` is what pushed it over, so the name survives the truncation
 #: and the bulky field does not.
-_TOOL_EVENT_MARKERS = (
-    b'"PreToolUse"',
-    b'"PostToolUse"',
-    b'"PostToolUseFailure"',
-    b'"PostToolBatch"',
-    b'"Stop"',
-    b'"SessionEnd"',
-    b'"preToolUse"',
-    b'"postToolUse"',
+_TOOL_EVENT_NAMES = (
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "PostToolBatch",
+    "Stop",
+    "SessionEnd",
+    "preToolUse",
+    "postToolUse",
 )
+_TOOL_EVENT_MARKERS = tuple(f'"{event}"'.encode() for event in _TOOL_EVENT_NAMES)
 
 
 def _refusal_output(raw: bytes, client: str) -> bytes:
@@ -366,7 +367,13 @@ def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
     try:
         import json
 
-        from shim_guard.events.record import NOT_INSPECTED, Record
+        from shim_guard.events.record import (
+            NOT_INSPECTED,
+            UNKNOWN_TOOL_LABEL,
+            UNSUPPORTED_EVENT_LABEL,
+            Record,
+            display_label,
+        )
 
         tool = ""
         try:
@@ -377,12 +384,13 @@ def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
                 tool = document["tool_name"]
         except Exception:
             pass
+        event_label = event if event in _TOOL_EVENT_NAMES else UNSUPPORTED_EVENT_LABEL
         _remember(
             session_id,
             Record(
                 client=client,
-                event=event,
-                tool_name=tool,
+                event=event_label,
+                tool_name=display_label(tool, UNKNOWN_TOOL_LABEL),
                 direction="",
                 mode="",
                 action="report",

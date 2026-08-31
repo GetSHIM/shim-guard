@@ -155,8 +155,42 @@ def test_an_uninspectable_tool_event_is_still_recorded(monkeypatch, tmp_path) ->
     records = spool.entries("dense")
     assert len(records) == 1
     assert records[0]["action"] == "report"
+    assert records[0]["event"] == "PostToolUse"
     assert records[0]["tool_name"] == "Read"
     assert records[0]["note"].startswith(NOT_INSPECTED)
+
+
+def test_uninspected_records_never_keep_raw_event_or_tool_labels(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard import hook
+    from shim_guard.session import spool
+
+    def explode(*_args, **_kwargs):
+        raise ValueError("synthetic analysis failure")
+
+    monkeypatch.setattr(hook, "_tool_output", explode)
+    monkeypatch.setitem(sys.modules, "shim_guard.events.pipeline", None)
+    event = f"Unexpected{chr(27)}Event" + "X" * 256
+    tool = f"Read{chr(7)}Tool"
+    payload = json.dumps(
+        {
+            "hook_event_name": event,
+            "session_id": "unsafe-labels",
+            "tool_name": tool,
+            "tool_response": {"text": "synthetic.user@example.com"},
+        }
+    ).encode()
+
+    hook._output(payload, "claude")
+
+    records = spool.entries("unsafe-labels")
+    assert len(records) == 1
+    assert records[0]["event"] == "unsupported tool event"
+    assert records[0]["tool_name"] == "unknown tool"
+    assert event not in json.dumps(records)
+    assert tool not in json.dumps(records)
 
 
 def test_the_summary_names_an_uninspected_event(monkeypatch, tmp_path) -> None:

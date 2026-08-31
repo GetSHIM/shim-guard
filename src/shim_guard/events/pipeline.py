@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from .adapters import summary
 from .payload import PayloadTooLarge, inspect
 from .policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
-from .record import NOT_INSPECTED, Record
+from .record import NOT_INSPECTED, UNKNOWN_TOOL_LABEL, Record, display_label
 from .registry import TOOL_KEY, adapter
 
 
@@ -89,13 +89,7 @@ def _views_a_file(document: dict) -> bool:
 
 
 def _printable(text: str) -> str:
-    """Drop control characters from a value that will be displayed.
-
-    A file name is attacker-controllable — checking out a repository is enough
-    — and this one is repeated into the session summary, which the client
-    renders in the user's terminal. An escape sequence surviving that far would
-    let a file name repaint the screen.
-    """
+    """Drop control characters from a target that will be displayed."""
     return "".join(character for character in text if character.isprintable())
 
 
@@ -142,6 +136,7 @@ def process(
     entry = adapter(client, event)
     direction = direction_for(event, tool)
     mode = mode_for(direction, tool)
+    target = _target(document, evaluate)
     if entities_for is not None:
         scoped = entities_for(tool, event)
         original = evaluate
@@ -152,7 +147,7 @@ def process(
     body = document.get(entry.root)
     in_bytes = _size(body) if body else 0
 
-    target = _target(document, evaluate)
+    tool_label = display_label(tool, UNKNOWN_TOOL_LABEL)
 
     def record(
         action,
@@ -166,8 +161,8 @@ def process(
     ) -> Record:
         return Record(
             client=client,
-            event=event,
-            tool_name=tool,
+            event=entry.event,
+            tool_name=tool_label,
             target=target,
             direction=direction,
             mode=mode,
@@ -229,7 +224,7 @@ def process(
     if decision.action == ALLOW:
         return Outcome(b"", record(ALLOW, decision, counts, fields=len(findings)))
 
-    message = _message(direction, tool, counts, decision.action)
+    message = _message(direction, tool_label, counts, decision.action)
     emitted = rewritten if decision.action == MASK and changed else body
     output = entry.encode(decision.action, emitted, message)
     out_bytes = _size(emitted) if decision.action == MASK else in_bytes

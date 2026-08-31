@@ -15,6 +15,20 @@ from dataclasses import dataclass, field
 #: because "shim saw nothing" and "shim did not look" are different sentences
 #: and only one of them is reassuring.
 NOT_INSPECTED = "not inspected"
+MAX_DISPLAY_LABEL_CHARS = 120
+UNKNOWN_TOOL_LABEL = "unknown tool"
+UNSUPPORTED_EVENT_LABEL = "unsupported tool event"
+
+
+def display_label(text: str, fallback: str) -> str:
+    """Return one bounded terminal-safe label, or a fixed fallback."""
+    if (
+        not text.isprintable()
+        or not text.strip()
+        or len(text) > MAX_DISPLAY_LABEL_CHARS
+    ):
+        return fallback
+    return text
 
 
 @dataclass(frozen=True)
