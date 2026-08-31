@@ -1,7 +1,7 @@
 [project]
 name = "shim-guard"
-version = "0.1.3"
-description = "Local pre-submit privacy protection for coding-agent CLIs"
+version = "0.2.0"
+description = "Local sensitive-data detection, prompt reporting, opt-in prompt blocking, verified Claude tool-event masking, and API-traffic watching"
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 license = "Apache-2.0"

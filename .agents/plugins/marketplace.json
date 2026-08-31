@@ -15,8 +15,8 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Security",
-      "description": "See where your context window and your spend actually go, and get told which secrets and personal data are in your agent's traffic. Runs locally: no account, no API key, no network calls."
+      "description": "Detect and report sensitive prompt data locally; prompt blocking is opt in."
     }
   ],
-  "description": "Local visibility and privacy tooling for coding agents."
+  "description": "Local sensitive-data detection and reporting for coding agents."
 }

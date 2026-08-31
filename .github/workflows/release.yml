@@ -199,6 +199,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Require committed plugin archive and release notes
+        run: |
+          test -x plugins/shim-guard/bin/shim.pyz
+          test -f "docs/releases/${GITHUB_REF_NAME#v}.md"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: release-dist
@@ -207,7 +215,7 @@ jobs:
         run: python -c 'import os; from pathlib import Path; version = os.environ["GITHUB_REF_NAME"].removeprefix("v"); expected = {f"shim_guard-{version}-py3-none-any.whl", f"shim_guard-{version}.tar.gz"}; assert {path.name for path in Path("dist/packages").iterdir()} == expected'
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/shim.pyz dist/guard-v2.json dist/guard-v2-metrics.json dist/guard-tools-v1.json dist/benchmark-hook.json dist/requirements.lock dist/SHA256SUMS dist/shim-guard.sbom.cdx.json --generate-notes --repo "$GITHUB_REPOSITORY"
+        run: gh release create "$GITHUB_REF_NAME" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}-py3-none-any.whl" "dist/packages/shim_guard-${GITHUB_REF_NAME#v}.tar.gz" dist/COMPATIBILITY.md dist/shim.pyz dist/guard-v2.json dist/guard-v2-metrics.json dist/guard-tools-v1.json dist/benchmark-hook.json dist/requirements.lock dist/SHA256SUMS dist/shim-guard.sbom.cdx.json --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md" --repo "$GITHUB_REPOSITORY"
 
   publish:
     needs: [build, attest, release]

@@ -204,12 +204,15 @@ def test_archive_refuses_an_unsupported_interpreter_without_blocking(
 
 
 def test_committed_archive_matches_a_fresh_build(archive: Path) -> None:
-    if not COMMITTED.exists():
-        pytest.skip("the archive is built in CI rather than committed")
+    assert COMMITTED.is_file(), "build plugins/shim-guard/bin/shim.pyz"
     assert os.access(COMMITTED, os.X_OK)
     assert COMMITTED.stat().st_size < MAX_ARCHIVE_BYTES
-    fresh = set(zipfile.ZipFile(archive).namelist())
-    committed = set(zipfile.ZipFile(COMMITTED).namelist())
+    with zipfile.ZipFile(archive) as fresh_archive:
+        fresh = {name: fresh_archive.read(name) for name in fresh_archive.namelist()}
+    with zipfile.ZipFile(COMMITTED) as committed_archive:
+        committed = {
+            name: committed_archive.read(name) for name in committed_archive.namelist()
+        }
     assert committed == fresh, "rebuild plugins/shim-guard/bin/shim.pyz"
 
 
