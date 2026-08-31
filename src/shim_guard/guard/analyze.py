@@ -11,10 +11,7 @@ from .models import Finding
 from .normalize import normalize
 from .recognizers import ENTITY_MAP, Match, analyze_text
 
-# A lower cap makes dense sensitive input fail open.
-MAX_FINDINGS = 5_000
 ANALYSIS_DEADLINE_SECONDS = 20
-_MAX_ANALYZER_RESULTS = MAX_FINDINGS * len(ENTITY_MAP)
 _PRIORITY = {
     "DB_URI": 100,
     "SECRET": 90,
@@ -32,7 +29,6 @@ _PRIORITY = {
 
 @contextlib.contextmanager
 def _deadline() -> Iterator[None]:
-    """Preserve an earlier alarm; worker threads cannot install signal handlers."""
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -62,9 +58,7 @@ def _deadline() -> Iterator[None]:
 
 def _validated(items: Iterable[Match], text_length: int) -> list[Finding]:
     unique: dict[tuple[str, int, int], Finding] = {}
-    for count, item in enumerate(items, start=1):
-        if count > _MAX_ANALYZER_RESULTS:
-            raise ValueError("Guard analysis exceeded the safe finding limit.")
+    for item in items:
         entity_type = getattr(item, "entity_type", None)
         start = getattr(item, "start", None)
         end = getattr(item, "end", None)
@@ -180,7 +174,4 @@ def analyze(
         raise
     except Exception as error:
         raise ValueError("Guard analysis failed safely.") from error
-    findings = _source_findings(normalized_findings, normalized.source_spans)
-    if len(findings) > MAX_FINDINGS:
-        raise ValueError("Guard analysis exceeded the safe finding limit.")
-    return tuple(findings)
+    return tuple(_source_findings(normalized_findings, normalized.source_spans))

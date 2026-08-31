@@ -56,14 +56,12 @@ def report(*, as_json: bool) -> None:
     if not text:
         emit("PASS", f"shim inspected {len(records)} events and found nothing.")
         return
-    # Preserve summary newlines while escaping terminal controls in targets.
     print(terminal_text(text, sys.stdout, "\n"))
     if source == "ledger":
         emit("WARN", "From the retained ledger; the live session has ended.")
 
 
 def purge(*, yes: bool, as_json: bool) -> None:
-    """Delete retained records without touching the live spool."""
     from shim_guard.session import ledger
 
     try:

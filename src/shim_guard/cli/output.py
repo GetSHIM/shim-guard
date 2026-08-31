@@ -12,7 +12,6 @@ SCHEMA_VERSION = 1
 
 
 def terminal_text(text: str, stream: TextIO, allowed: str = "") -> str:
-    """Escape terminal controls while preserving redirected output exactly."""
     if not stream.isatty():
         return text
     return "".join(

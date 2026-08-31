@@ -1,4 +1,4 @@
-"""Patterns and checks ported from Presidio 2.2.364 (MIT, Microsoft)."""
+"""Presidio 2.2.364 patterns (MIT, Microsoft)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from .suffixes import is_registrable
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-SCORE_THRESHOLD = 0.4
 ENTITY_MAP = {
     "EMAIL_ADDRESS": "EMAIL",
     "PHONE_NUMBER": "PHONE",
@@ -50,7 +49,6 @@ def _compile(
 
 
 def deduplicate(results: list[Match]) -> list[Match]:
-    """Sort explicitly because set order changes with ``PYTHONHASHSEED``."""
     ordered = sorted(
         set(results),
         key=lambda item: (
@@ -62,8 +60,6 @@ def deduplicate(results: list[Match]) -> list[Match]:
     )
     kept: list[Match] = []
     for item in ordered:
-        if item.score <= 0:
-            continue
         if any(
             other.entity_type == item.entity_type
             and item.start >= other.start
@@ -181,14 +177,11 @@ _IP_PATTERNS = _compile(
             r"(?:%[0-9a-zA-Z]+)?(?:/(?:12[0-8]|1[01]\d|[1-9]?\d))?(?![\w:]|\.\d)",
             0.6,
         ),
-        # Presidio parity: intentionally below the detection threshold.
-        (r"(?<![\w:])::(?:/(?:12[0-8]|1[01]\d|[1-9]?\d))?(?![\w:])", 0.1),
     )
 )
 
 
 def _invalidate_ip(text: str) -> bool:
-    """Exclude loopback and unspecified addresses, but keep private topology."""
     try:
         parsed = ipaddress.ip_interface(text)
     except ValueError:
@@ -214,16 +207,7 @@ def _invalidate_mac(text: str) -> bool:
     return cleaned.upper() in ("FFFFFFFFFFFF", "000000000000")
 
 
-_SSN_PATTERNS = _compile(
-    (
-        # Presidio parity: the first four stay below the detection threshold.
-        (r"\b([0-9]{5})-([0-9]{4})\b", 0.05),
-        (r"\b([0-9]{3})-([0-9]{6})\b", 0.05),
-        (r"\b(([0-9]{3})-([0-9]{2})-([0-9]{4}))\b", 0.05),
-        (r"\b[0-9]{9}\b", 0.05),
-        (r"\b([0-9]{3})[- .]([0-9]{2})[- .]([0-9]{4})\b", 0.5),
-    )
-)
+_SSN_PATTERNS = _compile(((r"\b([0-9]{3})[- .]([0-9]{2})[- .]([0-9]{4})\b", 0.5),))
 _SSN_DENY = ("123456789", "987654320", "078051120")
 
 
@@ -317,7 +301,6 @@ def _iban_format_matches(iban: str) -> bool:
 
 
 def _validate_iban(text: str) -> bool | None:
-    """Return ``None`` to preserve the lowercase fallback score."""
     try:
         value = text.replace("-", "").replace(" ", "")
         if _iban_check_digits(value) != value[2:4]:
@@ -332,7 +315,6 @@ def _validate_iban(text: str) -> bool | None:
 
 
 def _scan_iban(text: str) -> list[Match]:
-    """Try shorter capture groups until validation succeeds."""
     results: list[Match] = []
     for match in _IBAN_PATTERN.finditer(text):
         for group in reversed(range(1, len(match.groups()) + 1)):
@@ -457,7 +439,6 @@ _LOOPBACK = ("localhost", "127.0.0.1", "::1", "0.0.0.0")
 
 
 def _is_local_and_open(uri: str) -> bool:
-    """Exempt only credential-free loopback URIs; userinfo remains detectable."""
     authority = uri.split("://", 1)[1].split("/", 1)[0]
     if "@" in authority:
         return False
@@ -530,4 +511,4 @@ def analyze_text(text: str, entities: tuple[str, ...]) -> list[Match]:
     for entity, scan in _RECOGNIZERS:
         if entity in requested:
             results.extend(scan(text))
-    return [result for result in results if result.score >= SCORE_THRESHOLD]
+    return results

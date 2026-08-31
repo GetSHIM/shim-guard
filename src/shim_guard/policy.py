@@ -27,7 +27,6 @@ DEFAULT_MODES = {
     EXECUTABLE_TEXT: WARN,
 }
 
-# Never rewrite generic prompts, local writes, or commands.
 REWRITABLE = {
     USER_PROMPT: False,
     OUTBOUND: True,

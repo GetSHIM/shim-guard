@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from .measure import Exchange, UsageReader, inspect_request
 
-# Preserve all end-to-end headers, including provider OAuth capability headers.
+# Preserve provider auth headers.
 HOP_BY_HOP = frozenset(
     {
         "connection",
@@ -25,7 +25,7 @@ HOP_BY_HOP = frozenset(
     }
 )
 
-# `read1` returns available bytes; `read` would buffer the SSE stream.
+# `read` would buffer SSE.
 CHUNK_BYTES = 65_536
 UPSTREAM_TIMEOUT_SECONDS = 900
 
@@ -53,7 +53,6 @@ class Session:
                 self._idle.set()
 
     def drain(self, timeout: float) -> bool:
-        """Wait until responses flushed to clients are also recorded."""
         return self._idle.wait(timeout)
 
     def record(self, exchange: Exchange) -> None:
@@ -73,7 +72,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     tls_context: ssl.SSLContext
     evaluate = None
 
-    def log_message(self, format: str, *args: object) -> None:
+    def log_message(self, *_args: object, **_kwargs: object) -> None:
         pass
 
     def _relay(self) -> None:
@@ -137,7 +136,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(upstream.status)
         for name, value in upstream.getheaders():
             lowered = name.lower()
-            # Chunked framing avoids buffering to derive a new length.
+            # Stream without deriving a length.
             if lowered in HOP_BY_HOP or lowered == "content-length":
                 continue
             self.send_header(name, value)
@@ -145,7 +144,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         reader = UsageReader()
-        # Decode only the measurement copy; relay compressed bytes unchanged.
+        # Relay compressed bytes unchanged.
         encoding = (upstream.getheader("Content-Encoding") or "").lower()
         decoder = None
         if encoding == "gzip":
@@ -175,7 +174,6 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                     reader.feed(chunk.decode("utf-8", "replace"))
                 else:
                     decoded = decoder.decompress(chunk)
-                    # Some upstreams emit concatenated gzip members.
                     while decoder.eof and decoder.unused_data:
                         leftover = decoder.unused_data
                         decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
@@ -212,7 +210,6 @@ class Watch:
     _thread: threading.Thread
     _stopped: bool = False
 
-    # A wedged daemon handler must not block command exit.
     DRAIN_SECONDS = 5.0
 
     @property
@@ -241,7 +238,7 @@ def start(upstream: str = "api.anthropic.com", evaluate=None) -> Watch:
             "evaluate": staticmethod(evaluate) if evaluate else None,
         },
     )
-    # Loopback only: this endpoint forwards the client's live credential.
+    # Loopback carries live credentials.
     server = _Server(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

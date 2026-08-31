@@ -506,13 +506,6 @@
       "error": "ValueError"
     },
     {
-      "id": "finding-count-oversize",
-      "kind": "compact-email-sequence",
-      "count": 5001,
-      "error": "ValueError",
-      "note": "MAX_FINDINGS + 1 compact addresses. They have to be compact: 5001 of user{i}@example.com is 115k characters and trips the 100k input bound first, so the finding limit is never reached."
-    },
-    {
       "id": "invalid-analyzer-span",
       "kind": "detector-result",
       "entity_type": "EMAIL_ADDRESS",

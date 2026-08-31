@@ -61,7 +61,6 @@ MAX_TARGET_SCAN_CHARS = 512
 
 
 def _target(value: str, evaluate) -> str:
-    """Scrub targets before storage; retain the filename-bearing suffix."""
     if not value:
         return ""
     scanned = value[-MAX_TARGET_SCAN_CHARS:]
@@ -148,14 +147,12 @@ def process(
     if body is None:
         return Outcome(b"", record(ALLOW, note="no payload at this key"))
 
-    # Never reshape outbound arguments or file views used by later edits.
     inbound = direction == INBOUND
     shrinkable = inbound and mode != OBSERVE and not event.views_file
     transforms = diet if shrinkable else ()
     try:
         result = inspect(body, evaluate, transforms, scan_markers=inbound)
     except PayloadTooLarge as error:
-        # Tool inspection fails open, recorded explicitly rather than partially.
         return Outcome(b"", record(ALLOW, note=f"{NOT_INSPECTED}: {error}"))
 
     rewritten, findings, changed = result.value, result.findings, result.changed

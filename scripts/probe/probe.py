@@ -28,7 +28,7 @@ _OPAQUE_ID = re.compile(
 )
 _RESULT_FIELDS = ("tool_response", "toolResponse", "tool_result", "result", "output")
 
-# All credentials below are synthetic or vendor-published examples.
+# Credentials are synthetic.
 LARGE_FILE_FILLER = (
     "The quick brown fox jumps over the lazy dog while the build log scrolls. "
 )

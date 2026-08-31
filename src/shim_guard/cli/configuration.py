@@ -110,7 +110,7 @@ def configure(
     if set(enable).intersection(disable):
         _fail(as_json, "The same entity cannot be enabled and disabled.")
 
-    # Preserve mode/tool overrides. Only reset/only may replace malformed content.
+    # Preserve modes and tool scopes.
     try:
         policy = load_policy(target)
     except (OSError, ValueError):

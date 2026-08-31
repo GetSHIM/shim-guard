@@ -28,7 +28,6 @@ def _generator() -> ModuleType:
 _DOCUMENT = json.loads(CORPUS.read_text(encoding="utf-8"))
 _CASES = _DOCUMENT["cases"]
 
-# Generated evidence stays frozen; deliberate precision changes are pinned here.
 DELIBERATE_DIVERGENCES = {
     "net-3": (
         "0.0.0.0 is the unspecified address: it names no host and no person. "

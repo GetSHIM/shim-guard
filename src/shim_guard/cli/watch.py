@@ -1,5 +1,3 @@
-"""Run a client only after its ephemeral loopback proxy is listening."""
-
 from __future__ import annotations
 
 import os
@@ -13,7 +11,7 @@ import typer
 
 from shim_guard.cli.output import emit, emit_json, terminal_text
 
-# Copilot custom endpoints require BYOK, leaving no authenticated session to proxy.
+# Copilot proxying requires BYOK.
 BASE_URL_VARIABLES = {
     "claude": "ANTHROPIC_BASE_URL",
     "codex": "OPENAI_BASE_URL",
@@ -22,7 +20,6 @@ UPSTREAMS = {
     "claude": "api.anthropic.com",
     "codex": "api.openai.com",
 }
-# Codex proxy authentication lacks live verification.
 VERIFIED = frozenset({"claude"})
 
 

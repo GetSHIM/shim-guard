@@ -48,7 +48,6 @@ def render_settings(
     ledger: bool = False,
     diet: tuple | None = None,
 ) -> bytes:
-    """Render the complete document so updates preserve unrelated policy."""
     import tomli_w
 
     document: dict = {
@@ -117,7 +116,6 @@ def _diet(document: dict) -> tuple:
 
 
 def parse_settings(text: str) -> dict:
-    """Parse all-optional settings; absent keys inherit shipped defaults."""
     try:
         document = tomllib.loads(text)
     except (tomllib.TOMLDecodeError, RecursionError) as error:

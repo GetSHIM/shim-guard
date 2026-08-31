@@ -80,7 +80,6 @@ def _month_end(path: Path) -> datetime.datetime | None:
 
 
 def prune(now: datetime.datetime | None = None) -> int:
-    """Prune from the named month end; mtimes must not extend retention."""
     moment = now or datetime.datetime.now(datetime.timezone.utc)
     removed = 0
     for path in files():

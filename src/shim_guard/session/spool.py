@@ -1,5 +1,3 @@
-"""Private, bounded temporary records keyed by hashed session identifiers."""
-
 from __future__ import annotations
 
 import contextlib
@@ -11,9 +9,7 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
-# Cap bounds storage; summaries must expose refused records.
 MAX_SPOOL_BYTES = 1_000_000
-# Keep each concurrent O_APPEND write small enough not to interleave.
 MAX_ENTRY_BYTES = 2_048
 _DIR_MODE = 0o700
 _FILE_MODE = 0o600
@@ -39,7 +35,6 @@ def root_path() -> Path:
 
 @contextlib.contextmanager
 def _root() -> Iterator[int]:
-    """Open the private root; descriptor-relative children resist root swaps."""
     path = root_path()
     try:
         path.mkdir(mode=_DIR_MODE, parents=True, exist_ok=True)
@@ -128,7 +123,6 @@ def _at_cap(root: int, name: str) -> bool:
     except OSError:
         return False
     try:
-        # Refused writes leave the file below the cap; warn within one max entry.
         return os.fstat(descriptor).st_size + MAX_ENTRY_BYTES > MAX_SPOOL_BYTES
     finally:
         os.close(descriptor)

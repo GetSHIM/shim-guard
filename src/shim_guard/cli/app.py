@@ -1,5 +1,3 @@
-"""Command registration; deferred annotations break Typer metadata on Python 3.9."""
-
 import subprocess
 from enum import Enum
 from importlib import metadata
@@ -12,8 +10,6 @@ from shim_guard.guard import ENTITY_TYPES
 
 
 class _StringEnum(str, Enum):
-    """Stable ``StrEnum`` rendering before Python 3.11."""
-
     def __str__(self) -> str:
         return str.__str__(self)
 

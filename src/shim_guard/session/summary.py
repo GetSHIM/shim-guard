@@ -158,7 +158,6 @@ def render(records: list, capped: bool = False) -> str:
             f"  {column:<9} {count} {marker}{_where(_carrying(records, marker))}"
         )
     if skipped:
-        # An uninspected pass-through must never look clean.
         lines.append(
             f"  {'skipped':<9} {len(skipped)} not inspected, passed through"
             f"{_where(skipped)}"

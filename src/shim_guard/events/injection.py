@@ -1,5 +1,3 @@
-"""Reporting-only injection markers; never rewrite payloads."""
-
 from __future__ import annotations
 
 import re
@@ -61,8 +59,6 @@ _PATTERNS = (
 )
 
 MIN_TEXT_CHARACTERS = 24
-
-# Bounded quantifiers prevent hook-deadline exhaustion.
 
 
 def scan(text: str) -> tuple:

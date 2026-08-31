@@ -1,12 +1,8 @@
-"""IBAN patterns from Presidio 2.2.364 (MIT, Microsoft)."""
+"""Presidio 2.2.364 IBAN patterns (MIT, Microsoft)."""
 
-CC = "[A-Z]{2}"
 CK = "[0-9]{2}[ ]?"
-BOS = "^"
-EOS = "$"
 
 A = "[A-Z][ ]?"
-A2 = "([A-Z][ ]?){2}"
 A3 = "([A-Z][ ]?){3}"
 A4 = "([A-Z][ ]?){4}"
 

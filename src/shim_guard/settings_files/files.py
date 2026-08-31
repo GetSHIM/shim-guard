@@ -9,7 +9,6 @@ from pathlib import Path
 from .plan import Action, FileState, Plan, StateKind
 
 MAX_PATH_BYTES = 4_096
-# Resolve ancestor links, then validate the parent and never follow the target.
 _ANCESTOR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
 _UNSAFE_WRITABLE = stat.S_IWGRP | stat.S_IWOTH
 
@@ -156,7 +155,6 @@ def _read_at(target: Path, parent_fd: int, max_bytes: int) -> FileState:
 
 
 def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
-    """Inspect without following the final component."""
     target = Path(path)
     try:
         _validate_target(target)
@@ -185,7 +183,6 @@ def inspect_file(path: Path, max_bytes: int = 1_000_000) -> FileState:
 
 
 def ensure_parent(path: Path) -> None:
-    """Create parents after validating resolved ownership and permissions."""
     target = Path(path)
     _validate_target(target)
     descriptor = -1
@@ -343,7 +340,6 @@ def _publish(plan: Plan, parent_fd: int) -> None:
 
 
 def apply(plan: Plan) -> bool:
-    """Apply after locked exact-state revalidation; never delete."""
     if plan.action in {Action.CONFLICT, Action.REFUSE}:
         raise InstallationError(plan.message)
     parent_fd = _open_locked_parent(plan)

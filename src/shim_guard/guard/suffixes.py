@@ -1,4 +1,4 @@
-"""Generated ICANN suffix data; do not edit."""
+"""Generated ICANN suffixes; do not edit."""
 
 from __future__ import annotations
 

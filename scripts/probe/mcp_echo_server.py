@@ -53,9 +53,7 @@ def _result(identifier: object, result: dict[str, object]) -> dict[str, object]:
 
 
 def _call(params: object) -> dict[str, object]:
-    arguments: object = {}
-    if isinstance(params, dict):
-        arguments = params.get("arguments", {})
+    arguments: object = params.get("arguments", {}) if isinstance(params, dict) else {}
     text = json.dumps(arguments, ensure_ascii=False, sort_keys=True)
     return {"content": [{"type": "text", "text": text}], "isError": False}
 

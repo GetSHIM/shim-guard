@@ -10,9 +10,7 @@ MAX_INPUT_BYTES = 1_000_000
 MAX_OUTPUT_BYTES = 1_000_000
 _DENY_REASON = "SHIM Guard: sensitive data detected; this call was not allowed."
 _ERROR_MESSAGE = "shim: this tool event could not be inspected and was not modified."
-# Commands may contain credentials and must never become persisted targets.
 _TARGET_KEYS = ("file_path", "notebook_path", "path", "url")
-# A later Edit must be able to quote file bytes exactly.
 _FILE_VIEW_KEYS = ("file_path", "notebook_path", "path")
 
 
@@ -91,7 +89,6 @@ def post_tool_use(action: str, payload: object, message: str) -> bytes:
 
 
 def error_output() -> bytes:
-    """Report inspection failure without denying the tool call."""
     return _dump({"systemMessage": _ERROR_MESSAGE})
 
 

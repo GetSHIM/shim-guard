@@ -150,7 +150,6 @@ def at_files(document: object) -> AtFiles:
 
 
 def attribute(by_bytes: dict, exact_total: int) -> dict:
-    """Split exact tokens approximately by bytes without losing the remainder."""
     total_bytes = sum(by_bytes.values())
     if not total_bytes or exact_total <= 0:
         return {}
@@ -166,7 +165,7 @@ def attribute(by_bytes: dict, exact_total: int) -> dict:
 
 @dataclass
 class Exchange:
-    """Measurements must never retain traffic."""
+    """Never retain traffic."""
 
     path: str = ""
     model: str = ""

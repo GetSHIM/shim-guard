@@ -12,7 +12,6 @@ _STRUCTURAL = "{}[]:,"
 
 
 def compact_json(text: str) -> str:
-    """Remove JSON whitespace without reserializing tokens."""
     if not text or text[0] not in "{[":
         return text
     out = []
@@ -68,7 +67,6 @@ def _same_value(original: str, compacted: str) -> bool:
 
 
 def strip_trailing_whitespace(text: str) -> str:
-    """Opt-in: preserves line count but removes Markdown hard breaks."""
     if not any(character in text for character in " \t"):
         return text
     lines = text.split("\n")

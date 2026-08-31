@@ -34,12 +34,11 @@ def parse_input(raw: bytes) -> str:
 def _rewrite(text: str) -> bytes:
     if not text:
         raise ValueError("Copilot prompt rewrite must not be empty")
-    output = json.dumps(
+    return json.dumps(
         {"modifiedTransformedPrompt": text},
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode()
-    return output
 
 
 def warn_output(decision: GuardDecision) -> bytes:

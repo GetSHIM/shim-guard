@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-HEADER = '''"""Generated ICANN suffix table from {source}; {count} entries."""
+HEADER = '''"""Generated ICANN suffixes; do not edit."""
 
 from __future__ import annotations
 
-SOURCE = {source!r}
+SOURCE = (
+    {source}
+)
 
 _RULES = """\\
 {blob}"""
@@ -68,8 +71,8 @@ def icann_rules(snapshot: str) -> list[str]:
         marker = ""
         body = text
         if text[0] in "*!":
-            marker, body = text[0], text[2:] if text[1] == "." else text[1:]
-            marker = text[:2] if text[1] == "." else text[0]
+            marker = text[:2] if text.startswith("*.") else text[0]
+            body = text[len(marker) :]
         try:
             ascii_form = punycode(body)
         except UnicodeError:
@@ -83,8 +86,7 @@ def render(rules: list[str], source: str) -> str:
     if any('"' in rule or "\\" in rule for rule in rules):
         raise ValueError("a suffix rule would break the string literal")
     return HEADER.format(
-        source=source,
-        count=len(rules),
+        source=json.dumps(source),
         blob="\n".join(rules),
     )
 

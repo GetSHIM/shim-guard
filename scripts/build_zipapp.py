@@ -11,7 +11,6 @@ from pathlib import Path
 
 SOURCE_ROOT = Path(__file__).resolve().parent.parent / "src"
 PACKAGE = "shim_guard"
-# Everything reachable from `shim_guard.hook`. The CLI is deliberately absent.
 INCLUDED = (
     "__init__.py",
     "py.typed",
@@ -50,7 +49,6 @@ INCLUDED = (
     "settings_files/files.py",
     "settings_files/plan.py",
 )
-# Zip-unsafe extensions and unreachable data make builds platform-dependent.
 COMPILED = ("*.so", "*.pyd", "*.dylib")
 VENDORED_EXCLUDES = (
     "__pycache__",
@@ -93,8 +91,6 @@ def stage(destination: Path, vendor: bool = True) -> None:
     (destination / "__main__.py").write_text(MAIN, encoding="utf-8")
     if vendor:
         import phonenumbers
-
-        # Python 3.9/3.10 need the tomllib backport inside the archive.
         import tomli
 
         shutil.copytree(
@@ -116,7 +112,6 @@ def stage(destination: Path, vendor: bool = True) -> None:
 def build(
     output: Path, staging: Path, interpreter: str = "/usr/bin/env python3"
 ) -> None:
-    # ZIP records local timestamps and Unix mode bits; normalize both.
     timestamp = time.mktime((2000, 1, 1, 0, 0, 0, 0, 1, -1))
     for path in staging.rglob("*"):
         path.chmod(0o755 if path.is_dir() else 0o644)

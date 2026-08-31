@@ -163,10 +163,36 @@ def test_block_reason_excludes_terminal_controls_from_the_prompt(
         b'{"hook_event_name":"UserPromptSubmit","prompt":"a","prompt":"b"}',
         b'{"hook_event_name":"UserPromptSubmit","hook_event_name":"PostToolUse",'
         b'"prompt":"hello"}',
+        b'{"hook_event_name":"PostToolUse","hook_event_name":"UserPromptSubmit",'
+        b'"prompt":"hello"}',
+        rb'{"hook_event_name":"PostToolUse","hook_\u0065vent_name":'
+        rb'"UserPromptSubmit","prompt":"hello"}',
+        rb'{"hook_event_name":"PostToolUse","hook_event_name":'
+        rb'"UserPrompt\u0053ubmit","prompt":"hello"}',
+        b'{"prompt":"hook_event_name":"PostToolUse"',
     ],
 )
 def test_hostile_input_fails_closed(raw: bytes) -> None:
     _assert_output(_run(raw), GENERIC_BLOCK)
+
+
+def test_nested_prompt_event_does_not_reclassify_malformed_tool_event() -> None:
+    raw = (
+        b'{"tool_input":{"hook_event_name":"UserPromptSubmit"},'
+        b'"hook_event_name":"PostToolUse",'
+    )
+    _assert_output(_run(raw), b"")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        rb'{"hook_\u0065vent_name":"PostToolUse","x":1,"x":2}',
+        b'{"hook_event_name":"PostToolUse","value":"\xff"}',
+    ],
+)
+def test_decodable_tool_event_fails_open_after_strict_parse_error(raw: bytes) -> None:
+    _assert_output(_run(raw), b"")
 
 
 @pytest.mark.parametrize(

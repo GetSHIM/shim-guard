@@ -1,5 +1,5 @@
 #!/bin/sh
-# Prefer the installed hook, then the archive; a missing runtime must fail open.
+# Missing runtimes fail open.
 
 set -u
 

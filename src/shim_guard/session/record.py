@@ -1,10 +1,7 @@
-"""Persist bounded metadata, never prompts, payloads, commands, or matches."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Marks pass-through events that were not inspected, not clean.
 NOT_INSPECTED = "not inspected"
 MAX_DISPLAY_LABEL_CHARS = 120
 UNKNOWN_TOOL_LABEL = "unknown tool"
@@ -30,7 +27,6 @@ class Record:
     mode: str
     action: str
     entities: tuple = ()
-    # Scrubbed path or URL only; commands may contain credentials.
     target: str = ""
     in_bytes: int = 0
     out_bytes: int = 0
@@ -48,7 +44,7 @@ class Record:
             "direction": self.direction,
             "mode": self.mode,
             "action": self.action,
-            "entities": {name: count for name, count in self.entities},
+            "entities": dict(self.entities),
             "in_bytes": self.in_bytes,
             "out_bytes": self.out_bytes,
             "fields": self.fields,
@@ -72,7 +68,6 @@ def _timestamp() -> str:
 def remember(
     session_id: str, record: Record, latency_ms: int, ledger: bool = False
 ) -> None:
-    """Record best-effort; storage failure must not fail the guard."""
     if not session_id:
         return
     try:

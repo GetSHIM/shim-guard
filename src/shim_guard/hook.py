@@ -13,7 +13,6 @@ from pathlib import Path
 MAX_INPUT_BYTES = 1_000_000
 _PROMPT_EVENT = "UserPromptSubmit"
 _PROMPT_EVENTS = frozenset({_PROMPT_EVENT, "userPromptTransformed"})
-# Stop renders output; SessionEnd only cleans up.
 _STOP_EVENT = "Stop"
 _SESSION_END_EVENT = "SessionEnd"
 _STARTED = time.perf_counter()
@@ -43,7 +42,6 @@ def _error_output(client: str) -> bytes:
 
 
 def _tool_error_output(client: str, event: str) -> bytes:
-    """Report tool failures without denying calls."""
     if client != "claude":
         return b""
     try:
@@ -66,27 +64,59 @@ _TOOL_EVENT_NAMES = (
     "preToolUse",
     "postToolUse",
 )
-_PREFIX_EVENT_NAMES = (_PROMPT_EVENT, "userPromptTransformed", *_TOOL_EVENT_NAMES)
-_PREFIX_EVENT_MARKERS = tuple(f'"{event}"'.encode() for event in _PREFIX_EVENT_NAMES)
-_EVENT_KEY = b'"hook_event_name"'
 
 
 def _prefix_event(raw: bytes) -> str:
-    head = raw[:4096]
-    start = 0
-    while (start := head.find(_EVENT_KEY, start)) >= 0:
-        value = head[start + len(_EVENT_KEY) :].lstrip()
-        if value.startswith(b":"):
-            value = value[1:].lstrip()
-            for event, marker in zip(_PREFIX_EVENT_NAMES, _PREFIX_EVENT_MARKERS):
-                if value.startswith(marker):
-                    return event
-        start += len(_EVENT_KEY)
-    return ""
+    import json
+
+    text = raw.decode("utf-8", errors="replace")
+    decoder = json.JSONDecoder()
+
+    def skip_space(start: int) -> int:
+        while start < len(text) and text[start] in " \t\r\n":
+            start += 1
+        return start
+
+    event_name = ""
+    index = skip_space(0)
+    if index == len(text) or text[index] != "{":
+        return ""
+
+    index += 1
+    while True:
+        index = skip_space(index)
+        if index == len(text) or text[index] == "}":
+            return event_name
+        try:
+            key, index = decoder.raw_decode(text, index)
+        except (RecursionError, ValueError):
+            return event_name
+        if not isinstance(key, str):
+            return event_name
+
+        index = skip_space(index)
+        if index == len(text) or text[index] != ":":
+            return event_name
+        index = skip_space(index + 1)
+        try:
+            value, index = decoder.raw_decode(text, index)
+        except (RecursionError, ValueError):
+            return event_name
+        if key == "hook_event_name" and isinstance(value, str):
+            if value in _PROMPT_EVENTS:
+                return value
+            if not event_name and value in _TOOL_EVENT_NAMES:
+                event_name = value
+
+        index = skip_space(index)
+        if index == len(text) or text[index] == "}":
+            return event_name
+        if text[index] != ",":
+            return event_name
+        index += 1
 
 
 def _refusal_output(raw: bytes, client: str) -> bytes:
-    """Prompt failures block; tool failures pass through."""
     try:
         event, _session, _stop = _envelope(raw)
     except Exception:
@@ -138,7 +168,6 @@ def _deadline() -> Iterator[None]:
         signal.signal(signal.SIGALRM, previous)
 
 
-# Suggestions must outlive the turn; sweep only files older than one day.
 SUGGESTION_MAX_AGE_SECONDS = 24 * 60 * 60
 _SUGGESTION_PREFIX = "shim-guard-redacted-"
 _SUGGESTION_SUFFIX = ".txt"
@@ -181,7 +210,6 @@ def _envelope(raw: bytes) -> tuple:
 
     document = parse_object(raw)
     event = document.get("hook_event_name")
-    # Copilot uses sessionId; Claude and Codex use session_id.
     session = document.get("session_id")
     if not isinstance(session, str):
         session = document.get("sessionId")
@@ -197,7 +225,6 @@ def _elapsed_ms() -> int:
 
 
 def _prompt_record(client, event, mode, action, decision, prompt):
-    """Build metadata only; never retain prompt text."""
     from shim_guard.session.record import Record
 
     return Record(
@@ -246,7 +273,6 @@ def _forget(session_id: str) -> bytes:
 
 
 def _uninspected(raw: bytes, client: str, event: str, session_id: str) -> None:
-    """Fail tool events open, but record that inspection was skipped."""
     try:
         import json
 
@@ -407,11 +433,9 @@ def _output(raw: bytes, client: str = "codex") -> bytes:
                     keep("allow")
                     return b""
                 if client == "copilot":
-                    # Copilot warns through a model-facing rewrite.
                     keep("mask")
                     return warn_output(decision)
                 if mode != "enforce":
-                    # Generic prompt hooks can report or deny, never rewrite.
                     keep("report")
                     return warn_output(decision)
                 suggestion_path = _write_redacted_prompt(decision.redacted_text)
@@ -434,7 +458,6 @@ def main() -> None:
     client = "codex" if not arguments else arguments[0]
     if len(arguments) > 1:
         client = ""
-    # The deadline includes stdin; prefix bytes select fail-open/closed output.
     raw = b""
     try:
         with _deadline():

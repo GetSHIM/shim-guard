@@ -26,7 +26,7 @@ def luhn(prefix: str, length: int) -> str:
 def iban(country: str, body: str) -> str:
     rearranged = body + country + "00"
     digits = "".join(
-        str(string.digits.index(character))
+        character
         if character in string.digits
         else str(10 + string.ascii_uppercase.index(character))
         for character in rearranged

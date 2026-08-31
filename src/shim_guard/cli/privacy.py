@@ -33,7 +33,7 @@ def evaluate(text: str):
 def _read_and_evaluate(command: str, as_json: bool):
     try:
         return evaluate(read_stdin())
-    except Exception:  # Do not expose stdin or detector errors at this boundary.
+    except Exception:  # Never expose stdin or detector errors.
         _privacy_error(command, as_json)
 
 

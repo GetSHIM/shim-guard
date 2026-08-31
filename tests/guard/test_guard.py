@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from shim_guard.guard import (
-    MAX_FINDINGS,
+    MAX_SOURCE_CHARACTERS,
     Finding,
     GuardDecision,
     analyze,
@@ -55,7 +55,7 @@ def test_evaluation_runs_only_selected_entities() -> None:
         evaluate(text, ("NOT_AN_ENTITY",))
 
 
-def test_source_normalized_intermediate_and_finding_limits() -> None:
+def test_source_and_normalized_intermediate_limits() -> None:
     generated = {case["id"]: case for case in CORPUS["generated_cases"]}
     oversized = (
         generated["source-oversize"]["value"] * generated["source-oversize"]["count"]
@@ -68,17 +68,18 @@ def test_source_normalized_intermediate_and_finding_limits() -> None:
             generated["normalization-intermediate-oversize"]["value"]
             * generated["normalization-intermediate-oversize"]["count"]
         )
-    assert generated["finding-count-oversize"]["count"] == MAX_FINDINGS + 1
-    emails = " ".join(
-        f"u{index}@e.co"
-        for index in range(generated["finding-count-oversize"]["count"])
-    )
-    with pytest.raises(ValueError, match="finding limit"):
-        analyze(emails)
-    assert (
-        len(analyze(" ".join(f"u{i}@e.co" for i in range(MAX_FINDINGS))))
-        == MAX_FINDINGS
-    )
+
+
+def test_dense_findings_are_all_maskable() -> None:
+    text = " ".join(f"u{index}@e.co" for index in range(9_000))
+
+    assert len(text) <= MAX_SOURCE_CHARACTERS
+    decision = evaluate(text, ("EMAIL",))
+
+    assert decision.counts == (("EMAIL", 9_000),)
+    assert decision.redacted_text.startswith("<EMAIL_1>")
+    assert decision.redacted_text.endswith("<EMAIL_9000>")
+    assert "@e.co" not in decision.redacted_text
 
 
 def test_invalid_or_incomplete_analyzer_spans_fail_safely(

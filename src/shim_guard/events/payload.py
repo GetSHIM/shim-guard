@@ -1,5 +1,3 @@
-"""Bounded, shape-preserving traversal of tool payload string leaves."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
