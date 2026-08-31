@@ -1,8 +1,8 @@
 """The hook path must not pull in third-party code beyond ``phonenumbers``.
 
-PRD-02 removed presidio-analyzer and tldextract from the hook path so a cold
-process stays inside the latency budget and so the zipapp in PRD-04 can run on
-a system interpreter. Nothing enforces that except this test: an accidental
+The hook path excludes presidio-analyzer and tldextract so a cold process stays
+inside the latency budget and the zipapp can run on a system interpreter.
+Nothing enforces that except this test: an accidental
 top-level ``import rich`` in a shared module would restore the old cost without
 failing anything else.
 
@@ -14,9 +14,12 @@ window the imports happen in, so the trace is incomplete. Inspecting
 
 from __future__ import annotations
 
+import ast
+import importlib.util
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -25,6 +28,51 @@ import pytest
 # is used and nothing third-party is loaded at all.
 ALLOWED_THIRD_PARTY = frozenset({"phonenumbers", "tomli"})
 FORBIDDEN = ("presidio_analyzer", "tldextract", "spacy", "typer", "rich", "click")
+
+SOURCE_ROOT = Path(__file__).parents[2] / "src" / "shim_guard"
+ALLOWED_INTERNAL_IMPORTS = {
+    "cli": (
+        "shim_guard.clients",
+        "shim_guard.config",
+        "shim_guard.events.diet",
+        "shim_guard.guard",
+        "shim_guard.session",
+        "shim_guard.settings_files",
+        "shim_guard.watch",
+    ),
+    "hook": (
+        "shim_guard.clients",
+        "shim_guard.config",
+        "shim_guard.events",
+        "shim_guard.guard",
+        "shim_guard.session",
+    ),
+    "config": (
+        "shim_guard.events.diet",
+        "shim_guard.guard.entities",
+        "shim_guard.policy",
+        "shim_guard.settings_files",
+    ),
+    "clients": (
+        "shim_guard.events",
+        "shim_guard.policy",
+        "shim_guard.session",
+        "shim_guard.settings_files",
+    ),
+    "events": (
+        "shim_guard.guard",
+        "shim_guard.policy",
+        "shim_guard.session.record",
+    ),
+}
+ALLOWED_INTERNAL_EXCEPTIONS = frozenset(
+    {
+        ("clients/user_prompt_hook.py", "shim_guard.guard.GuardDecision"),
+        ("clients/claude/hook.py", "shim_guard.guard.GuardDecision"),
+        ("clients/codex/hook.py", "shim_guard.guard.GuardDecision"),
+        ("clients/copilot/hook.py", "shim_guard.guard.GuardDecision"),
+    }
+)
 
 _PROBE = """
 import importlib.util
@@ -71,6 +119,73 @@ def _probe(client: str, prompt: str) -> dict:
     )
     assert result.returncode == 0, result.stderr.decode()
     return json.loads(result.stdout)
+
+
+def _module_name(path: Path) -> str:
+    parts = list(path.relative_to(SOURCE_ROOT.parent).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _imported_modules(path: Path) -> set[str]:
+    module = _module_name(path)
+    package = module if path.name == "__init__.py" else module.rpartition(".")[0]
+    imported = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            name = node.module or ""
+            if node.level:
+                name = importlib.util.resolve_name("." * node.level + name, package)
+            for alias in node.names:
+                imported.add(f"{name}.{alias.name}")
+    return imported
+
+
+def test_internal_imports_follow_the_architecture() -> None:
+    paths = tuple(SOURCE_ROOT.rglob("*.py"))
+    violations = []
+
+    for path in paths:
+        relative = path.relative_to(SOURCE_ROOT).as_posix()
+        owner = _module_name(path).split(".")[1:2]
+        if not owner:
+            continue
+        owner_name = owner[0]
+        allowed = ALLOWED_INTERNAL_IMPORTS.get(owner_name, ())
+        for imported in _imported_modules(path):
+            parts = imported.split(".")
+            if parts[:1] != ["shim_guard"] or len(parts) < 2:
+                continue
+            target_owner = parts[1]
+            if target_owner == owner_name or target_owner not in {
+                "cli",
+                "clients",
+                "config",
+                "events",
+                "guard",
+                "hook",
+                "policy",
+                "session",
+                "settings_files",
+                "watch",
+            }:
+                continue
+            permitted = any(
+                imported == prefix or imported.startswith(prefix + ".")
+                for prefix in allowed
+            )
+            if (
+                not permitted
+                and (relative, imported) not in ALLOWED_INTERNAL_EXCEPTIONS
+            ):
+                violations.append(f"{relative}: {owner_name} -> {imported}")
+
+    assert not violations, "forbidden internal imports:\n" + "\n".join(
+        sorted(violations)
+    )
 
 
 @pytest.mark.parametrize("client", ("codex", "claude", "copilot"))
