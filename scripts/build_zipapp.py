@@ -56,9 +56,9 @@ INCLUDED = (
     "session/record.py",
     "session/spool.py",
     "session/summary.py",
-    "installation/__init__.py",
-    "installation/files.py",
-    "installation/plan.py",
+    "settings_files/__init__.py",
+    "settings_files/files.py",
+    "settings_files/plan.py",
 )
 # The geocoder, carrier and timezone data sets are 19 MB between them and are
 # only reachable through modules the recognizer never imports. shortdata cannot

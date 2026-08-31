@@ -11,7 +11,7 @@ from shim_guard.cli.output import emit, emit_json
 from shim_guard.clients.claude import settings as claude_settings
 from shim_guard.clients.codex import settings as codex_settings
 from shim_guard.clients.copilot import settings as copilot_settings
-from shim_guard.installation import (
+from shim_guard.settings_files import (
     Action,
     InstallationError,
     Plan,

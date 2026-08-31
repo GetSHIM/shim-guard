@@ -18,7 +18,7 @@ from shim_guard.config import (
 )
 from shim_guard.events.diet import DEFAULT_TRANSFORMS
 from shim_guard.guard import DEFAULT_ENTITIES, ENTITY_TYPES, normalize_entities
-from shim_guard.installation import (
+from shim_guard.settings_files import (
     InstallationError,
     apply,
     ensure_parent,

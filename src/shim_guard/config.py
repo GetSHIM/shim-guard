@@ -166,7 +166,7 @@ def parse_settings(text: str) -> dict:
 def load_policy(path: Path | None = None) -> policy.Policy:
     """Load the full policy, falling back to the shipped defaults."""
     target = config_path() if path is None else _validated_path(path)
-    from shim_guard.installation import StateKind, inspect_file
+    from shim_guard.settings_files import StateKind, inspect_file
 
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:
@@ -199,7 +199,7 @@ def load_policy(path: Path | None = None) -> policy.Policy:
 def load_entities(path: Path | None = None) -> tuple[str, ...]:
     """Load enabled entities, using the default preset when no file exists."""
     target = config_path() if path is None else _validated_path(path)
-    from shim_guard.installation import StateKind, inspect_file
+    from shim_guard.settings_files import StateKind, inspect_file
 
     state = inspect_file(target, MAX_CONFIG_BYTES)
     if state.kind is StateKind.ABSENT:

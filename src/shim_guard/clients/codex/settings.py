@@ -19,7 +19,7 @@ from shim_guard.clients.hook_settings import (
     remove_groups,
 )
 from shim_guard.events.registry import INSTALLED
-from shim_guard.installation import StateKind, inspect_file
+from shim_guard.settings_files import StateKind, inspect_file
 
 TESTED_CODEX_VERSION = "0.149.0"
 MINIMUM_CODEX_VERSION = "0.149.0"
