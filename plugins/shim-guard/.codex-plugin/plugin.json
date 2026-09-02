@@ -5,8 +5,8 @@
   "author": {
     "name": "shim Engineering"
   },
-  "homepage": "https://github.com/GetSHIM/shim-guard",
-  "repository": "https://github.com/GetSHIM/shim-guard",
+  "homepage": "https://github.com/GetSHIM/shim-cli",
+  "repository": "https://github.com/GetSHIM/shim-cli",
   "license": "Apache-2.0",
   "keywords": [
     "privacy",
@@ -22,8 +22,8 @@
     "capabilities": [
       "Hooks"
     ],
-    "websiteURL": "https://github.com/GetSHIM/shim-guard",
-    "privacyPolicyURL": "https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md",
+    "websiteURL": "https://github.com/GetSHIM/shim-cli",
+    "privacyPolicyURL": "https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md",
     "defaultPrompt": [
       "Check whether shim Guard is installed and active."
     ]

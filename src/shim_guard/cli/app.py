@@ -41,7 +41,7 @@ def root(
     ),
 ) -> None:
     if version:
-        typer.echo(f"shim-guard {__version__}")
+        typer.echo(f"shim {__version__}")
         raise typer.Exit
     if context.invoked_subcommand is None:
         typer.echo(
@@ -58,12 +58,10 @@ def help(context: typer.Context) -> None:
 @app.command()
 def update() -> None:
     """Update SHIM Guard."""
-    installer = (
-        metadata.distribution("shim-guard").read_text("INSTALLER") or ""
-    ).strip()
+    installer = (metadata.distribution("shim").read_text("INSTALLER") or "").strip()
     command = {
-        "uv": ("uv", "tool", "upgrade", "shim-guard"),
-        "pip": ("pipx", "upgrade", "shim-guard"),
+        "uv": ("uv", "tool", "upgrade", "shim"),
+        "pip": ("pipx", "upgrade", "shim"),
     }.get(installer)
     if command is not None:
         try:
@@ -71,8 +69,8 @@ def update() -> None:
         except OSError:
             pass
     typer.echo(
-        "Unable to update automatically. Run `uv tool upgrade shim-guard` or "
-        "`pipx upgrade shim-guard`.",
+        "Unable to update automatically. Run `uv tool upgrade shim` or "
+        "`pipx upgrade shim`.",
         err=True,
     )
     raise typer.Exit(2)

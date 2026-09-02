@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest released `shim-guard` version receives security fixes.
+Only the latest released `shim` version receives security fixes.
 
 ## Reporting a vulnerability
 

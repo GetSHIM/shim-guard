@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://getshim.tech">
-    <img src="https://raw.githubusercontent.com/GetSHIM/shim-guard/main/docs/assets/shim-logo.svg" alt="shim" width="280">
+    <img src="https://raw.githubusercontent.com/GetSHIM/shim-cli/main/docs/assets/shim-logo.svg" alt="shim" width="280">
   </a>
 </p>
 
@@ -12,11 +12,11 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/shim-guard/"><img src="https://img.shields.io/pypi/v/shim-guard.svg?logo=pypi&amp;label=PyPI" alt="PyPI version"></a>
-  <a href="https://github.com/GetSHIM/shim-guard/actions/workflows/ci.yml"><img src="https://github.com/GetSHIM/shim-guard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://pypi.org/project/shim-guard/"><img src="https://img.shields.io/pypi/pyversions/shim-guard.svg?logo=python&amp;logoColor=white" alt="Python versions"></a>
-  <a href="https://github.com/GetSHIM/shim-guard/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GetSHIM/shim-guard.svg" alt="License"></a>
-  <a href="https://github.com/GetSHIM/shim-guard/stargazers"><img src="https://img.shields.io/github/stars/GetSHIM/shim-guard.svg?style=flat&amp;logo=github" alt="GitHub stars"></a>
+  <a href="https://pypi.org/project/shim/"><img src="https://img.shields.io/pypi/v/shim.svg?logo=pypi&amp;label=PyPI" alt="PyPI version"></a>
+  <a href="https://github.com/GetSHIM/shim-cli/actions/workflows/ci.yml"><img src="https://github.com/GetSHIM/shim-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/shim/"><img src="https://img.shields.io/pypi/pyversions/shim.svg?logo=python&amp;logoColor=white" alt="Python versions"></a>
+  <a href="https://github.com/GetSHIM/shim-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GetSHIM/shim-cli.svg" alt="License"></a>
+  <a href="https://github.com/GetSHIM/shim-cli/stargazers"><img src="https://img.shields.io/github/stars/GetSHIM/shim-cli.svg?style=flat&amp;logo=github" alt="GitHub stars"></a>
 </p>
 
 shim Guard shows you what your coding agent actually sends to the model — how
@@ -34,7 +34,7 @@ Two commands, two different questions:
 
 > [!WARNING]
 > shim Guard is alpha software and a best-effort guard, not a data-loss
-> prevention boundary. Read the [privacy limitations](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md) before
+> prevention boundary. Read the [privacy limitations](https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md) before
 > using it with sensitive data.
 
 ## Measure a session
@@ -128,10 +128,13 @@ shim Guard supports CPython 3.9 through 3.13 on macOS and Linux, including
 the system `python3` on macOS. Choose one package manager:
 
 ```console
-uv tool install --compile-bytecode shim-guard
+uv tool install --compile-bytecode shim
 # or
-pipx install shim-guard
+pipx install shim
 ```
+
+If you installed the previous `shim-guard` distribution, uninstall it before
+installing `shim`; both distributions provide the same commands.
 
 Preview and install the hook for your client:
 
@@ -149,12 +152,12 @@ commands.
 Codex and Claude Code users can install the repository's marketplace plugin:
 
 ```console
-codex plugin marketplace add GetSHIM/shim-guard
+codex plugin marketplace add GetSHIM/shim-cli
 codex plugin add shim-guard@shim-guard
 ```
 
 ```text
-/plugin marketplace add GetSHIM/shim-guard
+/plugin marketplace add GetSHIM/shim-cli
 /plugin install shim-guard@shim-guard
 ```
 
@@ -267,7 +270,7 @@ temporary cleanup. `shim config --ledger` opts in to monthly retained copies.
 A month becomes eligible for pruning 30 days after its end and is removed on a
 later ledger write; `shim ledger purge` deletes all ledger files immediately.
 Nothing is ever transmitted. See
-[Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md#what-is-recorded).
+[Privacy](https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md#what-is-recorded).
 
 ## Configure detection
 
@@ -314,8 +317,8 @@ and `redact` all use the same policy.
 - Redacted temporary files may still contain missed sensitive content. Review
   them before resubmission and delete them when finished.
 
-See [Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md) for the full trust boundary and
-[Compatibility](https://github.com/GetSHIM/shim-guard/blob/main/docs/compatibility.md) for tested versions and evidence.
+See [Privacy](https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md) for the full trust boundary and
+[Compatibility](https://github.com/GetSHIM/shim-cli/blob/main/docs/compatibility.md) for tested versions and evidence.
 
 ## Uninstall
 
@@ -330,12 +333,12 @@ it edits nothing, so there is nothing to undo.
 
 ## Project documentation
 
-- [Architecture](https://github.com/GetSHIM/shim-guard/blob/main/docs/architecture.md)
-- [Compatibility](https://github.com/GetSHIM/shim-guard/blob/main/docs/compatibility.md)
-- [Privacy](https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md)
-- [0.2.0 release notes](https://github.com/GetSHIM/shim-guard/blob/main/docs/releases/0.2.0.md)
-- [Contributing](https://github.com/GetSHIM/shim-guard/blob/main/CONTRIBUTING.md)
-- [Security policy](https://github.com/GetSHIM/shim-guard/blob/main/SECURITY.md)
+- [Architecture](https://github.com/GetSHIM/shim-cli/blob/main/docs/architecture.md)
+- [Compatibility](https://github.com/GetSHIM/shim-cli/blob/main/docs/compatibility.md)
+- [Privacy](https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md)
+- [0.2.0 release notes](https://github.com/GetSHIM/shim-cli/blob/main/docs/releases/0.2.0.md)
+- [Contributing](https://github.com/GetSHIM/shim-cli/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/GetSHIM/shim-cli/blob/main/SECURITY.md)
 
 ## Development
 
@@ -347,4 +350,4 @@ python scripts/check.py
 
 ## License
 
-Apache-2.0. See [LICENSE](https://github.com/GetSHIM/shim-guard/blob/main/LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/GetSHIM/shim-cli/blob/main/LICENSE).

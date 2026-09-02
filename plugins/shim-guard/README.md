@@ -46,7 +46,7 @@ plugin launcher switches to the package hook. Codex requires that package hook
 today.
 
 ```console
-uv tool install shim-guard
+uv tool install shim
 shim help
 ```
 

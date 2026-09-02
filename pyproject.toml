@@ -1,5 +1,5 @@
 [project]
-name = "shim-guard"
+name = "shim"
 version = "0.2.0"
 description = "Local sensitive-data detection, prompt reporting, opt-in prompt blocking, verified Claude tool-event masking, and API-traffic watching"
 readme = "README.md"
@@ -28,10 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/GetSHIM/shim-guard"
-Repository = "https://github.com/GetSHIM/shim-guard"
-Issues = "https://github.com/GetSHIM/shim-guard/issues"
-Documentation = "https://github.com/GetSHIM/shim-guard#readme"
+Homepage = "https://github.com/GetSHIM/shim-cli"
+Repository = "https://github.com/GetSHIM/shim-cli"
+Issues = "https://github.com/GetSHIM/shim-cli/issues"
+Documentation = "https://github.com/GetSHIM/shim-cli#readme"
 
 [project.scripts]
 shim = "shim_guard.cli.app:main"

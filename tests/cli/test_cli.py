@@ -138,11 +138,12 @@ def test_version_option_reports_package_version() -> None:
     result = runner.invoke(app, ["--version"], color=False)
 
     assert result.exit_code == 0
-    assert result.output == f"shim-guard {__version__}\n"
+    assert result.output == f"shim {__version__}\n"
 
 
 def test_update_uses_the_original_package_manager(monkeypatch) -> None:
     calls = []
+    packages = []
 
     def run(command, *, check):
         calls.append(command)
@@ -153,15 +154,20 @@ def test_update_uses_the_original_package_manager(monkeypatch) -> None:
         distribution = SimpleNamespace(
             read_text=lambda _, installer=installer: installer
         )
+
+        def get_distribution(package, distribution=distribution):
+            packages.append(package)
+            return distribution
+
         monkeypatch.setattr(
-            "shim_guard.cli.app.metadata.distribution",
-            lambda _, distribution=distribution: distribution,
+            "shim_guard.cli.app.metadata.distribution", get_distribution
         )
         assert runner.invoke(app, ["update"]).exit_code == 0
 
+    assert packages == ["shim", "shim"]
     assert calls == [
-        ("uv", "tool", "upgrade", "shim-guard"),
-        ("pipx", "upgrade", "shim-guard"),
+        ("uv", "tool", "upgrade", "shim"),
+        ("pipx", "upgrade", "shim"),
     ]
 
 

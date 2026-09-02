@@ -256,7 +256,7 @@ wheels = [
 ]
 
 [[package]]
-name = "shim-guard"
+name = "shim"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [

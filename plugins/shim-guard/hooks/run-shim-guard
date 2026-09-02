@@ -22,5 +22,5 @@ if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "$archive" ]; then
 fi
 
 printf '%s\n' \
-    "shim-guard: no hook available. Install with 'uv tool install shim-guard' or reinstall the plugin; the prompt was not inspected." >&2
+    "shim-guard: no hook available. Install with 'uv tool install shim' or reinstall the plugin; the prompt was not inspected." >&2
 exit 0
