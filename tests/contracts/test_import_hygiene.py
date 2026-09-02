@@ -89,7 +89,7 @@ hook._output(payload, CLIENT)
 
 third_party = []
 for name in sorted({module.split(".")[0] for module in sys.modules}):
-    if name.startswith("_"):
+    if name.startswith("_") or name == "shim_guard":
         continue
     try:
         specification = importlib.util.find_spec(name)
