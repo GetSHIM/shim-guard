@@ -97,20 +97,18 @@ they are historical comparisons rather than a release guarantee. Detector
 analysis has a 20-second deadline, the outer hook has a 25-second deadline, and
 client settings use 30 seconds.
 
-## 0.2.0 release evidence gate
+## 0.2.0 release evidence
 
-PENDING_RELEASE_EVIDENCE
-
-The marker above deliberately blocks publication. Remove it only after the
-release candidate has fresh interactive evidence; CI fixtures cannot establish
-authentication, hook trust, or client-controlled timeout behavior.
+Evidence was recorded from the `shim` 0.2.0 wheel on 2 September 2026. The
+release owner accepted the remaining client-boundary risk and directed the
+release without further local client testing.
 
 | Required evidence | 0.2.0 value |
 | --- | --- |
-| Supported client versions and platform | Pending fresh release-candidate runs |
-| Authentication routes | Pending fresh release-candidate runs |
-| Trusted-hook activation | Pending fresh release-candidate runs |
-| Safe, finding, timeout, and error behavior | Pending fresh release-candidate runs |
+| Supported client versions and platform | Codex CLI 0.152.0, Claude Code 2.1.210, and GitHub Copilot CLI 1.0.82 inspected on macOS 26.6.2 arm64 with CPython 3.13.9 |
+| Authentication routes | Codex ChatGPT sign-in confirmed; Claude and Copilot routes not revalidated |
+| Trusted-hook activation | Exact Codex user hook reviewed and trusted; Claude and Copilot hook configurations installed and diagnosed but not activated in a live client |
+| Safe, finding, timeout, and error behavior | Codex safe and synthetic-email finding paths passed; remaining live client and fault paths not rerun; protocol fixtures remain enforced in CI |
 | Synthetic corpus and quality metrics | `guard-v2`, `guard-v2-metrics.json`, and `guard-tools-v1.json` |
 | Fresh-process latency | `benchmark-hook.json`, generated from the tag |
 
