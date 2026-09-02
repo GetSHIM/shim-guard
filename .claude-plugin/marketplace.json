@@ -1,17 +1,17 @@
 {
   "name": "shim-guard",
   "owner": {
-    "name": "SHIM Engineering",
+    "name": "shim Engineering",
     "url": "https://github.com/GetSHIM"
   },
-  "description": "Local prompt privacy plugins from SHIM Engineering.",
+  "description": "Local sensitive-data detection and reporting for coding agents, from shim Engineering.",
   "plugins": [
     {
       "name": "shim-guard",
       "source": "./plugins/shim-guard",
-      "description": "Block sensitive prompt data before it reaches coding-agent models.",
+      "description": "Detect and report sensitive prompts locally; verified Claude events mask eligible tool results and structured arguments by default, and prompt blocking is opt in.",
       "author": {
-        "name": "SHIM Engineering"
+        "name": "shim Engineering"
       },
       "license": "Apache-2.0",
       "category": "security",

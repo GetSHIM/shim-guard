@@ -1,5 +1,3 @@
-"""Strict codec primitives shared by prompt-hook clients."""
-
 from __future__ import annotations
 
 import json
@@ -14,8 +12,8 @@ EVENT_NAME = "UserPromptSubmit"
 MAX_REASON_CHARS = 4_000
 MAX_OUTPUT_BYTES = 4_096
 _ERROR_REASON = (
-    "SHIM Guard could not safely inspect this prompt. "
-    "Try again or run `shim scan` locally."
+    "SHIM Guard could not inspect this prompt, so it was withheld. "
+    "Run `shim doctor {client}` for the reason."
 )
 
 
@@ -38,7 +36,6 @@ def _float(value: str) -> float:
 
 
 def parse_object(raw: bytes) -> dict[str, object]:
-    """Return one strict JSON hook payload object."""
     try:
         payload = json.loads(
             raw.decode("utf-8", errors="strict"),
@@ -54,7 +51,6 @@ def parse_object(raw: bytes) -> dict[str, object]:
 
 
 def parse_input(raw: bytes) -> str:
-    """Return the submitted prompt from one strict hook payload."""
     payload = parse_object(raw)
     if payload.get("hook_event_name") != EVENT_NAME:
         raise ValueError("unexpected prompt-hook event")
@@ -86,7 +82,6 @@ def block_output(
     *,
     suppress_original_prompt: bool = False,
 ) -> bytes:
-    """Serialize a blocked decision using the common native hook shape."""
     if not decision.blocked:
         return b""
     if not isinstance(suggestion_path, str) or not suggestion_path:
@@ -107,6 +102,16 @@ def block_output(
     return _json_block(reason, suppress_original_prompt)
 
 
-def error_output(*, suppress_original_prompt: bool = False) -> bytes:
-    """Return the generic fail-closed response without input-derived data."""
-    return _json_block(_ERROR_REASON, suppress_original_prompt)
+def warn_output(decision: GuardDecision) -> bytes:
+    if not decision.blocked:
+        return b""
+    counts = ", ".join(f"{category} ({count})" for category, count in decision.counts)
+    document = {"systemMessage": f"shim: found {counts} in your prompt. Not modified."}
+    output = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
+    if len(output) > MAX_OUTPUT_BYTES:
+        raise ValueError("warn output exceeds 4,096 bytes")
+    return output
+
+
+def error_output(client: str, *, suppress_original_prompt: bool = False) -> bytes:
+    return _json_block(_ERROR_REASON.format(client=client), suppress_original_prompt)

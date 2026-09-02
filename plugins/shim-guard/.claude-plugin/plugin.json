@@ -1,13 +1,13 @@
 {
   "name": "shim-guard",
-  "displayName": "SHIM Guard",
-  "version": "0.1.3",
-  "description": "Block sensitive prompt data before it reaches coding-agent models.",
+  "displayName": "shim Guard",
+  "version": "0.2.0",
+  "description": "Detect and report sensitive prompts locally; verified Claude events mask eligible tool results and structured arguments by default, and prompt blocking is opt in.",
   "author": {
-    "name": "SHIM Engineering"
+    "name": "shim Engineering"
   },
-  "homepage": "https://github.com/GetSHIM/shim-guard",
-  "repository": "https://github.com/GetSHIM/shim-guard",
+  "homepage": "https://github.com/GetSHIM/shim-cli",
+  "repository": "https://github.com/GetSHIM/shim-cli",
   "license": "Apache-2.0",
   "keywords": [
     "privacy",

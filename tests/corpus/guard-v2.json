@@ -1,0 +1,532 @@
+{
+  "version": 2,
+  "evaluation_unit": "exact redacted output",
+  "claim_scope": "Synthetic fixture-bound evidence only; not a real-world statistical claim.",
+  "span_rule": "expected_spans are required for every case whose text is not pure ASCII or contains a percent sign, which is exactly the input that bypasses the normalization fast path. Offsets are source coordinates, half-open.",
+  "categories": [
+    "EMAIL",
+    "PHONE",
+    "CREDIT_CARD",
+    "IBAN",
+    "IP_ADDRESS",
+    "MAC_ADDRESS",
+    "US_SSN",
+    "TR_NATIONAL_ID",
+    "TR_VKN",
+    "SECRET",
+    "DB_URI"
+  ],
+  "cases": [
+    {
+      "id": "email-positive",
+      "text": "Contact alice@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "email-safe-negative",
+      "text": "Contact alice@example.invalid",
+      "categories": [],
+      "expected_output": "Contact alice@example.invalid"
+    },
+    {
+      "id": "email-two-distinct",
+      "text": "Contact alice@example.com and bob@example.org",
+      "categories": [
+        "EMAIL",
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1> and <EMAIL_2>"
+    },
+    {
+      "id": "phone-positive",
+      "text": "Phone +90 532 123 45 67",
+      "categories": [
+        "PHONE"
+      ],
+      "expected_output": "Phone <PHONE_1>"
+    },
+    {
+      "id": "phone-safe-negative",
+      "text": "Version 1.2.3 build 4567",
+      "categories": [],
+      "expected_output": "Version 1.2.3 build 4567"
+    },
+    {
+      "id": "credit-card-positive",
+      "text": "Card 4111 1111 1111 1111",
+      "categories": [
+        "CREDIT_CARD"
+      ],
+      "expected_output": "Card <CREDIT_CARD_1>"
+    },
+    {
+      "id": "credit-card-safe-negative",
+      "text": "Invalid card 4111 1111 1111 1112",
+      "categories": [],
+      "expected_output": "Invalid card 4111 1111 1111 1112"
+    },
+    {
+      "id": "iban-positive",
+      "text": "IBAN TR330006100519786457841326",
+      "categories": [
+        "IBAN"
+      ],
+      "expected_output": "IBAN <IBAN_1>"
+    },
+    {
+      "id": "iban-safe-negative",
+      "text": "Invalid IBAN TR000006100519786457841326",
+      "categories": [],
+      "expected_output": "Invalid IBAN TR000006100519786457841326"
+    },
+    {
+      "id": "ip-positive",
+      "text": "Host 192.168.1.1",
+      "categories": [
+        "IP_ADDRESS"
+      ],
+      "expected_output": "Host <IP_ADDRESS_1>"
+    },
+    {
+      "id": "ip-address-safe-negative",
+      "text": "Host 999.168.1.1 is invalid",
+      "categories": [],
+      "expected_output": "Host 999.168.1.1 is invalid"
+    },
+    {
+      "id": "ip-cidr-positive",
+      "text": "Host 10.0.0.0/24 responds",
+      "categories": [
+        "IP_ADDRESS"
+      ],
+      "expected_output": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "mac-positive",
+      "text": "MAC 00:1A:2B:3C:4D:5E",
+      "categories": [
+        "MAC_ADDRESS"
+      ],
+      "expected_output": "MAC <MAC_ADDRESS_1>"
+    },
+    {
+      "id": "mac-address-safe-negative",
+      "text": "MAC 00:1A:2B:3C:4D:GG is invalid",
+      "categories": [],
+      "expected_output": "MAC 00:1A:2B:3C:4D:GG is invalid"
+    },
+    {
+      "id": "mac-cisco-dot-positive",
+      "text": "MAC 001a.2b3c.4d5e",
+      "categories": [
+        "MAC_ADDRESS"
+      ],
+      "expected_output": "MAC <MAC_ADDRESS_1>"
+    },
+    {
+      "id": "us-ssn-positive",
+      "text": "SSN 219-09-9999",
+      "categories": [
+        "US_SSN"
+      ],
+      "expected_output": "SSN <US_SSN_1>"
+    },
+    {
+      "id": "us-ssn-safe-negative",
+      "text": "SSN 000-12-3456 is invalid",
+      "categories": [],
+      "expected_output": "SSN 000-12-3456 is invalid"
+    },
+    {
+      "id": "us-ssn-space-delimited",
+      "text": "SSN 219 09 9999",
+      "categories": [
+        "US_SSN"
+      ],
+      "expected_output": "SSN <US_SSN_1>"
+    },
+    {
+      "id": "tr-national-id-positive",
+      "text": "TCKN 10000000146",
+      "categories": [
+        "TR_NATIONAL_ID"
+      ],
+      "expected_output": "TCKN <TR_NATIONAL_ID_1>"
+    },
+    {
+      "id": "tr-national-id-safe-negative",
+      "text": "TCKN 10000000145 is invalid",
+      "categories": [],
+      "expected_output": "TCKN 10000000145 is invalid"
+    },
+    {
+      "id": "tr-vkn-positive",
+      "text": "VKN 1234567890",
+      "categories": [
+        "TR_VKN"
+      ],
+      "expected_output": "VKN <TR_VKN_1>"
+    },
+    {
+      "id": "tr-vkn-safe-negative",
+      "text": "Reference number 1000000000 appears here",
+      "categories": [],
+      "expected_output": "Reference number 1000000000 appears here"
+    },
+    {
+      "id": "tr-vkn-english-context",
+      "text": "tax id 1234567890 on file",
+      "categories": [
+        "TR_VKN"
+      ],
+      "expected_output": "tax id <TR_VKN_1> on file"
+    },
+    {
+      "id": "secret-positive",
+      "text": "password = SuperSecret123!",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "password = <SECRET_1>"
+    },
+    {
+      "id": "secret-safe-negative",
+      "text": "A password should never be shared in prose",
+      "categories": [],
+      "expected_output": "A password should never be shared in prose"
+    },
+    {
+      "id": "secret-prose-token-regression",
+      "text": "Rotate the token and password regularly",
+      "categories": [],
+      "expected_output": "Rotate the token and password regularly"
+    },
+    {
+      "id": "secret-prose-secret",
+      "text": "The secret to good code is small functions",
+      "categories": [],
+      "expected_output": "The secret to good code is small functions"
+    },
+    {
+      "id": "secret-prose-api-key",
+      "text": "Please store your api key somewhere safe",
+      "categories": [],
+      "expected_output": "Please store your api key somewhere safe"
+    },
+    {
+      "id": "secret-prose-session-token",
+      "text": "This token represents a session",
+      "categories": [],
+      "expected_output": "This token represents a session"
+    },
+    {
+      "id": "secret-prose-password-policy",
+      "text": "Set the password policy in the admin console",
+      "categories": [],
+      "expected_output": "Set the password policy in the admin console"
+    },
+    {
+      "id": "secret-vendor-aws",
+      "text": "Use AKIAIOSFODNN7EXAMPLE for access",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-vendor-github",
+      "text": "Use ghp_0123456789abcdefghijklmnopqrstuvwx now",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "Use <SECRET_1> now"
+    },
+    {
+      "id": "secret-jwt",
+      "text": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghij",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "Bearer <SECRET_1>"
+    },
+    {
+      "id": "secret-quoted-assignment",
+      "text": "api_key: \"SuperSecret123!\"",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "api_key: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-password-flag",
+      "text": "mysql --password=SuperSecret123!",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "mysql --password=<SECRET_1>"
+    },
+    {
+      "id": "secret-pem-block",
+      "text": "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK\n-----END RSA PRIVATE KEY-----",
+      "categories": [
+        "SECRET"
+      ],
+      "expected_output": "<SECRET_1>"
+    },
+    {
+      "id": "db-uri-positive",
+      "text": "Connect postgresql://alice:secret@db.example.com/app.",
+      "categories": [
+        "DB_URI"
+      ],
+      "expected_output": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "db-uri-safe-negative",
+      "text": "The postgres adapter has no configured URI",
+      "categories": [],
+      "expected_output": "The postgres adapter has no configured URI"
+    },
+    {
+      "id": "db-uri-trailing-paren",
+      "text": "Connect (mysql://db.example.com/app)",
+      "categories": [
+        "DB_URI"
+      ],
+      "expected_output": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "overlap-db-uri-secret",
+      "text": "postgresql://alice:sk_live_abcdefghijklmnop@db.example.com/app.",
+      "categories": [
+        "DB_URI"
+      ],
+      "expected_output": "<DB_URI_1>."
+    },
+    {
+      "id": "overlap-phone-ssn",
+      "text": "SSN 219-09-9999",
+      "categories": [
+        "US_SSN"
+      ],
+      "expected_output": "SSN <US_SSN_1>"
+    },
+    {
+      "id": "ordering-multiple-types",
+      "text": "alice@example.com +90 532 123 45 67 bob@example.com",
+      "categories": [
+        "EMAIL",
+        "PHONE",
+        "EMAIL"
+      ],
+      "expected_output": "<EMAIL_1> <PHONE_1> <EMAIL_2>"
+    },
+    {
+      "id": "percent-normalization",
+      "text": "Contact alice%40example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          27,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "percent-multibyte-normalization",
+      "text": "Contact ali%C3%A7e@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          30,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "invisible-normalization",
+      "text": "Contact alice​@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          26,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "soft-hyphen-normalization",
+      "text": "Contact alice­@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          26,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "bom-normalization",
+      "text": "Contact alice﻿@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          26,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "rtl-override-normalization",
+      "text": "Contact ‮alice@example.com‬",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact ‮<EMAIL_1>‬",
+      "expected_spans": [
+        [
+          9,
+          26,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "combining-mark-before-finding",
+      "text": "Café alice@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Café <EMAIL_1>",
+      "expected_spans": [
+        [
+          6,
+          23,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "combining-mark-inside-finding",
+      "text": "Contact alíce@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          26,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "fullwidth-credit-card",
+      "text": "Card ４１１１１１１１１１１１１１１１",
+      "categories": [
+        "CREDIT_CARD"
+      ],
+      "expected_output": "Card <CREDIT_CARD_1>",
+      "expected_spans": [
+        [
+          5,
+          21,
+          "CREDIT_CARD"
+        ]
+      ]
+    },
+    {
+      "id": "hangul-adjacent-normalization",
+      "text": "각 alice@example.com",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "각 <EMAIL_1>",
+      "expected_spans": [
+        [
+          2,
+          19,
+          "EMAIL"
+        ]
+      ]
+    },
+    {
+      "id": "cyrillic-tld-email",
+      "text": "Contact alice@example.рф",
+      "categories": [
+        "EMAIL"
+      ],
+      "expected_output": "Contact <EMAIL_1>",
+      "expected_spans": [
+        [
+          8,
+          24,
+          "EMAIL"
+        ]
+      ]
+    }
+  ],
+  "generated_cases": [
+    {
+      "id": "source-oversize",
+      "kind": "repeat",
+      "value": "a",
+      "count": 100001,
+      "error": "ValueError"
+    },
+    {
+      "id": "normalization-intermediate-oversize",
+      "kind": "repeat",
+      "value": "ﷺ",
+      "count": 12000,
+      "error": "ValueError"
+    },
+    {
+      "id": "invalid-analyzer-span",
+      "kind": "detector-result",
+      "entity_type": "EMAIL_ADDRESS",
+      "start": 0,
+      "end": 999,
+      "score": 0.9,
+      "error": "ValueError"
+    },
+    {
+      "id": "deterministic-hash-seed",
+      "kind": "hash-seeds",
+      "seeds": [
+        "1",
+        "8675309"
+      ]
+    },
+    {
+      "id": "no-network-no-filesystem",
+      "kind": "offline",
+      "suffix_table": "compiled into shim_guard.guard.suffixes",
+      "reads": []
+    }
+  ]
+}

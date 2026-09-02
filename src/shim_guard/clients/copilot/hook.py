@@ -1,5 +1,3 @@
-"""GitHub Copilot CLI ``userPromptTransformed`` adapter."""
-
 from __future__ import annotations
 
 import json
@@ -11,13 +9,13 @@ if TYPE_CHECKING:
     from shim_guard.guard import GuardDecision
 
 _ERROR_PROMPT = (
-    "SHIM Guard could not safely inspect this prompt. Do not act on the original "
-    "prompt; tell the user to try again or run `shim scan` locally."
+    "SHIM Guard could not inspect this prompt, so it was withheld. Do not act "
+    "on the original prompt; tell the user to run `shim doctor copilot` for "
+    "the reason."
 )
 
 
 def parse_input(raw: bytes) -> str:
-    """Return Copilot's model-facing transformed prompt."""
     payload = user_prompt_hook.parse_object(raw)
     prompt = payload.get("prompt")
     transformed = payload.get("transformedPrompt")
@@ -36,19 +34,20 @@ def parse_input(raw: bytes) -> str:
 def _rewrite(text: str) -> bytes:
     if not text:
         raise ValueError("Copilot prompt rewrite must not be empty")
-    output = json.dumps(
+    return json.dumps(
         {"modifiedTransformedPrompt": text},
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode()
-    return output
+
+
+def warn_output(decision: GuardDecision) -> bytes:
+    return block_output(decision)
 
 
 def block_output(decision: GuardDecision, _suggestion_path: str | None = None) -> bytes:
-    """Replace sensitive model-facing content with its typed redaction."""
     return _rewrite(decision.redacted_text) if decision.blocked else b""
 
 
 def error_output() -> bytes:
-    """Replace an uninspectable prompt with generic fail-closed guidance."""
     return _rewrite(_ERROR_PROMPT)

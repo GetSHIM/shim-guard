@@ -1,12 +1,12 @@
 {
   "name": "shim-guard",
-  "version": "0.1.3",
-  "description": "Block sensitive prompt data before it reaches coding-agent models.",
+  "version": "0.2.0",
+  "description": "Detect and report sensitive prompt data locally; prompt blocking is opt in.",
   "author": {
-    "name": "SHIM Engineering"
+    "name": "shim Engineering"
   },
-  "homepage": "https://github.com/GetSHIM/shim-guard",
-  "repository": "https://github.com/GetSHIM/shim-guard",
+  "homepage": "https://github.com/GetSHIM/shim-cli",
+  "repository": "https://github.com/GetSHIM/shim-cli",
   "license": "Apache-2.0",
   "keywords": [
     "privacy",
@@ -14,18 +14,18 @@
     "prompt-hook"
   ],
   "interface": {
-    "displayName": "SHIM Guard",
-    "shortDescription": "Local pre-submit prompt privacy",
-    "longDescription": "Scans prompts locally and blocks sensitive data before model submission.",
-    "developerName": "SHIM Engineering",
+    "displayName": "shim Guard",
+    "shortDescription": "Local sensitive-data reporting",
+    "longDescription": "Detects and reports sensitive prompt data locally. Blocking is available only when enforcement is explicitly enabled.",
+    "developerName": "shim Engineering",
     "category": "Security",
     "capabilities": [
       "Hooks"
     ],
-    "websiteURL": "https://github.com/GetSHIM/shim-guard",
-    "privacyPolicyURL": "https://github.com/GetSHIM/shim-guard/blob/main/docs/privacy.md",
+    "websiteURL": "https://github.com/GetSHIM/shim-cli",
+    "privacyPolicyURL": "https://github.com/GetSHIM/shim-cli/blob/main/docs/privacy.md",
     "defaultPrompt": [
-      "Check whether SHIM Guard is installed and active."
+      "Check whether shim Guard is installed and active."
     ]
   }
 }

@@ -1,12 +1,9 @@
-"""Pure Guard decision and typed ordinal redaction."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
 
-from shim_guard.config import ENTITY_TYPES
-
 from .analyze import analyze
+from .entities import ENTITY_TYPES
 from .models import GuardDecision
 
 

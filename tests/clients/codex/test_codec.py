@@ -84,6 +84,6 @@ def test_block_output_remains_bounded() -> None:
 
 def test_error_block_is_generic_and_compact() -> None:
     assert error_output() == (
-        b'{"decision":"block","reason":"SHIM Guard could not safely inspect '
-        b'this prompt. Try again or run `shim scan` locally."}'
+        b'{"decision":"block","reason":"SHIM Guard could not inspect this '
+        b'prompt, so it was withheld. Run `shim doctor codex` for the reason."}'
     )

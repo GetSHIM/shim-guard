@@ -86,10 +86,18 @@ def test_inline_hook_detection_is_bounded_and_refuses_links(tmp_path: Path) -> N
 
     real = tmp_path / "real"
     real.mkdir()
+    (real / "config.toml").write_text("[hooks]\nUserPromptSubmit = []\n")
     linked = tmp_path / "linked"
     linked.symlink_to(real, target_is_directory=True)
+    assert has_inline_hooks(linked / "config.toml")
+
+    exposed = tmp_path / "exposed"
+    exposed.mkdir()
+    exposed.chmod(0o770)
+    to_exposed = tmp_path / "to-exposed"
+    to_exposed.symlink_to(exposed, target_is_directory=True)
     with pytest.raises(ValueError):
-        has_inline_hooks(linked / "config.toml")
+        has_inline_hooks(to_exposed / "config.toml")
 
     fifo = tmp_path / "config.fifo"
     os.mkfifo(fifo)

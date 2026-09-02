@@ -1,23 +1,17 @@
-"""Bounded detection orchestration and deterministic overlap handling."""
-
 from __future__ import annotations
 
 import contextlib
 import signal
+import threading
 import time
 from collections.abc import Iterable, Iterator
 
-from presidio_analyzer import RecognizerResult
-
-from shim_guard.config import ENTITY_TYPES, normalize_entities
-
+from .entities import ENTITY_TYPES, normalize_entities
 from .models import Finding
 from .normalize import normalize
-from .recognizers import ENTITY_MAP, LANGUAGE, analyzer
+from .recognizers import ENTITY_MAP, Match, analyze_text
 
-MAX_FINDINGS = 100
 ANALYSIS_DEADLINE_SECONDS = 20
-_MAX_ANALYZER_RESULTS = MAX_FINDINGS * len(ENTITY_MAP)
 _PRIORITY = {
     "DB_URI": 100,
     "SECRET": 90,
@@ -35,7 +29,9 @@ _PRIORITY = {
 
 @contextlib.contextmanager
 def _deadline() -> Iterator[None]:
-    """Bound analysis while preserving any earlier process deadline."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
 
     def expire(_signal_number: int, _frame: object) -> None:
         raise TimeoutError("SHIM Guard analysis deadline exceeded")
@@ -60,11 +56,9 @@ def _deadline() -> Iterator[None]:
                 signal.setitimer(signal.ITIMER_REAL, remaining, previous_interval)
 
 
-def _validated(items: Iterable[RecognizerResult], text_length: int) -> list[Finding]:
+def _validated(items: Iterable[Match], text_length: int) -> list[Finding]:
     unique: dict[tuple[str, int, int], Finding] = {}
-    for count, item in enumerate(items, start=1):
-        if count > _MAX_ANALYZER_RESULTS:
-            raise ValueError("Guard analysis exceeded the safe finding limit.")
+    for item in items:
         entity_type = getattr(item, "entity_type", None)
         start = getattr(item, "start", None)
         end = getattr(item, "end", None)
@@ -130,17 +124,6 @@ def _resolve_overlaps(items: Iterable[Finding]) -> list[Finding]:
         component_end = max(component_end, item.end)
     collapse()
 
-    for item in ordered:
-        if not any(
-            selected.start <= item.start and item.end <= selected.end
-            for selected in resolved
-        ):
-            raise ValueError("Guard analyzer returned an unsafe overlap.")
-    if any(
-        left.end > right.start
-        for left, right in zip(resolved, resolved[1:], strict=False)
-    ):
-        raise ValueError("Guard analyzer returned an unsafe overlap.")
     return resolved
 
 
@@ -178,18 +161,12 @@ def analyze(
     normalized = normalize(text)
     if not normalized.text:
         return ()
-    source_entities = sorted(
+    source_entities = tuple(
         source for source, public in ENTITY_MAP.items() if public in enabled
     )
     try:
         with _deadline():
-            raw = analyzer().analyze(
-                text=normalized.text,
-                language=LANGUAGE,
-                entities=source_entities,
-                score_threshold=0.4,
-                return_decision_process=False,
-            )
+            raw = analyze_text(normalized.text, source_entities)
         normalized_findings = _resolve_overlaps(_validated(raw, len(normalized.text)))
     except TimeoutError as error:
         raise ValueError("Guard analysis exceeded its runtime limit.") from error
@@ -197,7 +174,4 @@ def analyze(
         raise
     except Exception as error:
         raise ValueError("Guard analysis failed safely.") from error
-    findings = _source_findings(normalized_findings, normalized.source_spans)
-    if len(findings) > MAX_FINDINGS:
-        raise ValueError("Guard analysis exceeded the safe finding limit.")
-    return tuple(findings)
+    return tuple(_source_findings(normalized_findings, normalized.source_spans))

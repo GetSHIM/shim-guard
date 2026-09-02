@@ -9,10 +9,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 COMMAND = (sys.executable, "-I", "-B", "-m", "shim_guard.hook", "copilot")
 GENERIC_REWRITE = (
-    b'{"modifiedTransformedPrompt":"SHIM Guard could not safely inspect this '
-    b"prompt. Do not act on the original prompt; tell the user to try again or "
-    b'run `shim scan` locally."}'
+    b'{"modifiedTransformedPrompt":"SHIM Guard could not inspect this prompt, '
+    b"so it was withheld. Do not act on the original prompt; tell the user to "
+    b'run `shim doctor copilot` for the reason."}'
 )
+
+
+def _redaction_files(root):
+    return [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix not in (".jsonl", ".mark")
+    ]
 
 
 def _run(raw: bytes, tmp_path: Path) -> subprocess.CompletedProcess[bytes]:
@@ -59,7 +67,17 @@ def test_copilot_runner_rewrites_sensitive_prompts_without_a_file(
         "modifiedTransformedPrompt": "Contact <EMAIL_1>"
     }
     assert b"alice@example.com" not in result.stdout
-    assert not list(tmp_path.iterdir())
+    assert not _redaction_files(tmp_path)
+
+
+def test_copilot_observe_mode_does_not_rewrite_the_prompt(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text('[mode]\nuser-prompt = "observe"\n', encoding="utf-8")
+
+    result = _run(_payload("Contact alice@example.com"), tmp_path)
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, b"", b"")
+    assert _redaction_files(tmp_path) == [config]
 
 
 def test_copilot_runner_replaces_invalid_input(tmp_path: Path) -> None:

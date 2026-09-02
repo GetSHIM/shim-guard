@@ -1,0 +1,9 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000017",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000017.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000018",
+  "permission_mode": "bypassPermissions",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "Call the probe_echo MCP tool with customer_email set to alice@example.com and note set to ping. Then reply with only the word DONE."
+}

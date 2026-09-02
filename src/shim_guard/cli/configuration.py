@@ -1,8 +1,6 @@
-"""User-facing entity policy workflow."""
-
 from __future__ import annotations
 
-from typing import Never
+from typing import NoReturn
 
 import typer
 from rich import box
@@ -11,15 +9,14 @@ from rich.text import Text
 
 from shim_guard.cli.output import console, emit, emit_json
 from shim_guard.config import (
-    DEFAULT_ENTITIES,
-    ENTITY_TYPES,
     MAX_CONFIG_BYTES,
     config_path,
-    load_entities,
-    normalize_entities,
-    render_entities,
+    load_policy,
+    render_settings,
 )
-from shim_guard.installation import (
+from shim_guard.events.diet import DEFAULT_TRANSFORMS
+from shim_guard.guard import DEFAULT_ENTITIES, ENTITY_TYPES, normalize_entities
+from shim_guard.settings_files import (
     InstallationError,
     apply,
     ensure_parent,
@@ -28,7 +25,9 @@ from shim_guard.installation import (
 )
 
 
-def _show(enabled: tuple[str, ...], title: str) -> None:
+def _show(
+    enabled: tuple[str, ...], title: str, ledger: bool, diet: tuple[str, ...]
+) -> None:
     selected = set(enabled)
     output = console()
     count = f"{len(enabled)}/{len(ENTITY_TYPES)}"
@@ -54,11 +53,20 @@ def _show(enabled: tuple[str, ...], title: str) -> None:
             )
             table.add_row(entity, status)
         output.print(table)
+    output.print(
+        Text(
+            f"Ledger: {'on' if ledger else 'off'}    "
+            f"Diet: {', '.join(diet) if diet else 'off'}",
+            style="dim",
+        )
+    )
     if not enabled:
         emit("WARN", "All sensitive-data detection is disabled.")
 
 
-def _fail(as_json: bool, message: str = "Unable to update entity settings.") -> Never:
+def _fail(
+    as_json: bool, message: str = "Unable to update entity settings."
+) -> NoReturn:
     if as_json:
         emit_json("config", "error", error="unable to process entity settings")
     else:
@@ -83,15 +91,18 @@ def configure(
     enable: tuple[str, ...],
     disable: tuple[str, ...],
     reset: bool,
+    ledger: bool | None,
+    diet: bool | None,
     yes: bool,
     as_json: bool,
 ) -> None:
-    """Show or safely update the enabled entity types."""
     try:
         target = config_path()
     except ValueError:
         _fail(as_json, "Entity settings path is invalid.")
-    changing = bool(only or enable or disable or reset)
+    changing = bool(
+        only or enable or disable or reset or ledger is not None or diet is not None
+    )
     if reset and (only or enable or disable):
         _fail(as_json, "--reset cannot be combined with entity options.")
     if only and (enable or disable):
@@ -99,16 +110,39 @@ def configure(
     if set(enable).intersection(disable):
         _fail(as_json, "The same entity cannot be enabled and disabled.")
 
+    # Preserve modes and tool scopes.
+    try:
+        policy = load_policy(target)
+    except (OSError, ValueError):
+        policy = None
+    if policy is None and not (reset or only):
+        _fail(
+            as_json,
+            "Entity settings are invalid or unsafe. Reset malformed contents; review unsafe paths manually.",
+        )
+
     try:
         if reset:
-            enabled = DEFAULT_ENTITIES
-        elif only:
-            enabled = normalize_entities(set(only))
+            enabled, modes, tool_entities = DEFAULT_ENTITIES, {}, {}
+            keep_ledger, keep_diet = False, DEFAULT_TRANSFORMS
         else:
-            selected = set(load_entities(target))
-            selected.update(enable)
-            selected.difference_update(disable)
-            enabled = normalize_entities(selected)
+            assert policy is not None or only
+            modes = policy.modes if policy else {}
+            tool_entities = policy.tool_entities if policy else {}
+            keep_ledger = policy.ledger if policy else False
+            if ledger is not None:
+                keep_ledger = ledger
+            keep_diet = policy.diet if policy else DEFAULT_TRANSFORMS
+            if diet is not None:
+                keep_diet = DEFAULT_TRANSFORMS if diet else ()
+            if only:
+                enabled = normalize_entities(set(only))
+            else:
+                assert policy is not None
+                selected = set(policy.entities)
+                selected.update(enable)
+                selected.difference_update(disable)
+                enabled = normalize_entities(selected)
     except (OSError, ValueError):
         _fail(
             as_json,
@@ -117,16 +151,16 @@ def configure(
 
     if not changing:
         if as_json:
-            _emit_settings_json(enabled)
+            _emit_settings_json(enabled, ledger=keep_ledger, diet=list(keep_diet))
             return
-        _show(enabled, "Current detection")
+        _show(enabled, "Current detection", keep_ledger, keep_diet)
         emit("PASS", f"File: {target}")
         return
 
     if as_json and not yes:
         _fail(True)
     if not as_json:
-        _show(enabled, "New detection")
+        _show(enabled, "New detection", keep_ledger, keep_diet)
         emit("WARN", f"File: {target}")
         if not yes and not typer.confirm("Save these settings?", default=False):
             emit("WARN", "Settings unchanged.")
@@ -135,12 +169,20 @@ def configure(
     try:
         ensure_parent(target)
         state = inspect_file(target, MAX_CONFIG_BYTES)
-        changed = apply(plan_change(target, state, render_entities(enabled)))
+        changed = apply(
+            plan_change(
+                target,
+                state,
+                render_settings(enabled, modes, tool_entities, keep_ledger, keep_diet),
+            )
+        )
     except (InstallationError, OSError, ValueError):
         _fail(as_json, "Entity settings were unsafe or changed; nothing was saved.")
 
     if as_json:
-        _emit_settings_json(enabled, changed=changed)
+        _emit_settings_json(
+            enabled, changed=changed, ledger=keep_ledger, diet=list(keep_diet)
+        )
     else:
         emit(
             "PASS",

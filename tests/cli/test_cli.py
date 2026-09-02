@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from click import unstyle
 from typer.testing import CliRunner
 
@@ -16,6 +17,9 @@ from shim_guard import __version__
 from shim_guard.cli import output
 from shim_guard.cli.app import app
 from shim_guard.cli.output import terminal_text
+from shim_guard.config import load_policy
+from shim_guard.events.diet import DEFAULT_TRANSFORMS
+from shim_guard.guard import DEFAULT_ENTITIES
 
 runner = CliRunner()
 
@@ -111,20 +115,21 @@ def test_help_command_lists_a_description_for_every_command() -> None:
     result = runner.invoke(app, ["help"], color=False)
     rendered = unstyle(result.output)
     descriptions = (
-        "Show command usage and descriptions.",
-        "Update SHIM Guard with its installation tool.",
-        "Run the local synthetic detector proof.",
-        "Scan bounded UTF-8 text from standard input.",
-        "Redact bounded UTF-8 text from standard input.",
-        "Show or change locally enabled sensitive-data entities.",
-        "Preview or install a client prompt hook.",
-        "Show the prompt-hook installation state.",
-        "Run client compatibility and hook health checks.",
-        "Remove only SHIM Guard's client prompt hook.",
+        "Show help.",
+        "Update SHIM Guard.",
+        "Run a synthetic detector check.",
+        "Scan UTF-8 stdin.",
+        "Redact UTF-8 stdin.",
+        "Show or change detection settings.",
+        "Preview or install a client hook.",
+        "Show hook status.",
+        "Check client and hook health.",
+        "Remove SHIM Guard's client hook.",
     )
 
     assert result.exit_code == 0
-    assert "Usage: shim [OPTIONS] COMMAND [ARGS]..." in rendered
+    assert "Usage: shim [OPTIONS]" in rendered
+    assert "[ARGS]..." in rendered
     assert "--version" in rendered
     assert all(description in rendered for description in descriptions)
 
@@ -133,11 +138,12 @@ def test_version_option_reports_package_version() -> None:
     result = runner.invoke(app, ["--version"], color=False)
 
     assert result.exit_code == 0
-    assert result.output == f"shim-guard {__version__}\n"
+    assert result.output == f"shim {__version__}\n"
 
 
 def test_update_uses_the_original_package_manager(monkeypatch) -> None:
     calls = []
+    packages = []
 
     def run(command, *, check):
         calls.append(command)
@@ -148,15 +154,20 @@ def test_update_uses_the_original_package_manager(monkeypatch) -> None:
         distribution = SimpleNamespace(
             read_text=lambda _, installer=installer: installer
         )
+
+        def get_distribution(package, distribution=distribution):
+            packages.append(package)
+            return distribution
+
         monkeypatch.setattr(
-            "shim_guard.cli.app.metadata.distribution",
-            lambda _, distribution=distribution: distribution,
+            "shim_guard.cli.app.metadata.distribution", get_distribution
         )
         assert runner.invoke(app, ["update"]).exit_code == 0
 
+    assert packages == ["shim", "shim"]
     assert calls == [
-        ("uv", "tool", "upgrade", "shim-guard"),
-        ("pipx", "upgrade", "shim-guard"),
+        ("uv", "tool", "upgrade", "shim"),
+        ("pipx", "upgrade", "shim"),
     ]
 
 
@@ -338,7 +349,11 @@ def test_claude_install_status_doctor_and_revert(monkeypatch, tmp_path: Path) ->
         "claude",
         "hook_configuration",
         "entity_settings",
+        "session_record",
         "runner",
+        "hook_resolution",
+        "duplicate_hooks",
+        "coverage",
         "hook_activation",
     }
     assert installed_document["permissions"] == original["permissions"]
@@ -386,7 +401,11 @@ def test_confirmation_and_doctor(monkeypatch, tmp_path: Path) -> None:
         "hooks_feature",
         "hook_configuration",
         "entity_settings",
+        "session_record",
         "runner",
+        "hook_resolution",
+        "duplicate_hooks",
+        "coverage",
         "hook_activation",
     }
     assert payload["status"] == "warning"
@@ -541,3 +560,260 @@ def test_doctor_version_states(monkeypatch, tmp_path: Path) -> None:
     assert codex_status(older) == "FAIL"
     assert codex_status(future) == "WARN"
     assert codex_status(current) == "PASS"
+
+
+def test_config_preserves_the_sections_it_does_not_change(monkeypatch, tmp_path: Path):
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\n\n'
+        "[entities]\n"
+        'Read = ["SECRET"]\n\n'
+        "[mode]\n"
+        'user-prompt = "enforce"\n',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["config", "--enable", "SECRET", "--yes"])
+
+    assert result.exit_code == 0
+    saved = target.read_text()
+    assert 'user-prompt = "enforce"' in saved
+    assert "Read = [" in saved
+    assert '"SECRET"' in saved
+
+    policy = load_policy(target)
+    assert policy.mode_for("user-prompt") == "enforce"
+    assert policy.entities_for("Read") == ("SECRET",)
+
+
+def test_ledger_is_off_until_it_is_turned_on(monkeypatch, tmp_path: Path) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is False
+
+    assert runner.invoke(app, ["config", "--ledger", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is True
+    assert "ledger = true" in target.read_text()
+
+    assert runner.invoke(app, ["config", "--no-ledger", "--yes"]).exit_code == 0
+    assert load_policy(target).ledger is False
+    assert "ledger" not in target.read_text()
+
+
+def test_reset_restores_every_section_not_only_the_entity_list(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\nledger = true\n\n[mode]\nuser-prompt = "enforce"\n',
+        encoding="utf-8",
+    )
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+
+    policy = load_policy(target)
+    assert policy.modes == {}
+    assert policy.ledger is False
+    assert policy.entities == DEFAULT_ENTITIES
+
+
+def test_report_says_so_when_there_is_no_session(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+
+    result = runner.invoke(app, ["report"])
+
+    assert result.exit_code == 1
+    assert "No session on record" in result.output
+
+
+def test_report_renders_the_most_recent_session(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard.session import spool
+
+    spool.append(
+        "a-session",
+        {
+            "action": "mask",
+            "tool_name": "Read",
+            "target": "/work/.env",
+            "entities": {"SECRET": 2},
+            "latency_ms": 8,
+        },
+    )
+
+    result = runner.invoke(app, ["report"])
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert result.exit_code == 0
+    assert "2 SECRET" in result.output
+    assert document["actions"]["mask"]["entities"] == {"SECRET": 2}
+
+
+def test_ledger_purge_deletes_only_what_is_retained(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("SHIM_GUARD_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("SHIM_GUARD_SESSION_DIR", str(tmp_path / "spools"))
+    from shim_guard.session import ledger, spool
+
+    ledger.append({"action": "mask", "entities": {"SECRET": 1}})
+    spool.append("live", {"action": "mask", "entities": {"SECRET": 1}})
+
+    empty = runner.invoke(app, ["ledger", "purge", "--yes"])
+
+    assert empty.exit_code == 0
+    assert ledger.files() == []
+    assert spool.entries("live"), "purging the ledger must not touch the session"
+
+    again = runner.invoke(app, ["ledger", "purge", "--yes"])
+    assert again.exit_code == 0
+    assert "nothing retained" in again.output
+
+
+def test_diet_ships_on_and_can_be_turned_off(monkeypatch, tmp_path: Path) -> None:
+    from shim_guard.events.diet import DEFAULT_TRANSFORMS
+
+    target = _guard_config(monkeypatch, tmp_path)
+
+    assert runner.invoke(app, ["config", "--reset", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == DEFAULT_TRANSFORMS
+
+    assert runner.invoke(app, ["config", "--no-diet", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == ()
+    assert "diet = false" in target.read_text()
+
+    assert runner.invoke(app, ["config", "--diet", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == DEFAULT_TRANSFORMS
+
+
+def test_a_single_transform_can_be_named_in_the_config_file(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = _guard_config(monkeypatch, tmp_path)
+    target.parent.mkdir()
+    target.write_text(
+        'enabled_entities = ["EMAIL"]\ndiet = ["whitespace"]\n', encoding="utf-8"
+    )
+
+    assert load_policy(target).diet == ("whitespace",)
+
+    assert runner.invoke(app, ["config", "--enable", "SECRET", "--yes"]).exit_code == 0
+    assert load_policy(target).diet == ("whitespace",)
+
+
+def test_report_reads_the_ledger_once_the_session_has_ended(tmp_path: Path) -> None:
+    from shim_guard.session import ledger
+
+    ledger.append(
+        {
+            "session_id": "ended",
+            "ts": "2026-08-30T09:00:00Z",
+            "action": "mask",
+            "tool_name": "Read",
+            "target": "/work/.env",
+            "entities": {"SECRET": 1},
+            "latency_ms": 4,
+        }
+    )
+
+    result = runner.invoke(app, ["report"])
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert result.exit_code == 0
+    assert "1 SECRET" in result.output
+    assert "retained ledger" in result.output
+    assert document["source"] == "ledger"
+
+
+def test_report_prefers_the_live_session_over_the_ledger() -> None:
+    from shim_guard.session import ledger, spool
+
+    ledger.append(
+        {
+            "session_id": "ended",
+            "ts": "2026-08-30T09:00:00Z",
+            "action": "mask",
+            "entities": {"IBAN": 9},
+        }
+    )
+    spool.append("live", {"action": "mask", "entities": {"SECRET": 1}})
+
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["source"] == "session"
+    assert document["actions"]["mask"]["entities"] == {"SECRET": 1}
+
+
+def test_report_shows_one_session_not_the_whole_month() -> None:
+    from shim_guard.session import ledger
+
+    for session, when, entity in (
+        ("older", "2026-08-29T10:00:00Z", "IBAN"),
+        ("newest", "2026-08-30T11:00:00Z", "SECRET"),
+        ("newest", "2026-08-30T11:00:01Z", "EMAIL"),
+    ):
+        ledger.append(
+            {
+                "session_id": session,
+                "ts": when,
+                "action": "mask",
+                "entities": {entity: 1},
+            }
+        )
+
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["actions"]["mask"]["entities"] == {"EMAIL": 1, "SECRET": 1}
+
+
+def test_report_says_none_when_neither_source_has_anything() -> None:
+    document = json.loads(runner.invoke(app, ["report", "--json"]).output)
+
+    assert document["source"] == "none"
+
+
+def test_config_shows_whether_records_are_being_kept() -> None:
+    off = json.loads(runner.invoke(app, ["config", "--json"]).output)
+
+    assert off["ledger"] is False
+    assert off["diet"] == list(DEFAULT_TRANSFORMS)
+
+    runner.invoke(app, ["config", "--ledger", "--no-diet", "--yes", "--json"])
+    on = json.loads(runner.invoke(app, ["config", "--json"]).output)
+
+    assert on["ledger"] is True
+    assert on["diet"] == []
+
+    assert "Ledger: on" in runner.invoke(app, ["config"]).output
+
+
+@pytest.mark.parametrize(
+    ("client", "relative"),
+    (
+        ("claude", ".claude/settings.json"),
+        ("codex", ".codex/hooks.json"),
+        ("copilot", ".copilot/hooks/shim-guard.json"),
+    ),
+)
+def test_install_creates_a_config_directory_that_does_not_exist_yet(
+    monkeypatch, tmp_path: Path, client: str, relative: str
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    for variable in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(variable, raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    target = home / relative
+    assert not target.parent.exists()
+
+    installed = runner.invoke(app, ["install", client, "--yes"])
+
+    assert installed.exit_code == 0, installed.output
+    assert target.exists()
+    assert stat.S_IMODE(target.parent.stat().st_mode) == 0o700
+    assert (
+        json.loads(runner.invoke(app, ["status", client, "--json"]).output)["state"]
+        == "installed"
+    )

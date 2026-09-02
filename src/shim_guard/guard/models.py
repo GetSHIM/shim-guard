@@ -1,17 +1,17 @@
-"""Immutable public values returned by SHIM Guard."""
-
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
-from shim_guard.config import ENTITY_TYPES
+from .entities import ENTITY_TYPES
 
 _ENTITY_TYPES = frozenset(ENTITY_TYPES)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Finding:
+    __slots__ = ("end", "entity_type", "score", "start")
+
     entity_type: str
     start: int
     end: int
@@ -39,8 +39,10 @@ class Finding:
         object.__setattr__(self, "score", float(self.score))
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class GuardDecision:
+    __slots__ = ("findings", "redacted_text")
+
     findings: tuple[Finding, ...]
     redacted_text: str
 

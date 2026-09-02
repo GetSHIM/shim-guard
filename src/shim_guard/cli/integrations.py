@@ -1,9 +1,7 @@
-"""Client prompt-hook installation, inspection, and revert workflows."""
-
 from __future__ import annotations
 
 import json
-from typing import Literal, Never
+from typing import Literal, NoReturn
 
 import typer
 
@@ -11,7 +9,7 @@ from shim_guard.cli.output import emit, emit_json
 from shim_guard.clients.claude import settings as claude_settings
 from shim_guard.clients.codex import settings as codex_settings
 from shim_guard.clients.copilot import settings as copilot_settings
-from shim_guard.installation import (
+from shim_guard.settings_files import (
     Action,
     InstallationError,
     Plan,
@@ -69,14 +67,19 @@ def client_plan(client: str, operation: Literal["install", "revert"]) -> Plan:
     return plan_change(target, state, expected)
 
 
-def _hook_group(client: str) -> dict[str, object]:
-    if client == "claude":
-        return claude_settings.hook_group()
-    if client == "codex":
-        return codex_settings.hook_group()
+def _hook_fragment(client: str) -> dict[str, object]:
     if client == "copilot":
         return copilot_settings.hook_document()
-    raise ValueError("unsupported client")
+    if client == "claude":
+        registrations = claude_settings.hook_groups()
+    elif client == "codex":
+        registrations = codex_settings.hook_groups()
+    else:
+        raise ValueError("unsupported client")
+    hooks: dict[str, list] = {}
+    for event, group in registrations:
+        hooks.setdefault(event, []).append(group)
+    return {"hooks": hooks}
 
 
 def _inline_hooks_notice(client: str) -> None:
@@ -99,15 +102,12 @@ def _inline_hooks_notice(client: str) -> None:
 def plan_status(plan: Plan) -> tuple[str, str]:
     if plan.action is Action.NOOP:
         return "PASS", "installed"
-    if plan.state.kind is StateKind.ABSENT or plan.action in {
-        Action.CREATE,
-        Action.UPDATE,
-    }:
+    if plan.state.kind is StateKind.ABSENT or plan.action is Action.UPDATE:
         return "WARN", "not_installed"
     return "FAIL", "unsafe" if plan.action is Action.REFUSE else "conflict"
 
 
-def _plan_error(client: str, command: str, as_json: bool = False) -> Never:
+def _plan_error(client: str, command: str, as_json: bool = False) -> NoReturn:
     name = client_name(client)
     if as_json:
         emit_json(
@@ -129,9 +129,9 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
         _plan_error(client, "install")
 
     missing_parent = (
-        client == "copilot"
-        and plan.action is Action.REFUSE
+        plan.action is Action.REFUSE
         and plan.state.kind is StateKind.ABSENT
+        and not plan.target.parent.exists()
     )
     action = (
         Action.CREATE
@@ -158,7 +158,7 @@ def install(*, client: str, dry_run: bool, yes: bool) -> None:
     if dry_run:
         verb = "create" if action is Action.CREATE else "append to"
         emit("WARN", f"Would {verb} {name} hooks at {plan.target} with this fragment:")
-        print(json.dumps(_hook_group(client), ensure_ascii=False, indent=2))
+        print(json.dumps(_hook_fragment(client), ensure_ascii=False, indent=2))
         return
     prompt = (
         f"Create SHIM Guard's {name} hook?"

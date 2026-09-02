@@ -1,0 +1,5457 @@
+{
+  "version": 1,
+  "case_count": 475,
+  "cases": [
+    {
+      "id": "email-tld-com",
+      "text": "Contact alice@example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-org",
+      "text": "Contact alice@example.org today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-net",
+      "text": "Contact alice@example.net today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-io",
+      "text": "Contact alice@example.io today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-dev",
+      "text": "Contact alice@example.dev today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-app",
+      "text": "Contact alice@example.app today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-museum",
+      "text": "Contact alice@example.museum today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          28,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-co.uk",
+      "text": "Contact alice@example.co.uk today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-com.tr",
+      "text": "Contact alice@example.com.tr today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          28,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-gov.uk",
+      "text": "Contact alice@example.gov.uk today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          28,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-blogspot.com",
+      "text": "Contact alice@example.blogspot.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          34,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-invalid",
+      "text": "Contact alice@example.invalid today",
+      "findings": [],
+      "redacted": "Contact alice@example.invalid today"
+    },
+    {
+      "id": "email-tld-test",
+      "text": "Contact alice@example.test today",
+      "findings": [],
+      "redacted": "Contact alice@example.test today"
+    },
+    {
+      "id": "email-tld-example",
+      "text": "Contact alice@example.example today",
+      "findings": [],
+      "redacted": "Contact alice@example.example today"
+    },
+    {
+      "id": "email-tld-localhost",
+      "text": "Contact alice@example.localhost today",
+      "findings": [],
+      "redacted": "Contact alice@example.localhost today"
+    },
+    {
+      "id": "email-tld-internal",
+      "text": "Contact alice@example.internal today",
+      "findings": [],
+      "redacted": "Contact alice@example.internal today"
+    },
+    {
+      "id": "email-tld-lan",
+      "text": "Contact alice@example.lan today",
+      "findings": [],
+      "redacted": "Contact alice@example.lan today"
+    },
+    {
+      "id": "email-tld-local",
+      "text": "Contact alice@example.local today",
+      "findings": [],
+      "redacted": "Contact alice@example.local today"
+    },
+    {
+      "id": "email-tld-xn--p1ai",
+      "text": "Contact alice@example.xn--p1ai today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          30,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-рф",
+      "text": "Contact alice@example.рф today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-COM",
+      "text": "Contact alice@example.COM today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-Com",
+      "text": "Contact alice@example.Com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-tld-c",
+      "text": "Contact alice@example.c today",
+      "findings": [],
+      "redacted": "Contact alice@example.c today"
+    },
+    {
+      "id": "email-tld-toolongtldthatdoesnotexistanywhere",
+      "text": "Contact alice@example.toolongtldthatdoesnotexistanywhere today",
+      "findings": [],
+      "redacted": "Contact alice@example.toolongtldthatdoesnotexistanywhere today"
+    },
+    {
+      "id": "email-subdomain",
+      "text": "Contact alice@mail.corp.example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          35,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-plus",
+      "text": "Contact alice+tag@example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-dots",
+      "text": "Contact a.l.i.c.e@example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-dash-domain",
+      "text": "Contact alice@my-corp.example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          33,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-upper",
+      "text": "Contact ALICE@EXAMPLE.COM today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-numeric-host",
+      "text": "Contact alice@192.168.1.1 today",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          14,
+          25,
+          0.6
+        ]
+      ],
+      "redacted": "Contact alice@<IP_ADDRESS_1> today"
+    },
+    {
+      "id": "email-no-tld",
+      "text": "Contact alice@localhost today",
+      "findings": [],
+      "redacted": "Contact alice@localhost today"
+    },
+    {
+      "id": "email-trailing-dot",
+      "text": "Contact alice@example.com. today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>. today"
+    },
+    {
+      "id": "email-two",
+      "text": "Contact alice@example.com and bob@example.org",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ],
+        [
+          "EMAIL",
+          30,
+          45,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> and <EMAIL_2>"
+    },
+    {
+      "id": "email-quoted",
+      "text": "Contact \"alice@example.com\" today",
+      "findings": [
+        [
+          "EMAIL",
+          9,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact \"<EMAIL_1>\" today"
+    },
+    {
+      "id": "email-in-url",
+      "text": "See https://example.com/u?e=alice@example.com now",
+      "findings": [
+        [
+          "EMAIL",
+          12,
+          45,
+          1.0
+        ]
+      ],
+      "redacted": "See https://<EMAIL_1> now"
+    },
+    {
+      "id": "email-punycode",
+      "text": "Contact alice@example.xn--p1ai today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          30,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-underscore",
+      "text": "Contact first_last@example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          30,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "email-bang",
+      "text": "Contact alice!x@example.com today",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> today"
+    },
+    {
+      "id": "phone-0",
+      "text": "Phone +90 532 123 45 67 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          23,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-1",
+      "text": "Phone +905321234567 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          19,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-2",
+      "text": "Phone +1 415 555 2671 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          21,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-3",
+      "text": "Phone +44 20 7946 0958 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          22,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-4",
+      "text": "Phone +49 30 901820 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          19,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-5",
+      "text": "Phone +33 1 42 68 53 00 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          23,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-6",
+      "text": "Phone +972 2 629 4444 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          21,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-7",
+      "text": "Phone +91 22 2278 3000 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          22,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-8",
+      "text": "Phone +55 11 4004 4828 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          22,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-9",
+      "text": "Phone 0532 123 45 67 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          20,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-10",
+      "text": "Phone (415) 555-2671 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          20,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-11",
+      "text": "Phone 415-555-2671 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          18,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-12",
+      "text": "Phone +34 91 123 45 67 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          22,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-13",
+      "text": "Phone +81 3 3224 9999 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          21,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-14",
+      "text": "Phone +90 532 000 00 00 please",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          23,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1> please"
+    },
+    {
+      "id": "phone-negative-version",
+      "text": "Version 1.2.3 build 4567",
+      "findings": [],
+      "redacted": "Version 1.2.3 build 4567"
+    },
+    {
+      "id": "phone-negative-range",
+      "text": "Range 1000 to 2000 inclusive",
+      "findings": [],
+      "redacted": "Range 1000 to 2000 inclusive"
+    },
+    {
+      "id": "phone-negative-year",
+      "text": "Between 1999 and 2026 nothing happened",
+      "findings": [],
+      "redacted": "Between 1999 and 2026 nothing happened"
+    },
+    {
+      "id": "card-4-13",
+      "text": "Card 4012345678909 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4-13",
+      "text": "Card 4012 3456 7890 9 on file",
+      "findings": [],
+      "redacted": "Card 4012 3456 7890 9 on file"
+    },
+    {
+      "id": "card-hyphen-4-13",
+      "text": "Card 4012-3456-7890-9 on file",
+      "findings": [],
+      "redacted": "Card 4012-3456-7890-9 on file"
+    },
+    {
+      "id": "card-4-15",
+      "text": "Card 401234567890124 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4-15",
+      "text": "Card 4012 3456 7890 124 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-4-15",
+      "text": "Card 4012-3456-7890-124 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-4-16",
+      "text": "Card 4012345678901239 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4-16",
+      "text": "Card 4012 3456 7890 1239 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-4-16",
+      "text": "Card 4012-3456-7890-1239 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-4-19",
+      "text": "Card 4012345678901234565 on file",
+      "findings": [],
+      "redacted": "Card 4012345678901234565 on file"
+    },
+    {
+      "id": "card-spaced-4-19",
+      "text": "Card 4012 3456 7890 1234 565 on file",
+      "findings": [],
+      "redacted": "Card 4012 3456 7890 1234 565 on file"
+    },
+    {
+      "id": "card-hyphen-4-19",
+      "text": "Card 4012-3456-7890-1234-565 on file",
+      "findings": [],
+      "redacted": "Card 4012-3456-7890-1234-565 on file"
+    },
+    {
+      "id": "card-51-13",
+      "text": "Card 5101234567890 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-51-13",
+      "text": "Card 5101 2345 6789 0 on file",
+      "findings": [],
+      "redacted": "Card 5101 2345 6789 0 on file"
+    },
+    {
+      "id": "card-hyphen-51-13",
+      "text": "Card 5101-2345-6789-0 on file",
+      "findings": [],
+      "redacted": "Card 5101-2345-6789-0 on file"
+    },
+    {
+      "id": "card-51-15",
+      "text": "Card 510123456789018 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-51-15",
+      "text": "Card 5101 2345 6789 018 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-51-15",
+      "text": "Card 5101-2345-6789-018 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-51-16",
+      "text": "Card 5101234567890126 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-51-16",
+      "text": "Card 5101 2345 6789 0126 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-51-16",
+      "text": "Card 5101-2345-6789-0126 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-51-19",
+      "text": "Card 5101234567890123455 on file",
+      "findings": [],
+      "redacted": "Card 5101234567890123455 on file"
+    },
+    {
+      "id": "card-spaced-51-19",
+      "text": "Card 5101 2345 6789 0123 455 on file",
+      "findings": [],
+      "redacted": "Card 5101 2345 6789 0123 455 on file"
+    },
+    {
+      "id": "card-hyphen-51-19",
+      "text": "Card 5101-2345-6789-0123-455 on file",
+      "findings": [],
+      "redacted": "Card 5101-2345-6789-0123-455 on file"
+    },
+    {
+      "id": "card-6011-13",
+      "text": "Card 6011012345675 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-6011-13",
+      "text": "Card 6011 0123 4567 5 on file",
+      "findings": [],
+      "redacted": "Card 6011 0123 4567 5 on file"
+    },
+    {
+      "id": "card-hyphen-6011-13",
+      "text": "Card 6011-0123-4567-5 on file",
+      "findings": [],
+      "redacted": "Card 6011-0123-4567-5 on file"
+    },
+    {
+      "id": "card-6011-15",
+      "text": "Card 601101234567898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-6011-15",
+      "text": "Card 6011 0123 4567 898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-6011-15",
+      "text": "Card 6011-0123-4567-898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-6011-16",
+      "text": "Card 6011012345678907 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-6011-16",
+      "text": "Card 6011 0123 4567 8907 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-6011-16",
+      "text": "Card 6011-0123-4567-8907 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-6011-19",
+      "text": "Card 6011012345678901238 on file",
+      "findings": [],
+      "redacted": "Card 6011012345678901238 on file"
+    },
+    {
+      "id": "card-spaced-6011-19",
+      "text": "Card 6011 0123 4567 8901 238 on file",
+      "findings": [],
+      "redacted": "Card 6011 0123 4567 8901 238 on file"
+    },
+    {
+      "id": "card-hyphen-6011-19",
+      "text": "Card 6011-0123-4567-8901-238 on file",
+      "findings": [],
+      "redacted": "Card 6011-0123-4567-8901-238 on file"
+    },
+    {
+      "id": "card-1-13",
+      "text": "Card 1012345678902 on file",
+      "findings": [],
+      "redacted": "Card 1012345678902 on file"
+    },
+    {
+      "id": "card-spaced-1-13",
+      "text": "Card 1012 3456 7890 2 on file",
+      "findings": [],
+      "redacted": "Card 1012 3456 7890 2 on file"
+    },
+    {
+      "id": "card-hyphen-1-13",
+      "text": "Card 1012-3456-7890-2 on file",
+      "findings": [],
+      "redacted": "Card 1012-3456-7890-2 on file"
+    },
+    {
+      "id": "card-1-15",
+      "text": "Card 101234567890127 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-1-15",
+      "text": "Card 1012 3456 7890 127 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-1-15",
+      "text": "Card 1012-3456-7890-127 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-1-16",
+      "text": "Card 1012345678901235 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-1-16",
+      "text": "Card 1012 3456 7890 1235 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-1-16",
+      "text": "Card 1012-3456-7890-1235 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-1-19",
+      "text": "Card 1012345678901234568 on file",
+      "findings": [],
+      "redacted": "Card 1012345678901234568 on file"
+    },
+    {
+      "id": "card-spaced-1-19",
+      "text": "Card 1012 3456 7890 1234 568 on file",
+      "findings": [],
+      "redacted": "Card 1012 3456 7890 1234 568 on file"
+    },
+    {
+      "id": "card-hyphen-1-19",
+      "text": "Card 1012-3456-7890-1234-568 on file",
+      "findings": [],
+      "redacted": "Card 1012-3456-7890-1234-568 on file"
+    },
+    {
+      "id": "card-3-13",
+      "text": "Card 3012345678900 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-3-13",
+      "text": "Card 3012 3456 7890 0 on file",
+      "findings": [],
+      "redacted": "Card 3012 3456 7890 0 on file"
+    },
+    {
+      "id": "card-hyphen-3-13",
+      "text": "Card 3012-3456-7890-0 on file",
+      "findings": [],
+      "redacted": "Card 3012-3456-7890-0 on file"
+    },
+    {
+      "id": "card-3-15",
+      "text": "Card 301234567890125 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-3-15",
+      "text": "Card 3012 3456 7890 125 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-3-15",
+      "text": "Card 3012-3456-7890-125 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-3-16",
+      "text": "Card 3012345678901231 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-3-16",
+      "text": "Card 3012 3456 7890 1231 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-3-16",
+      "text": "Card 3012-3456-7890-1231 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-3-19",
+      "text": "Card 3012345678901234566 on file",
+      "findings": [],
+      "redacted": "Card 3012345678901234566 on file"
+    },
+    {
+      "id": "card-spaced-3-19",
+      "text": "Card 3012 3456 7890 1234 566 on file",
+      "findings": [],
+      "redacted": "Card 3012 3456 7890 1234 566 on file"
+    },
+    {
+      "id": "card-hyphen-3-19",
+      "text": "Card 3012-3456-7890-1234-566 on file",
+      "findings": [],
+      "redacted": "Card 3012-3456-7890-1234-566 on file"
+    },
+    {
+      "id": "card-5555-13",
+      "text": "Card 5555012345672 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-5555-13",
+      "text": "Card 5555 0123 4567 2 on file",
+      "findings": [],
+      "redacted": "Card 5555 0123 4567 2 on file"
+    },
+    {
+      "id": "card-hyphen-5555-13",
+      "text": "Card 5555-0123-4567-2 on file",
+      "findings": [],
+      "redacted": "Card 5555-0123-4567-2 on file"
+    },
+    {
+      "id": "card-5555-15",
+      "text": "Card 555501234567895 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-5555-15",
+      "text": "Card 5555 0123 4567 895 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-5555-15",
+      "text": "Card 5555-0123-4567-895 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-5555-16",
+      "text": "Card 5555012345678901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-5555-16",
+      "text": "Card 5555 0123 4567 8901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-5555-16",
+      "text": "Card 5555-0123-4567-8901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-5555-19",
+      "text": "Card 5555012345678901235 on file",
+      "findings": [],
+      "redacted": "Card 5555012345678901235 on file"
+    },
+    {
+      "id": "card-spaced-5555-19",
+      "text": "Card 5555 0123 4567 8901 235 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> 235 on file"
+    },
+    {
+      "id": "card-hyphen-5555-19",
+      "text": "Card 5555-0123-4567-8901-235 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1>-235 on file"
+    },
+    {
+      "id": "card-4111-13",
+      "text": "Card 4111012345675 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          18,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4111-13",
+      "text": "Card 4111 0123 4567 5 on file",
+      "findings": [],
+      "redacted": "Card 4111 0123 4567 5 on file"
+    },
+    {
+      "id": "card-hyphen-4111-13",
+      "text": "Card 4111-0123-4567-5 on file",
+      "findings": [],
+      "redacted": "Card 4111-0123-4567-5 on file"
+    },
+    {
+      "id": "card-4111-15",
+      "text": "Card 411101234567898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          20,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4111-15",
+      "text": "Card 4111 0123 4567 898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-4111-15",
+      "text": "Card 4111-0123-4567-898 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-4111-16",
+      "text": "Card 4111012345678901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-spaced-4111-16",
+      "text": "Card 4111 0123 4567 8901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-hyphen-4111-16",
+      "text": "Card 4111-0123-4567-8901 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> on file"
+    },
+    {
+      "id": "card-4111-19",
+      "text": "Card 4111012345678901238 on file",
+      "findings": [],
+      "redacted": "Card 4111012345678901238 on file"
+    },
+    {
+      "id": "card-spaced-4111-19",
+      "text": "Card 4111 0123 4567 8901 238 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1> 238 on file"
+    },
+    {
+      "id": "card-hyphen-4111-19",
+      "text": "Card 4111-0123-4567-8901-238 on file",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1>-238 on file"
+    },
+    {
+      "id": "card-invalid-luhn",
+      "text": "Invalid card 4111 1111 1111 1112",
+      "findings": [],
+      "redacted": "Invalid card 4111 1111 1111 1112"
+    },
+    {
+      "id": "card-order-number",
+      "text": "Order 1234567890123456 shipped",
+      "findings": [],
+      "redacted": "Order 1234567890123456 shipped"
+    },
+    {
+      "id": "card-isbn",
+      "text": "ISBN 9780306406157 is a book",
+      "findings": [],
+      "redacted": "ISBN 9780306406157 is a book"
+    },
+    {
+      "id": "iban-TR",
+      "text": "IBAN TR330006100519786457841326 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          31,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-TR",
+      "text": "IBAN tr330006100519786457841326 confirmed",
+      "findings": [],
+      "redacted": "IBAN tr330006100519786457841326 confirmed"
+    },
+    {
+      "id": "iban-spaced-TR",
+      "text": "IBAN TR33 0006 1005 1978 6457 8413 26 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          37,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-DE",
+      "text": "IBAN DE89370400440532013000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-DE",
+      "text": "IBAN de89370400440532013000 confirmed",
+      "findings": [],
+      "redacted": "IBAN de89370400440532013000 confirmed"
+    },
+    {
+      "id": "iban-spaced-DE",
+      "text": "IBAN DE89 3704 0044 0532 0130 00 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-GB",
+      "text": "IBAN GB29NWBK60161331926819 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-GB",
+      "text": "IBAN gb29nwbk60161331926819 confirmed",
+      "findings": [],
+      "redacted": "IBAN gb29nwbk60161331926819 confirmed"
+    },
+    {
+      "id": "iban-spaced-GB",
+      "text": "IBAN GB29 NWBK 6016 1331 9268 19 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-FR",
+      "text": "IBAN FR1420041010050500013M02606 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-FR",
+      "text": "IBAN fr1420041010050500013m02606 confirmed",
+      "findings": [],
+      "redacted": "IBAN fr1420041010050500013m02606 confirmed"
+    },
+    {
+      "id": "iban-spaced-FR",
+      "text": "IBAN FR14 2004 1010 0505 0001 3M02 606 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          38,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-NL",
+      "text": "IBAN NL91ABNA0417164300 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-NL",
+      "text": "IBAN nl91abna0417164300 confirmed",
+      "findings": [],
+      "redacted": "IBAN nl91abna0417164300 confirmed"
+    },
+    {
+      "id": "iban-spaced-NL",
+      "text": "IBAN NL91 ABNA 0417 1643 00 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-ES",
+      "text": "IBAN ES9121000418450200051332 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-ES",
+      "text": "IBAN es9121000418450200051332 confirmed",
+      "findings": [],
+      "redacted": "IBAN es9121000418450200051332 confirmed"
+    },
+    {
+      "id": "iban-spaced-ES",
+      "text": "IBAN ES91 2100 0418 4502 0005 1332 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          34,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-IT",
+      "text": "IBAN IT60X0542811101000000123456 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-IT",
+      "text": "IBAN it60x0542811101000000123456 confirmed",
+      "findings": [],
+      "redacted": "IBAN it60x0542811101000000123456 confirmed"
+    },
+    {
+      "id": "iban-spaced-IT",
+      "text": "IBAN IT60 X054 2811 1010 0000 0123 456 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          38,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-BE",
+      "text": "IBAN BE68539007547034 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-BE",
+      "text": "IBAN be68539007547034 confirmed",
+      "findings": [],
+      "redacted": "IBAN be68539007547034 confirmed"
+    },
+    {
+      "id": "iban-spaced-BE",
+      "text": "IBAN BE68 5390 0754 7034 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-CH",
+      "text": "IBAN CH9300762011623852957 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-CH",
+      "text": "IBAN ch9300762011623852957 confirmed",
+      "findings": [],
+      "redacted": "IBAN ch9300762011623852957 confirmed"
+    },
+    {
+      "id": "iban-spaced-CH",
+      "text": "IBAN CH93 0076 2011 6238 5295 7 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          31,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-AT",
+      "text": "IBAN AT611904300234573201 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-AT",
+      "text": "IBAN at611904300234573201 confirmed",
+      "findings": [],
+      "redacted": "IBAN at611904300234573201 confirmed"
+    },
+    {
+      "id": "iban-spaced-AT",
+      "text": "IBAN AT61 1904 3002 3457 3201 confirmed",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <CREDIT_CARD_1> confirmed"
+    },
+    {
+      "id": "iban-PL",
+      "text": "IBAN PL61109010140000071219812874 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          33,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-PL",
+      "text": "IBAN pl61109010140000071219812874 confirmed",
+      "findings": [],
+      "redacted": "IBAN pl61109010140000071219812874 confirmed"
+    },
+    {
+      "id": "iban-spaced-PL",
+      "text": "IBAN PL61 1090 1014 0000 0712 1981 2874 confirmed",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          39,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <CREDIT_CARD_1> confirmed"
+    },
+    {
+      "id": "iban-PT",
+      "text": "IBAN PT920002012319340100 confirmed",
+      "findings": [],
+      "redacted": "IBAN PT920002012319340100 confirmed"
+    },
+    {
+      "id": "iban-lower-PT",
+      "text": "IBAN pt920002012319340100 confirmed",
+      "findings": [],
+      "redacted": "IBAN pt920002012319340100 confirmed"
+    },
+    {
+      "id": "iban-spaced-PT",
+      "text": "IBAN PT92 0002 0123 1934 0100 confirmed",
+      "findings": [],
+      "redacted": "IBAN PT92 0002 0123 1934 0100 confirmed"
+    },
+    {
+      "id": "iban-NO",
+      "text": "IBAN NO698601111794 confirmed",
+      "findings": [],
+      "redacted": "IBAN NO698601111794 confirmed"
+    },
+    {
+      "id": "iban-lower-NO",
+      "text": "IBAN no698601111794 confirmed",
+      "findings": [],
+      "redacted": "IBAN no698601111794 confirmed"
+    },
+    {
+      "id": "iban-spaced-NO",
+      "text": "IBAN NO69 8601 1117 94 confirmed",
+      "findings": [],
+      "redacted": "IBAN NO69 8601 1117 94 confirmed"
+    },
+    {
+      "id": "iban-SE",
+      "text": "IBAN SE4550000000058398257466 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-SE",
+      "text": "IBAN se4550000000058398257466 confirmed",
+      "findings": [],
+      "redacted": "IBAN se4550000000058398257466 confirmed"
+    },
+    {
+      "id": "iban-spaced-SE",
+      "text": "IBAN SE45 5000 0000 0583 9825 7466 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          34,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-DK",
+      "text": "IBAN DK5000400440116243 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-DK",
+      "text": "IBAN dk5000400440116243 confirmed",
+      "findings": [],
+      "redacted": "IBAN dk5000400440116243 confirmed"
+    },
+    {
+      "id": "iban-spaced-DK",
+      "text": "IBAN DK50 0040 0440 1162 43 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-FI",
+      "text": "IBAN FI2112345600000785 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-FI",
+      "text": "IBAN fi2112345600000785 confirmed",
+      "findings": [],
+      "redacted": "IBAN fi2112345600000785 confirmed"
+    },
+    {
+      "id": "iban-spaced-FI",
+      "text": "IBAN FI21 1234 5600 0007 85 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-GR",
+      "text": "IBAN GR1601101250000000012300695 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-GR",
+      "text": "IBAN gr1601101250000000012300695 confirmed",
+      "findings": [],
+      "redacted": "IBAN gr1601101250000000012300695 confirmed"
+    },
+    {
+      "id": "iban-spaced-GR",
+      "text": "IBAN GR16 0110 1250 0000 0001 2300 695 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          38,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-IE",
+      "text": "IBAN IE29AIBK93115212345678 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-IE",
+      "text": "IBAN ie29aibk93115212345678 confirmed",
+      "findings": [],
+      "redacted": "IBAN ie29aibk93115212345678 confirmed"
+    },
+    {
+      "id": "iban-spaced-IE",
+      "text": "IBAN IE29 AIBK 9311 5212 3456 78 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-LU",
+      "text": "IBAN LU280019400644750000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-LU",
+      "text": "IBAN lu280019400644750000 confirmed",
+      "findings": [],
+      "redacted": "IBAN lu280019400644750000 confirmed"
+    },
+    {
+      "id": "iban-spaced-LU",
+      "text": "IBAN LU28 0019 4006 4475 0000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-MT",
+      "text": "IBAN MT84MALT011000012345MTLCAST001S confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          36,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-MT",
+      "text": "IBAN mt84malt011000012345mtlcast001s confirmed",
+      "findings": [],
+      "redacted": "IBAN mt84malt011000012345mtlcast001s confirmed"
+    },
+    {
+      "id": "iban-spaced-MT",
+      "text": "IBAN MT84 MALT 0110 0001 2345 MTLC AST0 01S confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          43,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-RO",
+      "text": "IBAN RO49AAAA1B31007593840000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-RO",
+      "text": "IBAN ro49aaaa1b31007593840000 confirmed",
+      "findings": [],
+      "redacted": "IBAN ro49aaaa1b31007593840000 confirmed"
+    },
+    {
+      "id": "iban-spaced-RO",
+      "text": "IBAN RO49 AAAA 1B31 0075 9384 0000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          34,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-HR",
+      "text": "IBAN HR1210010051863000160 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-HR",
+      "text": "IBAN hr1210010051863000160 confirmed",
+      "findings": [],
+      "redacted": "IBAN hr1210010051863000160 confirmed"
+    },
+    {
+      "id": "iban-spaced-HR",
+      "text": "IBAN HR12 1001 0051 8630 0016 0 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          31,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-CZ",
+      "text": "IBAN CZ6508000000192000145399 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-CZ",
+      "text": "IBAN cz6508000000192000145399 confirmed",
+      "findings": [],
+      "redacted": "IBAN cz6508000000192000145399 confirmed"
+    },
+    {
+      "id": "iban-spaced-CZ",
+      "text": "IBAN CZ65 0800 0000 1920 0014 5399 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          34,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-HU",
+      "text": "IBAN HU42117730161111101800000000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          33,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-HU",
+      "text": "IBAN hu42117730161111101800000000 confirmed",
+      "findings": [],
+      "redacted": "IBAN hu42117730161111101800000000 confirmed"
+    },
+    {
+      "id": "iban-spaced-HU",
+      "text": "IBAN HU42 1177 3016 1111 1018 0000 0000 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          39,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-BG",
+      "text": "IBAN BG80BNBG96611020345678 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-BG",
+      "text": "IBAN bg80bnbg96611020345678 confirmed",
+      "findings": [],
+      "redacted": "IBAN bg80bnbg96611020345678 confirmed"
+    },
+    {
+      "id": "iban-spaced-BG",
+      "text": "IBAN BG80 BNBG 9661 1020 3456 78 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-EE",
+      "text": "IBAN EE382200221020145685 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-EE",
+      "text": "IBAN ee382200221020145685 confirmed",
+      "findings": [],
+      "redacted": "IBAN ee382200221020145685 confirmed"
+    },
+    {
+      "id": "iban-spaced-EE",
+      "text": "IBAN EE38 2200 2210 2014 5685 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          29,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-CY",
+      "text": "IBAN CY2717002001280000001200527600 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          35,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-CY",
+      "text": "IBAN cy2717002001280000001200527600 confirmed",
+      "findings": [],
+      "redacted": "IBAN cy2717002001280000001200527600 confirmed"
+    },
+    {
+      "id": "iban-spaced-CY",
+      "text": "IBAN CY27 1700 2001 2800 0000 1200 5276 00 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          42,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-IS",
+      "text": "IBAN IS79140346101027121203089 confirmed",
+      "findings": [],
+      "redacted": "IBAN IS79140346101027121203089 confirmed"
+    },
+    {
+      "id": "iban-lower-IS",
+      "text": "IBAN is79140346101027121203089 confirmed",
+      "findings": [],
+      "redacted": "IBAN is79140346101027121203089 confirmed"
+    },
+    {
+      "id": "iban-spaced-IS",
+      "text": "IBAN IS79 1403 4610 1027 1212 0308 9 confirmed",
+      "findings": [],
+      "redacted": "IBAN IS79 1403 4610 1027 1212 0308 9 confirmed"
+    },
+    {
+      "id": "iban-LI",
+      "text": "IBAN LI21088100002324013AA confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-LI",
+      "text": "IBAN li21088100002324013aa confirmed",
+      "findings": [],
+      "redacted": "IBAN li21088100002324013aa confirmed"
+    },
+    {
+      "id": "iban-spaced-LI",
+      "text": "IBAN LI21 0881 0000 2324 013A A confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          31,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-MC",
+      "text": "IBAN MC5811222000010123456789030 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-MC",
+      "text": "IBAN mc5811222000010123456789030 confirmed",
+      "findings": [],
+      "redacted": "IBAN mc5811222000010123456789030 confirmed"
+    },
+    {
+      "id": "iban-spaced-MC",
+      "text": "IBAN MC58 1122 2000 0101 2345 6789 030 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          38,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-SM",
+      "text": "IBAN SM86U0322509800000000270100 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          32,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-lower-SM",
+      "text": "IBAN sm86u0322509800000000270100 confirmed",
+      "findings": [],
+      "redacted": "IBAN sm86u0322509800000000270100 confirmed"
+    },
+    {
+      "id": "iban-spaced-SM",
+      "text": "IBAN SM86 U032 2509 8000 0000 0270 100 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          38,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> confirmed"
+    },
+    {
+      "id": "iban-AD",
+      "text": "IBAN AD1712000120203100100 confirmed",
+      "findings": [],
+      "redacted": "IBAN AD1712000120203100100 confirmed"
+    },
+    {
+      "id": "iban-lower-AD",
+      "text": "IBAN ad1712000120203100100 confirmed",
+      "findings": [],
+      "redacted": "IBAN ad1712000120203100100 confirmed"
+    },
+    {
+      "id": "iban-spaced-AD",
+      "text": "IBAN AD17 1200 0120 2031 0010 0 confirmed",
+      "findings": [],
+      "redacted": "IBAN AD17 1200 0120 2031 0010 0 confirmed"
+    },
+    {
+      "id": "iban-invalid",
+      "text": "Invalid IBAN TR000006100519786457841326",
+      "findings": [],
+      "redacted": "Invalid IBAN TR000006100519786457841326"
+    },
+    {
+      "id": "iban-trailing-digit",
+      "text": "IBAN DE89370400440532013000 2 confirmed",
+      "findings": [
+        [
+          "IBAN",
+          5,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "IBAN <IBAN_1> 2 confirmed"
+    },
+    {
+      "id": "iban-in-sentence",
+      "text": "Send it to TR330006100519786457841326, thanks.",
+      "findings": [
+        [
+          "IBAN",
+          11,
+          37,
+          1.0
+        ]
+      ],
+      "redacted": "Send it to <IBAN_1>, thanks."
+    },
+    {
+      "id": "net-0",
+      "text": "Host 192.168.1.1 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          16,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-1",
+      "text": "Host 10.0.0.255 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          15,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-2",
+      "text": "Host 255.255.255.255 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          20,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-3",
+      "text": "Host 0.0.0.0 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          12,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-4",
+      "text": "Host 192.168.1.1/24 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          19,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-5",
+      "text": "Host 999.168.1.1 responds",
+      "findings": [],
+      "redacted": "Host 999.168.1.1 responds"
+    },
+    {
+      "id": "net-6",
+      "text": "Host 256.1.1.1 responds",
+      "findings": [],
+      "redacted": "Host 256.1.1.1 responds"
+    },
+    {
+      "id": "net-7",
+      "text": "Host 1.2.3 responds",
+      "findings": [],
+      "redacted": "Host 1.2.3 responds"
+    },
+    {
+      "id": "net-8",
+      "text": "Host 2001:0db8:85a3:0000:0000:8a2e:0370:7334 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          44,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-9",
+      "text": "Host 2001:db8::8a2e:370:7334 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          28,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-10",
+      "text": "Host ::1 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          8,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-11",
+      "text": "Host :: responds",
+      "findings": [],
+      "redacted": "Host :: responds"
+    },
+    {
+      "id": "net-12",
+      "text": "Host ::ffff:192.168.1.1 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          23,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-13",
+      "text": "Host fe80::1%eth0 responds",
+      "findings": [
+        [
+          "IP_ADDRESS",
+          5,
+          17,
+          0.6
+        ]
+      ],
+      "redacted": "Host <IP_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-14",
+      "text": "Host 00:1A:2B:3C:4D:5E responds",
+      "findings": [
+        [
+          "MAC_ADDRESS",
+          5,
+          22,
+          0.6
+        ]
+      ],
+      "redacted": "Host <MAC_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-15",
+      "text": "Host 00-1A-2B-3C-4D-5E responds",
+      "findings": [
+        [
+          "MAC_ADDRESS",
+          5,
+          22,
+          0.6
+        ]
+      ],
+      "redacted": "Host <MAC_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-16",
+      "text": "Host 001a.2b3c.4d5e responds",
+      "findings": [
+        [
+          "MAC_ADDRESS",
+          5,
+          19,
+          0.6
+        ]
+      ],
+      "redacted": "Host <MAC_ADDRESS_1> responds"
+    },
+    {
+      "id": "net-17",
+      "text": "Host 00:1A:2B:3C:4D:GG responds",
+      "findings": [],
+      "redacted": "Host 00:1A:2B:3C:4D:GG responds"
+    },
+    {
+      "id": "net-18",
+      "text": "Host FF:FF:FF:FF:FF:FF responds",
+      "findings": [],
+      "redacted": "Host FF:FF:FF:FF:FF:FF responds"
+    },
+    {
+      "id": "net-19",
+      "text": "Host 00:00:00:00:00:00 responds",
+      "findings": [],
+      "redacted": "Host 00:00:00:00:00:00 responds"
+    },
+    {
+      "id": "net-20",
+      "text": "Host 00:1a:2b:3c:4d:5e responds",
+      "findings": [
+        [
+          "MAC_ADDRESS",
+          5,
+          22,
+          0.6
+        ]
+      ],
+      "redacted": "Host <MAC_ADDRESS_1> responds"
+    },
+    {
+      "id": "ssn-219099999--",
+      "text": "SSN 219-09-9999 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-219099999-space",
+      "text": "SSN 219 09 9999 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-219099999-.",
+      "text": "SSN 219.09.9999 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-bare-219099999",
+      "text": "SSN 219099999 filed",
+      "findings": [],
+      "redacted": "SSN 219099999 filed"
+    },
+    {
+      "id": "ssn-123456789--",
+      "text": "SSN 123-45-6789 filed",
+      "findings": [],
+      "redacted": "SSN 123-45-6789 filed"
+    },
+    {
+      "id": "ssn-123456789-space",
+      "text": "SSN 123 45 6789 filed",
+      "findings": [],
+      "redacted": "SSN 123 45 6789 filed"
+    },
+    {
+      "id": "ssn-123456789-.",
+      "text": "SSN 123.45.6789 filed",
+      "findings": [],
+      "redacted": "SSN 123.45.6789 filed"
+    },
+    {
+      "id": "ssn-bare-123456789",
+      "text": "SSN 123456789 filed",
+      "findings": [],
+      "redacted": "SSN 123456789 filed"
+    },
+    {
+      "id": "ssn-987654320--",
+      "text": "SSN 987-65-4320 filed",
+      "findings": [],
+      "redacted": "SSN 987-65-4320 filed"
+    },
+    {
+      "id": "ssn-987654320-space",
+      "text": "SSN 987 65 4320 filed",
+      "findings": [],
+      "redacted": "SSN 987 65 4320 filed"
+    },
+    {
+      "id": "ssn-987654320-.",
+      "text": "SSN 987.65.4320 filed",
+      "findings": [],
+      "redacted": "SSN 987.65.4320 filed"
+    },
+    {
+      "id": "ssn-bare-987654320",
+      "text": "SSN 987654320 filed",
+      "findings": [],
+      "redacted": "SSN 987654320 filed"
+    },
+    {
+      "id": "ssn-78051120--",
+      "text": "SSN 078-05-1120 filed",
+      "findings": [
+        [
+          "PHONE",
+          4,
+          15,
+          0.4
+        ]
+      ],
+      "redacted": "SSN <PHONE_1> filed"
+    },
+    {
+      "id": "ssn-78051120-space",
+      "text": "SSN 078 05 1120 filed",
+      "findings": [
+        [
+          "PHONE",
+          4,
+          15,
+          0.4
+        ]
+      ],
+      "redacted": "SSN <PHONE_1> filed"
+    },
+    {
+      "id": "ssn-78051120-.",
+      "text": "SSN 078.05.1120 filed",
+      "findings": [
+        [
+          "PHONE",
+          4,
+          15,
+          0.4
+        ]
+      ],
+      "redacted": "SSN <PHONE_1> filed"
+    },
+    {
+      "id": "ssn-bare-78051120",
+      "text": "SSN 078051120 filed",
+      "findings": [
+        [
+          "PHONE",
+          4,
+          13,
+          0.4
+        ]
+      ],
+      "redacted": "SSN <PHONE_1> filed"
+    },
+    {
+      "id": "ssn-111223333--",
+      "text": "SSN 111-22-3333 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-111223333-space",
+      "text": "SSN 111 22 3333 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-111223333-.",
+      "text": "SSN 111.22.3333 filed",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> filed"
+    },
+    {
+      "id": "ssn-bare-111223333",
+      "text": "SSN 111223333 filed",
+      "findings": [],
+      "redacted": "SSN 111223333 filed"
+    },
+    {
+      "id": "ssn-mismatched",
+      "text": "SSN 219-09 9999 filed",
+      "findings": [],
+      "redacted": "SSN 219-09 9999 filed"
+    },
+    {
+      "id": "ssn-zero-area",
+      "text": "SSN 000-12-3456 is invalid",
+      "findings": [],
+      "redacted": "SSN 000-12-3456 is invalid"
+    },
+    {
+      "id": "ssn-666-area",
+      "text": "SSN 666-12-3456 is invalid",
+      "findings": [],
+      "redacted": "SSN 666-12-3456 is invalid"
+    },
+    {
+      "id": "ssn-zero-group",
+      "text": "SSN 219-00-9999 is invalid",
+      "findings": [],
+      "redacted": "SSN 219-00-9999 is invalid"
+    },
+    {
+      "id": "ssn-zero-serial",
+      "text": "SSN 219-09-0000 is invalid",
+      "findings": [],
+      "redacted": "SSN 219-09-0000 is invalid"
+    },
+    {
+      "id": "tckn-100000001",
+      "text": "TCKN 10000000146 kayitli",
+      "findings": [
+        [
+          "TR_NATIONAL_ID",
+          5,
+          16,
+          1.0
+        ]
+      ],
+      "redacted": "TCKN <TR_NATIONAL_ID_1> kayitli"
+    },
+    {
+      "id": "tckn-broken-100000001",
+      "text": "TCKN 10000000147 kayitli",
+      "findings": [],
+      "redacted": "TCKN 10000000147 kayitli"
+    },
+    {
+      "id": "tckn-234567890",
+      "text": "TCKN 23456789060 kayitli",
+      "findings": [
+        [
+          "TR_NATIONAL_ID",
+          5,
+          16,
+          1.0
+        ]
+      ],
+      "redacted": "TCKN <TR_NATIONAL_ID_1> kayitli"
+    },
+    {
+      "id": "tckn-broken-234567890",
+      "text": "TCKN 23456789061 kayitli",
+      "findings": [],
+      "redacted": "TCKN 23456789061 kayitli"
+    },
+    {
+      "id": "tckn-111111111",
+      "text": "TCKN 11111111110 kayitli",
+      "findings": [
+        [
+          "TR_NATIONAL_ID",
+          5,
+          16,
+          1.0
+        ]
+      ],
+      "redacted": "TCKN <TR_NATIONAL_ID_1> kayitli"
+    },
+    {
+      "id": "tckn-broken-111111111",
+      "text": "TCKN 11111111111 kayitli",
+      "findings": [],
+      "redacted": "TCKN 11111111111 kayitli"
+    },
+    {
+      "id": "tckn-300000000",
+      "text": "TCKN 30000000014 kayitli",
+      "findings": [
+        [
+          "TR_NATIONAL_ID",
+          5,
+          16,
+          1.0
+        ]
+      ],
+      "redacted": "TCKN <TR_NATIONAL_ID_1> kayitli"
+    },
+    {
+      "id": "tckn-broken-300000000",
+      "text": "TCKN 30000000015 kayitli",
+      "findings": [],
+      "redacted": "TCKN 30000000015 kayitli"
+    },
+    {
+      "id": "vkn-123456789",
+      "text": "VKN 1234567890 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          4,
+          14,
+          1.0
+        ]
+      ],
+      "redacted": "VKN <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-tax-123456789",
+      "text": "tax id 1234567890 on file",
+      "findings": [
+        [
+          "TR_VKN",
+          7,
+          17,
+          1.0
+        ]
+      ],
+      "redacted": "tax id <TR_VKN_1> on file"
+    },
+    {
+      "id": "vkn-vergi-123456789",
+      "text": "vergi kimlik 1234567890 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          13,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "vergi kimlik <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-nocontext-123456789",
+      "text": "Reference number 1234567890 appears here",
+      "findings": [
+        [
+          "PHONE",
+          17,
+          27,
+          0.4
+        ]
+      ],
+      "redacted": "Reference number <PHONE_1> appears here"
+    },
+    {
+      "id": "vkn-farcontext-123456789",
+      "text": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1234567890 kayitli",
+      "findings": [
+        [
+          "PHONE",
+          47,
+          57,
+          0.4
+        ]
+      ],
+      "redacted": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx <PHONE_1> kayitli"
+    },
+    {
+      "id": "vkn-100000000",
+      "text": "VKN 1000000000 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          4,
+          14,
+          1.0
+        ]
+      ],
+      "redacted": "VKN <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-tax-100000000",
+      "text": "tax id 1000000000 on file",
+      "findings": [
+        [
+          "TR_VKN",
+          7,
+          17,
+          1.0
+        ]
+      ],
+      "redacted": "tax id <TR_VKN_1> on file"
+    },
+    {
+      "id": "vkn-vergi-100000000",
+      "text": "vergi kimlik 1000000000 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          13,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "vergi kimlik <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-nocontext-100000000",
+      "text": "Reference number 1000000000 appears here",
+      "findings": [],
+      "redacted": "Reference number 1000000000 appears here"
+    },
+    {
+      "id": "vkn-farcontext-100000000",
+      "text": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1000000000 kayitli",
+      "findings": [],
+      "redacted": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 1000000000 kayitli"
+    },
+    {
+      "id": "vkn-222222222",
+      "text": "VKN 2222222223 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          4,
+          14,
+          1.0
+        ]
+      ],
+      "redacted": "VKN <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-tax-222222222",
+      "text": "tax id 2222222223 on file",
+      "findings": [
+        [
+          "TR_VKN",
+          7,
+          17,
+          1.0
+        ]
+      ],
+      "redacted": "tax id <TR_VKN_1> on file"
+    },
+    {
+      "id": "vkn-vergi-222222222",
+      "text": "vergi kimlik 2222222223 kayitli",
+      "findings": [
+        [
+          "TR_VKN",
+          13,
+          23,
+          1.0
+        ]
+      ],
+      "redacted": "vergi kimlik <TR_VKN_1> kayitli"
+    },
+    {
+      "id": "vkn-nocontext-222222222",
+      "text": "Reference number 2222222223 appears here",
+      "findings": [
+        [
+          "PHONE",
+          17,
+          27,
+          0.4
+        ]
+      ],
+      "redacted": "Reference number <PHONE_1> appears here"
+    },
+    {
+      "id": "vkn-farcontext-222222222",
+      "text": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2222222223 kayitli",
+      "findings": [
+        [
+          "PHONE",
+          47,
+          57,
+          0.4
+        ]
+      ],
+      "redacted": "vergi xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx <PHONE_1> kayitli"
+    },
+    {
+      "id": "vkn-repeated-digits",
+      "text": "VKN 1111111111 kayitli",
+      "findings": [],
+      "redacted": "VKN 1111111111 kayitli"
+    },
+    {
+      "id": "secret-token-0",
+      "text": "Use AKIAIOSFODNN7EXAMPLE for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          24,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-0",
+      "text": "Use AKIAIOSFODNN7EXAMPLE.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          24,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-1",
+      "text": "Use ghp_0123456789abcdefghijklmnopqrstuvwx for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-1",
+      "text": "Use ghp_0123456789abcdefghijklmnopqrstuvwx.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-2",
+      "text": "Use gho_0123456789abcdefghijklmnopqrstuvwx for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-2",
+      "text": "Use gho_0123456789abcdefghijklmnopqrstuvwx.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-3",
+      "text": "Use ghs_0123456789abcdefghijklmnopqrstuvwx for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-3",
+      "text": "Use ghs_0123456789abcdefghijklmnopqrstuvwx.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          42,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-4",
+      "text": "Use sk_live_0123456789abcdefgh for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          30,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-4",
+      "text": "Use sk_live_0123456789abcdefgh.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          30,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-5",
+      "text": "Use sk_test_0123456789abcdefgh for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          30,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-5",
+      "text": "Use sk_test_0123456789abcdefgh.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          30,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-6",
+      "text": "Use sk-0123456789abcdefghij for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          27,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-6",
+      "text": "Use sk-0123456789abcdefghij.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          27,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-7",
+      "text": "Use sk-proj-0123456789abcdefghij for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          32,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-7",
+      "text": "Use sk-proj-0123456789abcdefghij.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          32,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-8",
+      "text": "Use SG.0123456789abcdefgh.0123456789abcdefgh for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          44,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-8",
+      "text": "Use SG.0123456789abcdefgh.0123456789abcdefgh.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          44,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-9",
+      "text": "Use eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghij for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          51,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-9",
+      "text": "Use eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghij.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          51,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-10",
+      "text": "Use https://hooks.slack.com/services/T000/B000/XXXXXXXX for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-10",
+      "text": "Use https://hooks.slack.com/services/T000/B000/XXXXXXXX.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-11",
+      "text": "Use https://discord.com/api/webhooks/123/abcdefgh for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          49,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-11",
+      "text": "Use https://discord.com/api/webhooks/123/abcdefgh.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          49,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-token-12",
+      "text": "Use https://discordapp.com/api/webhooks/123/abcdefgh for access",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          52,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1> for access"
+    },
+    {
+      "id": "secret-token-trailing-12",
+      "text": "Use https://discordapp.com/api/webhooks/123/abcdefgh.",
+      "findings": [
+        [
+          "SECRET",
+          4,
+          52,
+          0.99
+        ]
+      ],
+      "redacted": "Use <SECRET_1>."
+    },
+    {
+      "id": "secret-assign-0",
+      "text": "password = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          11,
+          26,
+          0.97
+        ]
+      ],
+      "redacted": "password = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-0",
+      "text": "password: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          11,
+          26,
+          0.97
+        ]
+      ],
+      "redacted": "password: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-0",
+      "text": "\"password\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          14,
+          29,
+          0.97
+        ]
+      ],
+      "redacted": "\"password\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-0",
+      "text": "{\"password\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          14,
+          29,
+          0.97
+        ]
+      ],
+      "redacted": "{\"password\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-0",
+      "text": "password = abc",
+      "findings": [],
+      "redacted": "password = abc"
+    },
+    {
+      "id": "secret-assign-1",
+      "text": "passwd = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "passwd = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-1",
+      "text": "passwd: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "passwd: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-1",
+      "text": "\"passwd\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "\"passwd\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-1",
+      "text": "{\"passwd\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "{\"passwd\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-1",
+      "text": "passwd = abc",
+      "findings": [],
+      "redacted": "passwd = abc"
+    },
+    {
+      "id": "secret-assign-2",
+      "text": "pwd = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          6,
+          21,
+          0.97
+        ]
+      ],
+      "redacted": "pwd = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-2",
+      "text": "pwd: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          6,
+          21,
+          0.97
+        ]
+      ],
+      "redacted": "pwd: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-2",
+      "text": "\"pwd\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "\"pwd\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-2",
+      "text": "{\"pwd\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "{\"pwd\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-2",
+      "text": "pwd = abc",
+      "findings": [],
+      "redacted": "pwd = abc"
+    },
+    {
+      "id": "secret-assign-3",
+      "text": "api_key = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "api_key = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-3",
+      "text": "api_key: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "api_key: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-3",
+      "text": "\"api_key\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "\"api_key\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-3",
+      "text": "{\"api_key\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "{\"api_key\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-3",
+      "text": "api_key = abc",
+      "findings": [],
+      "redacted": "api_key = abc"
+    },
+    {
+      "id": "secret-assign-4",
+      "text": "api-key = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "api-key = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-4",
+      "text": "api-key: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "api-key: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-4",
+      "text": "\"api-key\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "\"api-key\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-4",
+      "text": "{\"api-key\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "{\"api-key\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-4",
+      "text": "api-key = abc",
+      "findings": [],
+      "redacted": "api-key = abc"
+    },
+    {
+      "id": "secret-assign-5",
+      "text": "apikey = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "apikey = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-5",
+      "text": "apikey: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "apikey: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-5",
+      "text": "\"apikey\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "\"apikey\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-5",
+      "text": "{\"apikey\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "{\"apikey\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-5",
+      "text": "apikey = abc",
+      "findings": [],
+      "redacted": "apikey = abc"
+    },
+    {
+      "id": "secret-assign-6",
+      "text": "secret = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "secret = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-6",
+      "text": "secret: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          9,
+          24,
+          0.97
+        ]
+      ],
+      "redacted": "secret: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-6",
+      "text": "\"secret\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "\"secret\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-6",
+      "text": "{\"secret\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          12,
+          27,
+          0.97
+        ]
+      ],
+      "redacted": "{\"secret\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-6",
+      "text": "secret = abc",
+      "findings": [],
+      "redacted": "secret = abc"
+    },
+    {
+      "id": "secret-assign-7",
+      "text": "token = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          8,
+          23,
+          0.97
+        ]
+      ],
+      "redacted": "token = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-7",
+      "text": "token: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          8,
+          23,
+          0.97
+        ]
+      ],
+      "redacted": "token: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-7",
+      "text": "\"token\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          11,
+          26,
+          0.97
+        ]
+      ],
+      "redacted": "\"token\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-7",
+      "text": "{\"token\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          11,
+          26,
+          0.97
+        ]
+      ],
+      "redacted": "{\"token\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-7",
+      "text": "token = abc",
+      "findings": [],
+      "redacted": "token = abc"
+    },
+    {
+      "id": "secret-assign-8",
+      "text": "db_pass = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "db_pass = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-8",
+      "text": "db_pass: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "db_pass: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-8",
+      "text": "\"db_pass\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "\"db_pass\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-8",
+      "text": "{\"db_pass\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "{\"db_pass\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-8",
+      "text": "db_pass = abc",
+      "findings": [],
+      "redacted": "db_pass = abc"
+    },
+    {
+      "id": "secret-assign-9",
+      "text": "db-pass = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "db-pass = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-9",
+      "text": "db-pass: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          10,
+          25,
+          0.97
+        ]
+      ],
+      "redacted": "db-pass: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-9",
+      "text": "\"db-pass\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "\"db-pass\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-9",
+      "text": "{\"db-pass\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          13,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "{\"db-pass\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-9",
+      "text": "db-pass = abc",
+      "findings": [],
+      "redacted": "db-pass = abc"
+    },
+    {
+      "id": "secret-assign-10",
+      "text": "postgres_password = SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          20,
+          35,
+          0.97
+        ]
+      ],
+      "redacted": "postgres_password = <SECRET_1>"
+    },
+    {
+      "id": "secret-colon-10",
+      "text": "postgres_password: \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          20,
+          35,
+          0.97
+        ]
+      ],
+      "redacted": "postgres_password: \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-quoted-10",
+      "text": "\"postgres_password\" = \"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          23,
+          38,
+          0.97
+        ]
+      ],
+      "redacted": "\"postgres_password\" = \"<SECRET_1>\""
+    },
+    {
+      "id": "secret-json-10",
+      "text": "{\"postgres_password\": \"SuperSecret123!\"}",
+      "findings": [
+        [
+          "SECRET",
+          23,
+          38,
+          0.97
+        ]
+      ],
+      "redacted": "{\"postgres_password\": \"<SECRET_1>\"}"
+    },
+    {
+      "id": "secret-short-10",
+      "text": "postgres_password = abc",
+      "findings": [],
+      "redacted": "postgres_password = abc"
+    },
+    {
+      "id": "secret-flag-bare",
+      "text": "mysql --password=SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          17,
+          32,
+          0.97
+        ]
+      ],
+      "redacted": "mysql --password=<SECRET_1>"
+    },
+    {
+      "id": "secret-flag-space",
+      "text": "mysql --password SuperSecret123!",
+      "findings": [
+        [
+          "SECRET",
+          17,
+          32,
+          0.97
+        ]
+      ],
+      "redacted": "mysql --password <SECRET_1>"
+    },
+    {
+      "id": "secret-flag-quoted",
+      "text": "mysql --password=\"SuperSecret123!\"",
+      "findings": [
+        [
+          "SECRET",
+          17,
+          34,
+          0.97
+        ]
+      ],
+      "redacted": "mysql --password=<SECRET_1>"
+    },
+    {
+      "id": "secret-pem-complete",
+      "text": "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK\n-----END RSA PRIVATE KEY-----",
+      "findings": [
+        [
+          "SECRET",
+          0,
+          76,
+          0.99
+        ]
+      ],
+      "redacted": "<SECRET_1>"
+    },
+    {
+      "id": "secret-pem-unterminated",
+      "text": "-----BEGIN PRIVATE KEY-----\nMIIBOgIBAAJBAK\nrest of the file",
+      "findings": [
+        [
+          "SECRET",
+          0,
+          59,
+          0.99
+        ]
+      ],
+      "redacted": "<SECRET_1>"
+    },
+    {
+      "id": "secret-pem-openssh",
+      "text": "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----",
+      "findings": [
+        [
+          "SECRET",
+          0,
+          73,
+          0.99
+        ]
+      ],
+      "redacted": "<SECRET_1>"
+    },
+    {
+      "id": "secret-env-block",
+      "text": "DB_PASS=hunter2222\nAPI_KEY=abcdef123456\n",
+      "findings": [
+        [
+          "SECRET",
+          8,
+          18,
+          0.97
+        ],
+        [
+          "SECRET",
+          27,
+          39,
+          0.97
+        ]
+      ],
+      "redacted": "DB_PASS=<SECRET_1>\nAPI_KEY=<SECRET_2>\n"
+    },
+    {
+      "id": "secret-negative-0",
+      "text": "A password should never be shared in prose",
+      "findings": [],
+      "redacted": "A password should never be shared in prose"
+    },
+    {
+      "id": "secret-negative-1",
+      "text": "Rotate the token and password regularly",
+      "findings": [],
+      "redacted": "Rotate the token and password regularly"
+    },
+    {
+      "id": "secret-negative-2",
+      "text": "The secret to good code is small functions",
+      "findings": [],
+      "redacted": "The secret to good code is small functions"
+    },
+    {
+      "id": "secret-negative-3",
+      "text": "Please store your api key somewhere safe",
+      "findings": [],
+      "redacted": "Please store your api key somewhere safe"
+    },
+    {
+      "id": "secret-negative-4",
+      "text": "This token represents a session",
+      "findings": [],
+      "redacted": "This token represents a session"
+    },
+    {
+      "id": "secret-negative-5",
+      "text": "Our secret sauce is boring engineering",
+      "findings": [],
+      "redacted": "Our secret sauce is boring engineering"
+    },
+    {
+      "id": "secret-negative-6",
+      "text": "Set the password policy in the admin console",
+      "findings": [],
+      "redacted": "Set the password policy in the admin console"
+    },
+    {
+      "id": "secret-negative-7",
+      "text": "The postgres adapter has no configured URI",
+      "findings": [],
+      "redacted": "The postgres adapter has no configured URI"
+    },
+    {
+      "id": "uri-postgres",
+      "text": "Connect postgres://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          57,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-postgres",
+      "text": "Connect postgres://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          57,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-postgres",
+      "text": "Connect \"postgres://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          58,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-postgres",
+      "text": "Connect (postgres://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          58,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-postgresql",
+      "text": "Connect postgresql://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          59,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-postgresql",
+      "text": "Connect postgresql://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          59,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-postgresql",
+      "text": "Connect \"postgresql://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          60,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-postgresql",
+      "text": "Connect (postgresql://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          60,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-mysql",
+      "text": "Connect mysql://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-mysql",
+      "text": "Connect mysql://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-mysql",
+      "text": "Connect \"mysql://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-mysql",
+      "text": "Connect (mysql://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-mongodb",
+      "text": "Connect mongodb://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          56,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-mongodb",
+      "text": "Connect mongodb://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          56,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-mongodb",
+      "text": "Connect \"mongodb://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          57,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-mongodb",
+      "text": "Connect (mongodb://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          57,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-mongodb+srv",
+      "text": "Connect mongodb+srv://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          60,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-mongodb+srv",
+      "text": "Connect mongodb+srv://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          60,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-mongodb+srv",
+      "text": "Connect \"mongodb+srv://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          61,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-mongodb+srv",
+      "text": "Connect (mongodb+srv://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          61,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-redis",
+      "text": "Connect redis://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-redis",
+      "text": "Connect redis://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-redis",
+      "text": "Connect \"redis://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-redis",
+      "text": "Connect (redis://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-rediss",
+      "text": "Connect rediss://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-rediss",
+      "text": "Connect rediss://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-rediss",
+      "text": "Connect \"rediss://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          56,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-rediss",
+      "text": "Connect (rediss://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          56,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-mssql",
+      "text": "Connect mssql://alice:s3cr3tpw@db.example.com:5432/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-trailing-mssql",
+      "text": "Connect mssql://alice:s3cr3tpw@db.example.com:5432/app.",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          54,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1>."
+    },
+    {
+      "id": "uri-quoted-mssql",
+      "text": "Connect \"mssql://alice:s3cr3tpw@db.example.com:5432/app\" now",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect \"<DB_URI_1>\" now"
+    },
+    {
+      "id": "uri-paren-mssql",
+      "text": "Connect (mssql://alice:s3cr3tpw@db.example.com:5432/app)",
+      "findings": [
+        [
+          "DB_URI",
+          9,
+          55,
+          0.99
+        ]
+      ],
+      "redacted": "Connect (<DB_URI_1>)"
+    },
+    {
+      "id": "uri-embedded-secret",
+      "text": "postgresql://alice:sk_live_abcdefghijklmnop@db.example.com/app.",
+      "findings": [
+        [
+          "DB_URI",
+          0,
+          62,
+          0.99
+        ]
+      ],
+      "redacted": "<DB_URI_1>."
+    },
+    {
+      "id": "uri-upper-scheme",
+      "text": "Connect POSTGRESQL://alice:pw@db.example.com/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          48,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-no-credentials",
+      "text": "Connect mysql://db.example.com/app now",
+      "findings": [
+        [
+          "DB_URI",
+          8,
+          34,
+          0.99
+        ]
+      ],
+      "redacted": "Connect <DB_URI_1> now"
+    },
+    {
+      "id": "uri-http-negative",
+      "text": "Connect https://db.example.com/app now",
+      "findings": [],
+      "redacted": "Connect https://db.example.com/app now"
+    },
+    {
+      "id": "norm-percent-at",
+      "text": "Contact alice%40example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-percent-full",
+      "text": "Contact %61%6c%69%63%65%40example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          37,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-percent-utf8",
+      "text": "Contact ali%C3%A7e@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          30,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-zwsp",
+      "text": "Contact alice​@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-soft-hyphen",
+      "text": "Contact alice­@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-bom",
+      "text": "Contact alice﻿@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-rlo",
+      "text": "Contact ‮alice@example.com‬",
+      "findings": [
+        [
+          "EMAIL",
+          9,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact ‮<EMAIL_1>‬"
+    },
+    {
+      "id": "norm-combining",
+      "text": "Contact alíce@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          26,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-fullwidth-card",
+      "text": "Card ４１１１１１１１１１１１１１１１",
+      "findings": [
+        [
+          "CREDIT_CARD",
+          5,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "Card <CREDIT_CARD_1>"
+    },
+    {
+      "id": "norm-fullwidth-at",
+      "text": "Contact alice＠example.com",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>"
+    },
+    {
+      "id": "norm-hangul",
+      "text": "가 alice@example.com 한",
+      "findings": [
+        [
+          "EMAIL",
+          2,
+          19,
+          1.0
+        ]
+      ],
+      "redacted": "가 <EMAIL_1> 한"
+    },
+    {
+      "id": "norm-hangul-jamo",
+      "text": "각 alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          4,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "각 <EMAIL_1>"
+    },
+    {
+      "id": "norm-nbsp",
+      "text": "Phone +90 532 123 45 67",
+      "findings": [
+        [
+          "PHONE",
+          6,
+          23,
+          0.4
+        ]
+      ],
+      "redacted": "Phone <PHONE_1>"
+    },
+    {
+      "id": "norm-ligature",
+      "text": "ﬁle alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          4,
+          21,
+          1.0
+        ]
+      ],
+      "redacted": "ﬁle <EMAIL_1>"
+    },
+    {
+      "id": "norm-mixed",
+      "text": "Contact ali%63e​@example.com now",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          28,
+          1.0
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1> now"
+    },
+    {
+      "id": "norm-arabic",
+      "text": "البريد alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          7,
+          24,
+          1.0
+        ]
+      ],
+      "redacted": "البريد <EMAIL_1>"
+    },
+    {
+      "id": "norm-emoji",
+      "text": "Contact 😀 alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          10,
+          27,
+          1.0
+        ]
+      ],
+      "redacted": "Contact 😀 <EMAIL_1>"
+    },
+    {
+      "id": "overlap-uri-secret",
+      "text": "postgresql://alice:sk_live_abcdefghijklmnop@db.example.com/app.",
+      "findings": [
+        [
+          "DB_URI",
+          0,
+          62,
+          0.99
+        ]
+      ],
+      "redacted": "<DB_URI_1>."
+    },
+    {
+      "id": "overlap-ssn-phone",
+      "text": "SSN 219-09-9999 and phone +1 415 555 2671",
+      "findings": [
+        [
+          "US_SSN",
+          4,
+          15,
+          0.5
+        ],
+        [
+          "PHONE",
+          26,
+          41,
+          0.4
+        ]
+      ],
+      "redacted": "SSN <US_SSN_1> and phone <PHONE_1>"
+    },
+    {
+      "id": "overlap-card-in-uri",
+      "text": "postgresql://u:4111111111111111@db.example.com/app",
+      "findings": [
+        [
+          "DB_URI",
+          0,
+          50,
+          0.99
+        ]
+      ],
+      "redacted": "<DB_URI_1>"
+    },
+    {
+      "id": "overlap-email-in-secret",
+      "text": "password = alice@example.com",
+      "findings": [
+        [
+          "SECRET",
+          11,
+          28,
+          0.97
+        ]
+      ],
+      "redacted": "password = <SECRET_1>"
+    },
+    {
+      "id": "overlap-many",
+      "text": "alice@example.com 192.168.1.1 00:1A:2B:3C:4D:5E TR330006100519786457841326",
+      "findings": [
+        [
+          "EMAIL",
+          0,
+          17,
+          1.0
+        ],
+        [
+          "MAC_ADDRESS",
+          18,
+          47,
+          0.6
+        ],
+        [
+          "IBAN",
+          48,
+          74,
+          1.0
+        ]
+      ],
+      "redacted": "<EMAIL_1> <MAC_ADDRESS_1> <IBAN_1>"
+    },
+    {
+      "id": "overlap-adjacent",
+      "text": "alice@example.combob@example.org",
+      "findings": [],
+      "redacted": "alice@example.combob@example.org"
+    },
+    {
+      "id": "edge-empty",
+      "text": "",
+      "findings": [],
+      "redacted": ""
+    },
+    {
+      "id": "edge-space",
+      "text": "   ",
+      "findings": [],
+      "redacted": "   "
+    },
+    {
+      "id": "edge-newlines",
+      "text": "\n\n\n",
+      "findings": [],
+      "redacted": "\n\n\n"
+    },
+    {
+      "id": "edge-punctuation",
+      "text": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\" alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          201,
+          218,
+          1.0
+        ]
+      ],
+      "redacted": "\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\" <EMAIL_1>"
+    },
+    {
+      "id": "edge-repeat-emails",
+      "text": "user0@example.com user1@example.com user2@example.com user3@example.com user4@example.com user5@example.com user6@example.com user7@example.com user8@example.com user9@example.com user10@example.com user11@example.com user12@example.com user13@example.com user14@example.com user15@example.com user16@example.com user17@example.com user18@example.com user19@example.com user20@example.com user21@example.com user22@example.com user23@example.com user24@example.com user25@example.com user26@example.com user27@example.com user28@example.com user29@example.com user30@example.com user31@example.com user32@example.com user33@example.com user34@example.com user35@example.com user36@example.com user37@example.com user38@example.com user39@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          0,
+          17,
+          1.0
+        ],
+        [
+          "EMAIL",
+          18,
+          35,
+          1.0
+        ],
+        [
+          "EMAIL",
+          36,
+          53,
+          1.0
+        ],
+        [
+          "EMAIL",
+          54,
+          71,
+          1.0
+        ],
+        [
+          "EMAIL",
+          72,
+          89,
+          1.0
+        ],
+        [
+          "EMAIL",
+          90,
+          107,
+          1.0
+        ],
+        [
+          "EMAIL",
+          108,
+          125,
+          1.0
+        ],
+        [
+          "EMAIL",
+          126,
+          143,
+          1.0
+        ],
+        [
+          "EMAIL",
+          144,
+          161,
+          1.0
+        ],
+        [
+          "EMAIL",
+          162,
+          179,
+          1.0
+        ],
+        [
+          "EMAIL",
+          180,
+          198,
+          1.0
+        ],
+        [
+          "EMAIL",
+          199,
+          217,
+          1.0
+        ],
+        [
+          "EMAIL",
+          218,
+          236,
+          1.0
+        ],
+        [
+          "EMAIL",
+          237,
+          255,
+          1.0
+        ],
+        [
+          "EMAIL",
+          256,
+          274,
+          1.0
+        ],
+        [
+          "EMAIL",
+          275,
+          293,
+          1.0
+        ],
+        [
+          "EMAIL",
+          294,
+          312,
+          1.0
+        ],
+        [
+          "EMAIL",
+          313,
+          331,
+          1.0
+        ],
+        [
+          "EMAIL",
+          332,
+          350,
+          1.0
+        ],
+        [
+          "EMAIL",
+          351,
+          369,
+          1.0
+        ],
+        [
+          "EMAIL",
+          370,
+          388,
+          1.0
+        ],
+        [
+          "EMAIL",
+          389,
+          407,
+          1.0
+        ],
+        [
+          "EMAIL",
+          408,
+          426,
+          1.0
+        ],
+        [
+          "EMAIL",
+          427,
+          445,
+          1.0
+        ],
+        [
+          "EMAIL",
+          446,
+          464,
+          1.0
+        ],
+        [
+          "EMAIL",
+          465,
+          483,
+          1.0
+        ],
+        [
+          "EMAIL",
+          484,
+          502,
+          1.0
+        ],
+        [
+          "EMAIL",
+          503,
+          521,
+          1.0
+        ],
+        [
+          "EMAIL",
+          522,
+          540,
+          1.0
+        ],
+        [
+          "EMAIL",
+          541,
+          559,
+          1.0
+        ],
+        [
+          "EMAIL",
+          560,
+          578,
+          1.0
+        ],
+        [
+          "EMAIL",
+          579,
+          597,
+          1.0
+        ],
+        [
+          "EMAIL",
+          598,
+          616,
+          1.0
+        ],
+        [
+          "EMAIL",
+          617,
+          635,
+          1.0
+        ],
+        [
+          "EMAIL",
+          636,
+          654,
+          1.0
+        ],
+        [
+          "EMAIL",
+          655,
+          673,
+          1.0
+        ],
+        [
+          "EMAIL",
+          674,
+          692,
+          1.0
+        ],
+        [
+          "EMAIL",
+          693,
+          711,
+          1.0
+        ],
+        [
+          "EMAIL",
+          712,
+          730,
+          1.0
+        ],
+        [
+          "EMAIL",
+          731,
+          749,
+          1.0
+        ]
+      ],
+      "redacted": "<EMAIL_1> <EMAIL_2> <EMAIL_3> <EMAIL_4> <EMAIL_5> <EMAIL_6> <EMAIL_7> <EMAIL_8> <EMAIL_9> <EMAIL_10> <EMAIL_11> <EMAIL_12> <EMAIL_13> <EMAIL_14> <EMAIL_15> <EMAIL_16> <EMAIL_17> <EMAIL_18> <EMAIL_19> <EMAIL_20> <EMAIL_21> <EMAIL_22> <EMAIL_23> <EMAIL_24> <EMAIL_25> <EMAIL_26> <EMAIL_27> <EMAIL_28> <EMAIL_29> <EMAIL_30> <EMAIL_31> <EMAIL_32> <EMAIL_33> <EMAIL_34> <EMAIL_35> <EMAIL_36> <EMAIL_37> <EMAIL_38> <EMAIL_39> <EMAIL_40>"
+    },
+    {
+      "id": "edge-long-word",
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa alice@example.com",
+      "findings": [
+        [
+          "EMAIL",
+          5001,
+          5018,
+          1.0
+        ]
+      ],
+      "redacted": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa <EMAIL_1>"
+    },
+    {
+      "id": "edge-tabs",
+      "text": "Contact\talice@example.com\tnow",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ]
+      ],
+      "redacted": "Contact\t<EMAIL_1>\tnow"
+    },
+    {
+      "id": "edge-crlf",
+      "text": "Contact alice@example.com\r\npassword = SuperSecret123!",
+      "findings": [
+        [
+          "EMAIL",
+          8,
+          25,
+          1.0
+        ],
+        [
+          "SECRET",
+          38,
+          53,
+          0.97
+        ]
+      ],
+      "redacted": "Contact <EMAIL_1>\r\npassword = <SECRET_1>"
+    }
+  ]
+}

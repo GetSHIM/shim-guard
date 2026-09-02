@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000028",
+  "transcript_path": "/home/probe/.claude/projects/-probe-workspace/00000000-0000-4000-8000-000000000028.jsonl",
+  "cwd": "/probe/workspace",
+  "prompt_id": "00000000-0000-4000-8000-000000000029",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "low"
+  },
+  "hook_event_name": "PostToolBatch",
+  "tool_calls": [
+    {
+      "tool_name": "ToolSearch",
+      "tool_input": {
+        "query": "select:WebFetch",
+        "max_results": 1
+      },
+      "tool_use_id": "toolu_000000000000000000000030",
+      "tool_response": [
+        {
+          "type": "tool_reference",
+          "tool_name": "WebFetch"
+        }
+      ]
+    }
+  ]
+}

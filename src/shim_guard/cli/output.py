@@ -1,5 +1,3 @@
-"""Small, safe presentation helpers for the command line."""
-
 from __future__ import annotations
 
 import json
@@ -14,7 +12,6 @@ SCHEMA_VERSION = 1
 
 
 def terminal_text(text: str, stream: TextIO, allowed: str = "") -> str:
-    """Escape terminal controls while preserving redirected output exactly."""
     if not stream.isatty():
         return text
     return "".join(
@@ -26,14 +23,12 @@ def terminal_text(text: str, stream: TextIO, allowed: str = "") -> str:
 
 
 def emit_json(command: str, status: str, **data: Any) -> None:
-    """Write the stable automation envelope. Callers supply only safe values."""
     payload = {"schema_version": SCHEMA_VERSION, "command": command, "status": status}
     payload.update(data)
     print(json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
 def console(stream: TextIO | None = None) -> Console:
-    """Return a console that honors redirection and NO_COLOR."""
     target = sys.stdout if stream is None else stream
     color = target.isatty() and "NO_COLOR" not in os.environ
     return Console(
@@ -44,7 +39,6 @@ def console(stream: TextIO | None = None) -> Console:
 
 
 def emit(label: str, message: str, *, error: bool = False) -> None:
-    """Render one narrow, explicit human-facing status line."""
     stream = sys.stderr if error else sys.stdout
     style = {"PASS": "green", "WARN": "yellow", "FAIL": "red"}.get(label, "")
     line = Text(label, style=style)

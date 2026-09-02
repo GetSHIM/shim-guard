@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import pytest
 
 from shim_guard.clients.claude.hook import block_output, error_output, parse_input
+from shim_guard.clients.claude.tool_events import MAX_INPUT_BYTES, TOOL_EVENTS
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,25 @@ def test_claude_code_codec_rejects_hostile_payloads(raw: bytes) -> None:
 
 def test_claude_code_error_is_a_native_generic_block() -> None:
     assert error_output() == (
-        b'{"decision":"block","reason":"SHIM Guard could not safely inspect '
-        b'this prompt. Try again or run `shim scan` locally.",'
+        b'{"decision":"block","reason":"SHIM Guard could not inspect this '
+        b'prompt, so it was withheld. Run `shim doctor claude` for the reason.",'
         b'"suppressOriginalPrompt":true}'
     )
+
+
+@pytest.mark.parametrize(
+    ("event", "raw"),
+    (
+        ("PreToolUse", b"[]"),
+        (
+            "PreToolUse",
+            b'{"hook_event_name":"PostToolUse","tool_name":"Read"}',
+        ),
+        ("PostToolUse", b" " * (MAX_INPUT_BYTES + 1)),
+    ),
+)
+def test_claude_tool_codec_rejects_malformed_wrong_or_oversized_events(
+    event: str, raw: bytes
+) -> None:
+    with pytest.raises(ValueError):
+        TOOL_EVENTS[event].decode(raw)

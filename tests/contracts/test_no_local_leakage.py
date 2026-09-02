@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+
+FIXED_MARKERS = (
+    "/private/tmp/claude-",
+    ".vscode/extensions/anthropic",
+    "Library/Application Support",
+    "SHIM_fullstack",
+)
+
+WIRE_PATTERNS = (
+    "wrkspc_01",
+    "anthropic-organization-id",
+)
+
+_GENERIC_HOME_NAMES = {"root", "runner", "user", "home", "ubuntu", "admin", "build"}
+
+EXEMPT = {
+    "tests/contracts/test_no_local_leakage.py",
+    "tests/probe/test_probe_fixtures.py",
+}
+
+
+def _tracked() -> list[str]:
+    result = subprocess.run(
+        ("git", "ls-files"),
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        pytest.skip("not a git checkout", allow_module_level=True)
+    return [line for line in result.stdout.decode().splitlines() if line]
+
+
+def _markers() -> list[str]:
+    found = list(FIXED_MARKERS) + list(WIRE_PATTERNS)
+    try:
+        home = Path.home()
+    except RuntimeError:
+        return found
+    found.append(str(home))
+    name = home.name
+    if len(name) >= 4 and name.lower() not in _GENERIC_HOME_NAMES:
+        found.append(name)
+    for variable in ("USER", "LOGNAME"):
+        value = os.environ.get(variable, "")
+        if len(value) >= 4 and value.lower() not in _GENERIC_HOME_NAMES:
+            found.append(value)
+    return found
+
+
+MARKERS = _markers()
+FILES = [path for path in _tracked() if path not in EXEMPT]
+
+
+def test_there_is_something_to_check() -> None:
+    assert len(FILES) > 50, "the tracked-file listing looks wrong"
+    assert MARKERS
+
+
+@pytest.mark.parametrize("relative", FILES, ids=lambda path: path)
+def test_no_committed_file_names_the_machine_it_was_written_on(
+    relative: str,
+) -> None:
+    try:
+        content = (ROOT / relative).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        pytest.skip("not readable as text")
+
+    hits = sorted({marker for marker in MARKERS if marker in content})
+
+    assert not hits, (
+        f"{relative} contains {hits}. This repository is public and its "
+        "examples come from real sessions; replace the value with a synthetic "
+        "one rather than trimming it."
+    )
+
+
+def test_the_guard_catches_a_planted_marker() -> None:
+    planted = f"see {Path.home()}/notes.md for details"
+
+    assert any(marker in planted for marker in MARKERS)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="posix paths")
+def test_a_synthetic_home_is_still_allowed() -> None:
+    synthetic = "Read /Users/alice/.ssh/id_rsa, then continue"
+
+    assert not [marker for marker in MARKERS if marker in synthetic]

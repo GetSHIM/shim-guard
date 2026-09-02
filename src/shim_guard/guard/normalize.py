@@ -1,5 +1,3 @@
-"""Bounded text normalization with normalized-to-source span mapping."""
-
 from __future__ import annotations
 
 import codecs
@@ -15,8 +13,10 @@ _PERCENT_BYTE = re.compile(r"%([0-9A-Fa-f]{2})")
 _SourceSpan = tuple[int, int]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class NormalizedText:
+    __slots__ = ("source_spans", "text")
+
     text: str
     source_spans: tuple[_SourceSpan, ...]
 
@@ -98,7 +98,9 @@ def _normalize_unicode(
     characters: list[str] = []
     decomposed_spans: list[_SourceSpan] = []
     origins: list[int] = []
-    for origin, (character, span) in enumerate(zip(text, spans, strict=True)):
+    if len(text) != len(spans):
+        raise ValueError("Guard normalization failed safely.")
+    for origin, (character, span) in enumerate(zip(text, spans)):
         decomposed = unicodedata.normalize("NFKD", character)
         if len(characters) + len(decomposed) > MAX_NORMALIZED_CHARACTERS:
             raise _too_large()
@@ -145,7 +147,9 @@ def normalize(text: str) -> NormalizedText:
         raise ValueError("Guard input contains malformed percent encoding.") from error
     visible_text: list[str] = []
     visible_spans: list[_SourceSpan] = []
-    for character, span in zip(decoded, spans, strict=True):
+    if len(decoded) != len(spans):
+        raise ValueError("Guard normalization failed safely.")
+    for character, span in zip(decoded, spans):
         if not _INVISIBLE.fullmatch(character):
             visible_text.append(character)
             visible_spans.append(span)

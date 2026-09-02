@@ -11,8 +11,10 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -20,13 +22,26 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: '3.13'
+          python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - run: uv sync --locked
+      - run: uv sync --locked --python ${{ matrix.python-version }}
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
       - run: uv run --locked ty check
+        if: matrix.python-version == '3.13'
       - run: uv run --locked pytest
+      - name: Build and verify the plugin archive
+        run: |
+          uv run --locked python scripts/build_zipapp.py \
+            --output plugins/shim-guard/bin/shim.pyz
+          test -x plugins/shim-guard/bin/shim.pyz
+          test -z "$(printf '%s' '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}' \
+            | env -i PATH=/nonexistent plugins/shim-guard/hooks/run-shim-guard claude 2>/dev/null)"
+          test "$(env -i PATH=/usr/bin:/bin HOME="$HOME" \
+            CLAUDE_PLUGIN_ROOT="$PWD/plugins/shim-guard" \
+            plugins/shim-guard/hooks/run-shim-guard claude \
+            <<< '{"hook_event_name":"UserPromptSubmit","prompt":"Contact alice@example.com"}')" \
+            = '{"systemMessage":"shim: found EMAIL (1) in your prompt. Not modified."}'
       - run: uv build --no-build-isolation
       - name: Export locked package-test dependencies
         run: |
@@ -34,10 +49,23 @@ jobs:
           uv export --locked --only-dev --no-emit-project --output-file /tmp/shim-dev.lock
       - name: Check wheel contents
         run: |
-          python -c 'from pathlib import Path; from zipfile import ZipFile; wheel = next(Path("dist").glob("*.whl")); names = ZipFile(wheel).namelist(); assert "shim_guard/__init__.py" in names; assert any(name.endswith(".dist-info/METADATA") for name in names)'
+          python -c 'from pathlib import Path; from zipfile import ZipFile; wheel = next(Path("dist").glob("*.whl")); names = ZipFile(wheel).namelist(); assert "shim_guard/__init__.py" in names; assert "shim_guard/guard/suffixes.py" in names; assert any(name.endswith(".dist-info/METADATA") for name in names)'
+      - name: Verify no NLP dependency is declared
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          wheel = next(Path("dist").glob("*.whl"))
+          names = ZipFile(wheel).namelist()
+          metadata = next(n for n in names if n.endswith(".dist-info/METADATA"))
+          text = ZipFile(wheel).read(metadata).decode()
+          for banned in ("presidio", "tldextract", "spacy"):
+              assert banned not in text.lower(), f"{banned} is still a dependency"
+          print("no NLP dependency declared")
+          PY
       - name: Verify packaged wheel contracts and benchmark
         run: |
-          uv venv --python 3.13 /tmp/shim-guard-wheel
+          uv venv --python ${{ matrix.python-version }} /tmp/shim-guard-wheel
           uv pip install --python /tmp/shim-guard-wheel --require-hashes -r /tmp/shim-runtime.lock -r /tmp/shim-dev.lock
           uv pip install --python /tmp/shim-guard-wheel --no-deps dist/*.whl
           /tmp/shim-guard-wheel/bin/shim --help
@@ -46,11 +74,13 @@ jobs:
           /tmp/shim-guard-wheel/bin/shim demo codex --json
           /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/codex/test_hook.py
           /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/claude/test_claude_hook.py
+          /tmp/shim-guard-wheel/bin/python -I -B -m pytest tests/contracts/test_import_hygiene.py
           python scripts/benchmark_hook.py --self-check
-          python scripts/benchmark_hook.py /tmp/shim-guard-wheel/bin/python --samples-per-fixture 1 --output /tmp/shim-benchmark.json
+          python scripts/benchmark_hook.py /tmp/shim-guard-wheel/bin/python --samples-per-fixture 20 --output /tmp/shim-benchmark.json
+          cat /tmp/shim-benchmark.json
       - name: Verify packaged source distribution contracts
         run: |
-          uv venv --python 3.13 /tmp/shim-guard-sdist
+          uv venv --python ${{ matrix.python-version }} /tmp/shim-guard-sdist
           uv pip install --python /tmp/shim-guard-sdist --require-hashes -r /tmp/shim-runtime.lock -r /tmp/shim-dev.lock
           uv pip install --python /tmp/shim-guard-sdist --no-deps --no-build-isolation dist/*.tar.gz
           test -x /tmp/shim-guard-sdist/bin/shim-guard-hook

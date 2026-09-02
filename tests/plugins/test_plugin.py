@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import tomllib
 from pathlib import Path
 
 import pytest
+
+import shim_guard
+from shim_guard.clients.claude import settings as claude_settings
+from shim_guard.clients.codex import settings as codex_settings
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 PLUGIN_ROOT = Path(__file__).parents[2] / "plugins" / "shim-guard"
 REPOSITORY_ROOT = PLUGIN_ROOT.parents[1]
@@ -17,6 +23,7 @@ def test_plugin_versions_match_package() -> None:
         (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )
     expected = package["project"]["version"]
+    assert shim_guard.__version__ == expected
 
     for host in ("codex", "claude"):
         manifest = json.loads(
@@ -28,22 +35,18 @@ def test_plugin_versions_match_package() -> None:
 
 
 @pytest.mark.parametrize(
-    ("client", "suppresses_original"),
-    [("codex", False), ("claude", True)],
+    ("client", "manifest", "settings"),
+    [
+        ("claude", "claude.json", claude_settings),
+        ("codex", "hooks.json", codex_settings),
+    ],
 )
-def test_missing_cli_fails_closed(client: str, suppresses_original: bool) -> None:
-    runner = PLUGIN_ROOT / "hooks" / "run-shim-guard"
-    result = subprocess.run(
-        [runner, client],
-        input=b'{"hook_event_name":"UserPromptSubmit","prompt":"safe"}',
-        capture_output=True,
-        check=True,
-        env={"PATH": "", "LC_ALL": "C"},
+def test_the_plugin_and_the_installer_register_the_same_events(
+    client: str, manifest: str, settings: object
+) -> None:
+    document = json.loads(
+        (PLUGIN_ROOT / "hooks" / manifest).read_text(encoding="utf-8")
     )
+    expected = {event for event, _group in settings.hook_groups()}
 
-    output = json.loads(result.stdout)
-    assert output["decision"] == "block"
-    assert output.get("suppressOriginalPrompt", False) is suppresses_original
-    assert result.stderr == b""
-    assert b"safe" not in result.stdout
-    assert os.access(runner, os.X_OK)
+    assert set(document["hooks"]) == expected

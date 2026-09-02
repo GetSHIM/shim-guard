@@ -1,9 +1,7 @@
-"""Local stdin-only privacy workflows."""
-
 from __future__ import annotations
 
 import sys
-from typing import Never
+from typing import NoReturn
 
 import typer
 
@@ -16,7 +14,6 @@ _DEMO_TEXT = (
 
 
 def read_stdin() -> str:
-    """Read a bounded prompt without accepting it in shell history or argv."""
     source = getattr(sys.stdin, "buffer", sys.stdin)
     data = source.read(MAX_STDIN_BYTES + 1)
     if isinstance(data, str):
@@ -27,7 +24,6 @@ def read_stdin() -> str:
 
 
 def evaluate(text: str):
-    """Import the detector only after a privacy command is actually invoked."""
     from shim_guard.config import load_entities
     from shim_guard.guard import evaluate as evaluate_guard
 
@@ -37,11 +33,11 @@ def evaluate(text: str):
 def _read_and_evaluate(command: str, as_json: bool):
     try:
         return evaluate(read_stdin())
-    except Exception:  # Do not expose stdin or detector errors at this boundary.
+    except Exception:  # Never expose stdin or detector errors.
         _privacy_error(command, as_json)
 
 
-def _privacy_error(command: str, as_json: bool) -> Never:
+def _privacy_error(command: str, as_json: bool) -> NoReturn:
     if as_json:
         emit_json(command, "error", error="unable to process stdin")
     else:
@@ -72,7 +68,6 @@ def redact(*, as_json: bool) -> None:
             counts=dict(decision.counts),
         )
     else:
-        # This command intentionally emits the typed text so it can be piped onward.
         print(terminal_text(decision.redacted_text, sys.stdout, "\n\t"))
 
 

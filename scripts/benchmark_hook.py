@@ -18,13 +18,12 @@ BLOCK_INPUT = (
 )
 HOOK_COMMAND = ("-I", "-B", "-m", "shim_guard.hook")
 HOOK_TIMEOUT_SECONDS = 35
-DEFAULT_P95_CEILING_MS = 5_000.0
+DEFAULT_P95_CEILING_MS = 150.0
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
 
 def percentile(samples: list[float], fraction: float) -> float:
-    """Return the nearest-rank percentile from positive sample data."""
     if not samples:
         raise ValueError("samples are required")
     return sorted(samples)[math.ceil(len(samples) * fraction) - 1]
@@ -120,8 +119,11 @@ def benchmark(
     block_samples: list[float] = []
     with tempfile.TemporaryDirectory(prefix="shim-guard-benchmark-") as directory:
         temporary = Path(directory).resolve()
+        config = temporary / "config.toml"
+        config.write_text('[mode]\nuser-prompt = "enforce"\n', encoding="utf-8")
+        config.chmod(0o600)
         environment = os.environ.copy()
-        environment["SHIM_GUARD_CONFIG"] = str(temporary / "config.toml")
+        environment["SHIM_GUARD_CONFIG"] = str(config)
         environment["TMPDIR"] = str(temporary)
         for _ in range(samples_per_fixture):
             safe_samples.append(run_hook(python, SAFE_INPUT, b"", b"", environment))

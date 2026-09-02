@@ -1,25 +1,28 @@
-"""The flat ``shim`` command registration layer."""
-
-from __future__ import annotations
-
 import subprocess
-from enum import StrEnum
+from enum import Enum
 from importlib import metadata
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
 from shim_guard import __version__
-from shim_guard.config import ENTITY_TYPES
+from shim_guard.guard import ENTITY_TYPES
 
 
-class Client(StrEnum):
+class _StringEnum(str, Enum):
+    def __str__(self) -> str:
+        return str.__str__(self)
+
+    __format__ = str.__format__  # type: ignore[assignment]
+
+
+class Client(_StringEnum):
     CLAUDE = "claude"
     CODEX = "codex"
     COPILOT = "copilot"
 
 
-Entity = StrEnum("Entity", {name: name for name in ENTITY_TYPES})
+Entity = _StringEnum("Entity", {name: name for name in ENTITY_TYPES})
 
 
 app = typer.Typer(
@@ -37,9 +40,8 @@ def root(
         False, "--version", help="Show the version and exit.", is_eager=True
     ),
 ) -> None:
-    """Show the next action when no command is provided."""
     if version:
-        typer.echo(f"shim-guard {__version__}")
+        typer.echo(f"shim {__version__}")
         raise typer.Exit
     if context.invoked_subcommand is None:
         typer.echo(
@@ -49,19 +51,17 @@ def root(
 
 @app.command()
 def help(context: typer.Context) -> None:
-    """Show command usage and descriptions."""
+    """Show help."""
     typer.echo(context.find_root().get_help())
 
 
 @app.command()
 def update() -> None:
-    """Update SHIM Guard with its installation tool."""
-    installer = (
-        metadata.distribution("shim-guard").read_text("INSTALLER") or ""
-    ).strip()
+    """Update SHIM Guard."""
+    installer = (metadata.distribution("shim").read_text("INSTALLER") or "").strip()
     command = {
-        "uv": ("uv", "tool", "upgrade", "shim-guard"),
-        "pip": ("pipx", "upgrade", "shim-guard"),
+        "uv": ("uv", "tool", "upgrade", "shim"),
+        "pip": ("pipx", "upgrade", "shim"),
     }.get(installer)
     if command is not None:
         try:
@@ -69,8 +69,8 @@ def update() -> None:
         except OSError:
             pass
     typer.echo(
-        "Unable to update automatically. Run `uv tool upgrade shim-guard` or "
-        "`pipx upgrade shim-guard`.",
+        "Unable to update automatically. Run `uv tool upgrade shim` or "
+        "`pipx upgrade shim`.",
         err=True,
     )
     raise typer.Exit(2)
@@ -81,17 +81,17 @@ def demo(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run the local synthetic detector proof."""
+    """Run a synthetic detector check."""
     from shim_guard.cli.privacy import demo as run_demo
 
-    run_demo(client=str(client), as_json=json_output)
+    run_demo(client=client.value, as_json=json_output)
 
 
 @app.command()
 def scan(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Scan bounded UTF-8 text from standard input."""
+    """Scan UTF-8 stdin."""
     from shim_guard.cli.privacy import scan as run_scan
 
     run_scan(as_json=json_output)
@@ -101,7 +101,7 @@ def scan(
 def redact(
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Redact bounded UTF-8 text from standard input."""
+    """Redact UTF-8 stdin."""
     from shim_guard.cli.privacy import redact as run_redact
 
     run_redact(as_json=json_output)
@@ -110,7 +110,7 @@ def redact(
 @app.command("config")
 def config_command(
     only: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--only",
             case_sensitive=False,
@@ -119,7 +119,7 @@ def config_command(
         ),
     ] = None,
     enable: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--enable",
             case_sensitive=False,
@@ -128,7 +128,7 @@ def config_command(
         ),
     ] = None,
     disable: Annotated[
-        list[Entity] | None,
+        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
         typer.Option(
             "--disable",
             case_sensitive=False,
@@ -136,21 +136,76 @@ def config_command(
             help="Disable this entity; repeatable.",
         ),
     ] = None,
+    ledger: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--ledger/--no-ledger",
+            help="Keep session records past the end of the session. Off by default.",
+        ),
+    ] = None,
+    diet: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--diet/--no-diet",
+            help="Shrink tool results losslessly. Name individual transforms "
+            "in the config file.",
+        ),
+    ] = None,
     reset: bool = typer.Option(False, "--reset", help="Restore all defaults."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show or change locally enabled sensitive-data entities."""
+    """Show or change detection settings."""
     from shim_guard.cli.configuration import configure
 
     configure(
-        only=tuple(map(str, only or ())),
-        enable=tuple(map(str, enable or ())),
-        disable=tuple(map(str, disable or ())),
+        only=tuple(entity.value for entity in only or ()),
+        enable=tuple(entity.value for entity in enable or ()),
+        disable=tuple(entity.value for entity in disable or ()),
         reset=reset,
+        ledger=ledger,
+        diet=diet,
         yes=yes,
         as_json=json_output,
     )
+
+
+ledger_app = typer.Typer(help="Manage the opt-in record kept past a session.")
+app.add_typer(ledger_app, name="ledger")
+
+
+@ledger_app.command("purge")
+def ledger_purge(
+    yes: bool = typer.Option(False, "--yes", help="Delete without confirmation."),
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Delete retained session records."""
+    from shim_guard.cli.report import purge as run_purge
+
+    run_purge(yes=yes, as_json=json_output)
+
+
+@app.command()
+def report(
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Show the latest session report."""
+    from shim_guard.cli.report import report as run_report
+
+    run_report(as_json=json_output)
+
+
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def watch(
+    context: typer.Context,
+    json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
+) -> None:
+    """Run a client through the measuring proxy."""
+    from shim_guard.cli.watch import watch as run_watch
+
+    run_watch(command=tuple(context.args), as_json=json_output)
 
 
 @app.command()
@@ -159,10 +214,10 @@ def install(
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing."),
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Preview or install a client prompt hook."""
+    """Preview or install a client hook."""
     from shim_guard.cli.integrations import install as run_install
 
-    run_install(client=str(client), dry_run=dry_run, yes=yes)
+    run_install(client=client.value, dry_run=dry_run, yes=yes)
 
 
 @app.command()
@@ -170,10 +225,10 @@ def status(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Show the prompt-hook installation state."""
+    """Show hook status."""
     from shim_guard.cli.integrations import status as run_status
 
-    run_status(client=str(client), as_json=json_output)
+    run_status(client=client.value, as_json=json_output)
 
 
 @app.command()
@@ -181,10 +236,10 @@ def doctor(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     json_output: bool = typer.Option(False, "--json", help="Write a JSON result."),
 ) -> None:
-    """Run client compatibility and hook health checks."""
+    """Check client and hook health."""
     from shim_guard.cli.diagnostics import doctor as run_doctor
 
-    run_doctor(client=str(client), as_json=json_output)
+    run_doctor(client=client.value, as_json=json_output)
 
 
 @app.command()
@@ -192,10 +247,10 @@ def revert(
     client: Annotated[Client, typer.Argument(case_sensitive=True, show_choices=True)],
     yes: bool = typer.Option(False, "--yes", help="Apply without confirmation."),
 ) -> None:
-    """Remove only SHIM Guard's client prompt hook."""
+    """Remove SHIM Guard's client hook."""
     from shim_guard.cli.integrations import revert as run_revert
 
-    run_revert(client=str(client), yes=yes)
+    run_revert(client=client.value, yes=yes)
 
 
 def main() -> None:

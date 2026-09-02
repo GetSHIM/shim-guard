@@ -1,7 +1,7 @@
 {
   "name": "shim-guard",
   "interface": {
-    "displayName": "Shim Guard"
+    "displayName": "shim Guard"
   },
   "plugins": [
     {
@@ -14,7 +14,9 @@
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
-      "category": "Security"
+      "category": "Security",
+      "description": "Detect and report sensitive prompt data locally; prompt blocking is opt in."
     }
-  ]
+  ],
+  "description": "Local sensitive-data detection and reporting for coding agents."
 }

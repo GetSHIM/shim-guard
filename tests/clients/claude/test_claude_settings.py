@@ -11,30 +11,49 @@ from shim_guard.clients.claude.settings import (
     TESTED_CLAUDE_VERSION,
     add_hook,
     hook_group,
+    hook_groups,
     remove_hook,
     target_path,
+    tool_hook_group,
 )
+from shim_guard.clients.claude.tool_events import INSTALLED_EVENTS
+from shim_guard.session import SESSION_EVENTS
 
 
 def test_claude_code_settings_use_shell_free_exec_form(tmp_path: Path) -> None:
     interpreter = tmp_path / "venv's python"
-    group = hook_group(interpreter)
+    handler = {
+        "args": ["-I", "-B", "-m", "shim_guard.hook", "claude"],
+        "command": str(interpreter),
+        "timeout": 30,
+        "type": "command",
+    }
 
-    assert group == {
-        "hooks": [
-            {
-                "args": ["-I", "-B", "-m", "shim_guard.hook", "claude"],
-                "command": str(interpreter),
-                "timeout": 30,
-                "type": "command",
-            }
-        ]
-    }
-    assert json.loads(add_hook(None, interpreter)) == {
-        "hooks": {"UserPromptSubmit": [group]}
-    }
+    assert hook_group(interpreter) == {"hooks": [handler]}
+    assert tool_hook_group(interpreter) == {"matcher": "*", "hooks": [handler]}
     assert HOOK_TIMEOUT_SECONDS == 30
-    assert TESTED_CLAUDE_VERSION == MINIMUM_CLAUDE_VERSION == "2.1.210"
+    assert MINIMUM_CLAUDE_VERSION == "2.1.210"
+    assert TESTED_CLAUDE_VERSION == "2.1.251"
+
+
+def test_claude_code_registers_the_prompt_tool_and_session_events(
+    tmp_path: Path,
+) -> None:
+    interpreter = tmp_path / "python"
+    expected_tool_events = list(INSTALLED_EVENTS)
+
+    events = [event for event, _group in hook_groups(interpreter)]
+    assert events == ["UserPromptSubmit", *expected_tool_events, *SESSION_EVENTS]
+    assert len(set(events)) == len(events)
+
+    document = json.loads(add_hook(None, interpreter))
+    assert document == {
+        "hooks": {
+            "UserPromptSubmit": [hook_group(interpreter)],
+            **{event: [tool_hook_group(interpreter)] for event in expected_tool_events},
+            **{event: [hook_group(interpreter)] for event in SESSION_EVENTS},
+        }
+    }
 
 
 def test_claude_code_target_respects_config_dir_and_injected_home(
@@ -55,6 +74,7 @@ def test_claude_code_settings_preserve_unrelated_values_and_hooks(
         "hooks": {
             "SessionStart": [existing_group],
             "UserPromptSubmit": [existing_group],
+            "PreToolUse": [existing_group],
         },
         "model": "sonnet",
     }
@@ -64,11 +84,37 @@ def test_claude_code_settings_preserve_unrelated_values_and_hooks(
     assert list(document) == ["permissions", "hooks", "model"]
     assert document["permissions"] == original["permissions"]
     assert document["hooks"]["SessionStart"] == [existing_group]
-    assert document["hooks"]["UserPromptSubmit"] == [
-        existing_group,
-        hook_group(interpreter),
-    ]
+    for event, group in hook_groups(interpreter):
+        assert document["hooks"][event][-1] == group
+        if event in original["hooks"]:
+            assert document["hooks"][event][0] == existing_group
     assert add_hook(installed, interpreter) == installed
+    assert json.loads(remove_hook(installed, interpreter)) == original
+
+
+def test_claude_code_settings_upgrade_a_prompt_only_install_in_place(
+    tmp_path: Path,
+) -> None:
+    interpreter = tmp_path / "python"
+    prompt_only = (
+        json.dumps({"hooks": {"UserPromptSubmit": [hook_group(interpreter)]}}) + "\n"
+    ).encode()
+
+    upgraded = add_hook(prompt_only, interpreter)
+    document = json.loads(upgraded)
+    assert document["hooks"]["UserPromptSubmit"] == [hook_group(interpreter)]
+    assert len(document["hooks"]) == len(hook_groups(interpreter))
+    assert json.loads(remove_hook(upgraded, interpreter)) == {}
+
+
+def test_claude_code_revert_leaves_a_foreign_tool_hook_untouched(
+    tmp_path: Path,
+) -> None:
+    interpreter = tmp_path / "python"
+    foreign = {"matcher": "Bash", "hooks": [{"type": "command", "command": "audit"}]}
+    original = {"hooks": {"PreToolUse": [foreign]}}
+
+    installed = add_hook(json.dumps(original).encode(), interpreter)
     assert json.loads(remove_hook(installed, interpreter)) == original
 
 
@@ -82,6 +128,7 @@ def test_claude_code_settings_preserve_unrelated_values_and_hooks(
         b'{"hooks":{"UserPromptSubmit":{}}}',
         b'{"hooks":{"UserPromptSubmit":[{}]}}',
         b'{"hooks":{"UserPromptSubmit":[{"hooks":[{}]}]}}',
+        b'{"hooks":{"PreToolUse":[{"hooks":[{"type":"command"}]}]}}',
     ],
 )
 def test_claude_code_settings_reject_malformed_documents(content: bytes) -> None:
