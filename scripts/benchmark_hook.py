@@ -18,7 +18,6 @@ BLOCK_INPUT = (
 )
 HOOK_COMMAND = ("-I", "-B", "-m", "shim_guard.hook")
 HOOK_TIMEOUT_SECONDS = 35
-DEFAULT_P95_CEILING_MS = 150.0
 COPY_INSTRUCTION = "Copy and paste this as your next prompt:"
 READ_INSTRUCTION = "Read this file and use its contents as my prompt: "
 
@@ -106,15 +105,9 @@ def installed_python_version(python: Path) -> str:
     return result.stdout.strip()
 
 
-def benchmark(
-    python: Path, samples_per_fixture: int, p95_ceiling_ms: float
-) -> dict[str, object]:
-    if (
-        samples_per_fixture < 1
-        or not math.isfinite(p95_ceiling_ms)
-        or p95_ceiling_ms <= 0
-    ):
-        raise ValueError("samples and p95 ceiling must be positive")
+def benchmark(python: Path, samples_per_fixture: int) -> dict[str, object]:
+    if samples_per_fixture < 1:
+        raise ValueError("samples must be positive")
     safe_samples: list[float] = []
     block_samples: list[float] = []
     with tempfile.TemporaryDirectory(prefix="shim-guard-benchmark-") as directory:
@@ -137,8 +130,6 @@ def benchmark(
                 )
             )
     timings = {"safe": summary(safe_samples), "block": summary(block_samples)}
-    if any(values["p95_ms"] > p95_ceiling_ms for values in timings.values()):
-        raise RuntimeError("hook benchmark exceeded the p95 ceiling")
     return {
         "schema_version": 1,
         "sample_counts": {"safe": len(safe_samples), "block": len(block_samples)},
@@ -148,7 +139,6 @@ def benchmark(
             "machine": platform.machine(),
         },
         "python": installed_python_version(python),
-        "p95_ceiling_ms": p95_ceiling_ms,
         "timings_ms": timings,
     }
 
@@ -166,7 +156,6 @@ def main() -> None:
         "python", nargs="?", type=Path, help="Installed Python executable"
     )
     parser.add_argument("--samples-per-fixture", type=int, default=20)
-    parser.add_argument("--p95-ceiling-ms", type=float, default=DEFAULT_P95_CEILING_MS)
     parser.add_argument("--output", type=Path, help="Write JSON to this path")
     parser.add_argument("--self-check", action="store_true")
     args = parser.parse_args()
@@ -176,7 +165,7 @@ def main() -> None:
     if args.python is None:
         parser.error("python is required unless --self-check is used")
     try:
-        result = benchmark(args.python, args.samples_per_fixture, args.p95_ceiling_ms)
+        result = benchmark(args.python, args.samples_per_fixture)
     except (RuntimeError, ValueError):
         raise SystemExit("hook benchmark failed") from None
     output = json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n"

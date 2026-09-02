@@ -17,8 +17,6 @@ def test_benchmark_enables_its_block_fixture() -> None:
             sys.executable,
             "--samples-per-fixture",
             "1",
-            "--p95-ceiling-ms",
-            "10000",
         ),
         cwd=ROOT,
         capture_output=True,
