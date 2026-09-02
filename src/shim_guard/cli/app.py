@@ -1,7 +1,7 @@
 import subprocess
 from enum import Enum
 from importlib import metadata
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -110,7 +110,7 @@ def redact(
 @app.command("config")
 def config_command(
     only: Annotated[
-        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
+        list[Entity] | None,  # ty: ignore[invalid-type-form]
         typer.Option(
             "--only",
             case_sensitive=False,
@@ -119,7 +119,7 @@ def config_command(
         ),
     ] = None,
     enable: Annotated[
-        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
+        list[Entity] | None,  # ty: ignore[invalid-type-form]
         typer.Option(
             "--enable",
             case_sensitive=False,
@@ -128,7 +128,7 @@ def config_command(
         ),
     ] = None,
     disable: Annotated[
-        Optional[list[Entity]],  # ty: ignore[invalid-type-form]
+        list[Entity] | None,  # ty: ignore[invalid-type-form]
         typer.Option(
             "--disable",
             case_sensitive=False,
@@ -137,14 +137,14 @@ def config_command(
         ),
     ] = None,
     ledger: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--ledger/--no-ledger",
             help="Keep session records past the end of the session. Off by default.",
         ),
     ] = None,
     diet: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--diet/--no-diet",
             help="Shrink tool results losslessly. Name individual transforms "

@@ -139,7 +139,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             # Stream without deriving a length.
             if lowered in HOP_BY_HOP or lowered == "content-length":
                 continue
-            self.send_header(name, value)
+            safe_name = name.replace("\n", "").replace("\r", "")
+            safe_value = value.replace("\n", "").replace("\r", "")
+            if safe_name != name or safe_value != value:
+                continue
+            self.send_header(safe_name, safe_value)
         self.send_header("Transfer-Encoding", "chunked")
         self.end_headers()
 
