@@ -342,9 +342,11 @@ it edits nothing, so there is nothing to undo.
 
 ## Development
 
-Run the complete local check from the repository root:
+Clone the `shim-cli` repository and run the complete local check from its root:
 
 ```console
+git clone https://github.com/GetSHIM/shim-cli.git
+cd shim-cli
 python scripts/check.py
 ```
 
