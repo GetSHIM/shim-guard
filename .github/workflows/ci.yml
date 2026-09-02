@@ -63,7 +63,7 @@ jobs:
               assert banned not in text.lower(), f"{banned} is still a dependency"
           print("no NLP dependency declared")
           PY
-      - name: Verify packaged wheel contracts and benchmark
+      - name: Verify packaged wheel contracts and record benchmark
         run: |
           uv venv --python ${{ matrix.python-version }} /tmp/shim-guard-wheel
           uv pip install --python /tmp/shim-guard-wheel --require-hashes -r /tmp/shim-runtime.lock -r /tmp/shim-dev.lock
