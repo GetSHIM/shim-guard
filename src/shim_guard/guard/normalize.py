@@ -100,7 +100,7 @@ def _normalize_unicode(
     origins: list[int] = []
     if len(text) != len(spans):
         raise ValueError("Guard normalization failed safely.")
-    for origin, (character, span) in enumerate(zip(text, spans)):
+    for origin, (character, span) in enumerate(zip(text, spans, strict=True)):
         decomposed = unicodedata.normalize("NFKD", character)
         if len(characters) + len(decomposed) > MAX_NORMALIZED_CHARACTERS:
             raise _too_large()
@@ -149,7 +149,7 @@ def normalize(text: str) -> NormalizedText:
     visible_spans: list[_SourceSpan] = []
     if len(decoded) != len(spans):
         raise ValueError("Guard normalization failed safely.")
-    for character, span in zip(decoded, spans):
+    for character, span in zip(decoded, spans, strict=True):
         if not _INVISIBLE.fullmatch(character):
             visible_text.append(character)
             visible_spans.append(span)

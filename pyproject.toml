@@ -3,7 +3,7 @@ name = "shim"
 version = "0.2.0"
 description = "Local sensitive-data detection, prompt reporting, opt-in prompt blocking, verified Claude tool-event masking, and API-traffic watching"
 readme = "README.md"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "shim Engineering" }]
@@ -12,7 +12,6 @@ classifiers = [
   "Environment :: Console",
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -39,10 +38,9 @@ shim-guard-hook = "shim_guard.hook:main"
 
 [dependency-groups]
 dev = [
-  "pytest>=9.0.3,<10; python_version >= '3.10'",
-  "pytest>=8.4,<9; python_version < '3.10'",
+  "pytest>=9.0.3,<10",
   "ruff>=0.15.22,<0.16",
-  # Vendored for Python 3.9/3.10.
+  # Vendored for Python 3.10.
   "tomli==2.3.0",
   "ty>=0.0.65,<0.1",
   "uv-build==0.12.5",
@@ -64,7 +62,7 @@ addopts = "-q"
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]

@@ -57,7 +57,7 @@ Apply the `ponytail:ponytail` and `code-writing-guidelines` skills to every impl
 ## Checks
 
 Use CPython 3.13 and a compatible uv 0.12.x. CI also covers the supported
-CPython 3.9 floor. Run the complete local check from the repository root:
+CPython 3.10 floor. Run the complete local check from the repository root:
 
 ```bash
 python scripts/check.py

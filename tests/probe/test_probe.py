@@ -212,9 +212,9 @@ def test_workspace_files_carry_only_synthetic_values(tmp_path: Path) -> None:
 
     assert len(body.encode()) > 2_000
     assert "alice@example.com" in body
-    assert "example.com" in (workspace / "dotenv-sample.txt").read_text(
+    assert (workspace / "dotenv-sample.txt").read_text(
         encoding="utf-8"
-    )
+    ) == probe.WORKSPACE_FILES["dotenv-sample.txt"]
     assert sorted(path.name for path in workspace.iterdir()) == [
         "big.txt",
         "docker-compose.yml",

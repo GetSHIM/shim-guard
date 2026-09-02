@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from shim_guard.policy import ALLOW, DENY, INBOUND, MASK, OBSERVE, decide, direction_for
 from shim_guard.session.record import (

@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import http.client
 import http.server
+import io
 import json
 import socket
 import socketserver
@@ -171,6 +172,39 @@ def test_the_provider_s_own_response_headers_are_kept(watched) -> None:
     _status, headers, _body = _post(running, BODY, HEADERS)
 
     assert headers.get("x-provider-header") == "kept"
+
+
+def test_response_headers_with_line_breaks_are_dropped() -> None:
+    class Response:
+        status = 200
+
+        def getheaders(self):
+            return (
+                ("x-provider-header", "kept"),
+                ("x-bad\nInjected", "name"),
+                ("x-bad", "value\r\nInjected: yes"),
+            )
+
+        def getheader(self, _name):
+            return None
+
+        def read1(self, _size):
+            return b""
+
+    handler = object.__new__(proxy._Handler)
+    sent = []
+    handler.session = proxy.Session()
+    handler.wfile = io.BytesIO()
+    handler.send_response = lambda _status: None
+    handler.send_header = lambda name, value: sent.append((name, value))
+    handler.end_headers = lambda: None
+
+    handler._stream(Response(), proxy.Exchange())
+
+    assert sent == [
+        ("x-provider-header", "kept"),
+        ("Transfer-Encoding", "chunked"),
+    ]
 
 
 def test_the_client_receives_the_bytes_the_provider_sent(watched) -> None:

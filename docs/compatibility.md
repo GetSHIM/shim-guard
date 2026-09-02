@@ -4,7 +4,7 @@
 
 | Area | Status |
 | --- | --- |
-| Python | CPython 3.9 through 3.13 |
+| Python | CPython 3.10 through 3.13 |
 | Operating systems | macOS and Linux target |
 | Prompt hooks | Codex CLI, Claude Code, and GitHub Copilot CLI |
 | Tool hooks | Claude Code `PreToolUse` and `PostToolUse` only |

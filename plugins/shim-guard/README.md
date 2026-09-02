@@ -5,7 +5,7 @@ verified `PreToolUse` and `PostToolUse`, `Stop`, and `SessionEnd` events. Codex
 gets the prompt event only.
 
 Release-tag Claude plugins carry a self-contained hook in `bin/shim.pyz`, so
-they need no package-manager step and no prerequisite beyond Python 3.9 or
+they need no package-manager step and no prerequisite beyond Python 3.10 or
 newer. The Codex launcher currently uses `shim-guard-hook` from the installed
 CLI package. A development checkout may not contain the release archive.
 

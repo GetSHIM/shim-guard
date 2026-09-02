@@ -53,6 +53,13 @@ def _run(client: str, environment: dict[str, str], prompt: str = SECRET_PROMPT):
     )
 
 
+def _python_path(root: Path) -> str:
+    (root / f"python{sys.version_info.major}.{sys.version_info.minor}").symlink_to(
+        sys.executable
+    )
+    return str(root)
+
+
 @pytest.mark.parametrize("client", CLIENTS)
 def test_launcher_allows_the_prompt_when_nothing_is_runnable(client: str) -> None:
     result = _run(client, {"PATH": "/nonexistent"})
@@ -89,7 +96,7 @@ def test_launcher_uses_the_bundled_archive_when_the_package_is_absent(
     (root / "bin").mkdir(parents=True)
     (root / "bin" / "shim.pyz").write_bytes(archive.read_bytes())
     environment = {
-        "PATH": "/usr/bin:/bin",
+        "PATH": _python_path(tmp_path),
         "CLAUDE_PLUGIN_ROOT": str(root),
         "HOME": str(tmp_path),
         "TMPDIR": str(tmp_path),
@@ -139,7 +146,7 @@ def test_launcher_stays_silent_on_a_safe_prompt(
     result = _run(
         client,
         {
-            "PATH": "/usr/bin:/bin",
+            "PATH": _python_path(tmp_path),
             "CLAUDE_PLUGIN_ROOT": str(root),
             "HOME": str(tmp_path),
             "TMPDIR": str(tmp_path),
@@ -180,7 +187,7 @@ def test_archive_refuses_an_unsupported_interpreter_without_blocking(
 ) -> None:
     source = zipfile.ZipFile(archive).read("__main__.py").decode()
 
-    assert "MINIMUM = (3, 9)" in source
+    assert "MINIMUM = (3, 10)" in source
     assert "sys.exit(0)" in source
     assert 'f"' not in source, "must parse on interpreters without f-strings"
 

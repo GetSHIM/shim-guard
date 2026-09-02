@@ -124,8 +124,8 @@ telemetry, or prompt history.
 
 ## Install
 
-shim Guard supports CPython 3.9 through 3.13 on macOS and Linux, including
-the system `python3` on macOS. Choose one package manager:
+shim Guard supports CPython 3.10 through 3.13 on macOS and Linux. Choose one
+package manager:
 
 ```console
 uv tool install --compile-bytecode shim
@@ -163,7 +163,7 @@ codex plugin add shim-guard@shim-guard
 
 The marketplace plugin and `shim install` are alternative hook-registration
 methods. Do not use both for the same client. Release-tag Claude plugins bundle
-the hook archive and need only Python 3.9 or newer; the Codex plugin currently
+the hook archive and need only Python 3.10 or newer; the Codex plugin currently
 uses `shim-guard-hook` from the installed CLI package. A development checkout
 may not contain the release archive.
 
